@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import closing
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, replace
 from unittest.mock import patch
@@ -32,9 +33,7 @@ from dichiarazioni_pubbliche.investigation_attempts_v1 import (  # noqa: E402
     InvestigationObservation,
 )
 from dichiarazioni_pubbliche import investigation_attempts_store_v1 as store_module  # noqa: E402
-from dichiarazioni_pubbliche.investigation_attempts_v1 import (  # noqa: E402
-    propose_investigation as current_propose_investigation,
-)
+from tests.dp319_legacy_fingerprint_fixture import legacy_v1_propose_investigation  # noqa: E402
 
 
 def source(
@@ -77,70 +76,6 @@ def observed(reservation, *, status="NO_MATCH", spent="0.01", **changes):
 
 
 
-def legacy_v1_propose_investigation(**kwargs):
-    """Exact pre-PR14 planner fingerprint material, on the real SQLite writer.
-
-    The original proposal hash did NOT include rights_status, assignment
-    question/host/status/blockers/temporal/authority. Retain a self-contained
-    format fixture: CI must not depend on historical Git refs being present.
-    """
-    scope = kwargs["spec"]
-    active = sorted(
-        (row for row in kwargs["assignments"] if row.coverage_need_id == scope.need_id),
-        key=lambda row: row.assignment_id,
-    )
-    old_fp = _hash({
-        "need": scope.need_id, "fingerprint": scope.material_fingerprint,
-        "question": scope.question_kind, "question_text": scope.question,
-        "family": scope.source_family, "max_attempts": scope.max_attempts,
-        "cost_cap_usd": str(scope.cost_cap_usd),
-        "assignments": [dict(
-            id=row.assignment_id, lane=row.lane, plan_version=row.plan_version,
-            adapters=list(row.adapter_ids), stop=list(row.stop_conditions),
-            max_queries=row.max_queries, max_results=row.max_results,
-            cost_cap=str(row.cost_cap_usd),
-        ) for row in active],
-        "version": "investigation-attempt-v1",
-    })
-    # A prior v1 receipt is legitimate only for the v1 proposal. Translate
-    # its ID solely while driving today's decision logic in this test fixture.
-    # Actual persisted IDs/events remain byte-for-byte old-v1 records.
-    modern = current_propose_investigation(
-        **{**kwargs, "observations": ()},
-    )
-    def old_attempt_for(assignment_id):
-        return "investigation-attempt:" + _hash({
-            "plan": old_fp, "assignment": assignment_id,
-            "material": scope.material_fingerprint,
-        })
-    def new_attempt_for(assignment_id):
-        return "investigation-attempt:" + _hash({
-            "plan": modern.plan_fingerprint, "assignment": assignment_id,
-            "material": scope.material_fingerprint,
-        })
-    normalized = []
-    for record in kwargs["observations"]:
-        if record.attempt_id != old_attempt_for(record.assignment_id):
-            raise ValueError("INVESTIGATION_OBSERVATION_UNBOUND_ATTEMPT")
-        normalized.append(replace(
-            record, attempt_id=new_attempt_for(record.assignment_id),
-        ))
-    old = current_propose_investigation(
-        **{**kwargs, "observations": tuple(normalized)},
-    )
-    return replace(
-        old,
-        plan_fingerprint=old_fp,
-        proposed_attempt_id=(
-            "investigation-attempt:" + _hash({
-                "plan": old_fp, "assignment": old.assignment_id,
-                "material": scope.material_fingerprint,
-            })
-            if old.proposed_attempt_id is not None else None
-        ),
-    )
-
-
 class LegacyFingerprintUpgradeTests(unittest.TestCase):
     """Real committed old-v1 SQLite rows, then current planner on same file."""
 
@@ -181,7 +116,7 @@ class LegacyFingerprintUpgradeTests(unittest.TestCase):
         return old
 
     def rows(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             return (
                 conn.execute(
                     "SELECT plan_fingerprint,scope_json,source_json,revision "
@@ -192,6 +127,21 @@ class LegacyFingerprintUpgradeTests(unittest.TestCase):
                     "FROM dp319_events ORDER BY plan_fingerprint,event_no"
                 ).fetchall(),
             )
+
+    def test_rows_closes_its_sqlite_connection(self):
+        opened = []
+        original_connect = sqlite3.connect
+
+        def track_connect(*args, **kwargs):
+            connection = original_connect(*args, **kwargs)
+            opened.append(connection)
+            return connection
+
+        with patch.object(sqlite3, "connect", side_effect=track_connect):
+            self.rows()
+        self.assertEqual(len(opened), 1)
+        with self.assertRaises(sqlite3.ProgrammingError):
+            opened[0].execute("SELECT 1")
 
     def test_old_pending_cannot_register_second_scope_or_reserve_same_work(self):
         old = self.persist_old()
@@ -302,7 +252,7 @@ class ModernCrossScopeCostFenceTests(unittest.TestCase):
         return (replace(self.a[0], **overrides[key]), self.a[1])
 
     def snapshot(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             return (
                 conn.execute(
                     "SELECT plan_fingerprint,scope_json,source_json,revision "
@@ -398,7 +348,7 @@ class ModernCrossScopeCostFenceTests(unittest.TestCase):
             self.s, self.a, self.source, key="modern:corrupt", expected_revision=0,
         )
         fingerprint = original.decision.plan_fingerprint
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "UPDATE dp319_scopes SET source_json=? WHERE plan_fingerprint=?",
                 (corrupt, fingerprint),
@@ -422,7 +372,7 @@ class ModernCrossScopeCostFenceTests(unittest.TestCase):
             self.s, self.a, self.source, key="modern:epoch-drift", expected_revision=0,
         )
         before_count = len(self.snapshot()[1])
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "UPDATE dp319_scopes SET source_json=? WHERE plan_fingerprint=?",
                 (_json(asdict(replace(self.source, source_sha256="f" * 64))),
@@ -438,7 +388,7 @@ class ModernCrossScopeCostFenceTests(unittest.TestCase):
         prior = self.db.reserve(
             self.s, self.a, self.source, key="modern:identity-drift", expected_revision=0,
         )
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "UPDATE dp319_scopes SET source_json=? WHERE plan_fingerprint=?",
                 (_json(asdict(replace(self.source, source_id="source:tampered"))),
@@ -462,7 +412,7 @@ class ModernCrossScopeCostFenceTests(unittest.TestCase):
         # epoch. A prior RESERVED still binds the *original* source bytes.
         third = replace(self.source, revision=3)
         self.db.record_source(third, expected_revision=2)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "UPDATE dp319_scopes SET source_json=? WHERE plan_fingerprint=?",
                 (_json(asdict(second)), prior.decision.plan_fingerprint),
@@ -485,7 +435,7 @@ class ModernCrossScopeCostFenceTests(unittest.TestCase):
             source_version="capture:unrelated", source_sha256="f" * 64,
         )
         self.db.record_source(unrelated, expected_revision=0)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "UPDATE dp319_scopes SET source_json=? WHERE plan_fingerprint=?",
                 (_json(asdict(unrelated)), prior.decision.plan_fingerprint),
@@ -804,7 +754,7 @@ class DurableInvestigationTests(unittest.TestCase):
             key="fault:attempt",
             expected_revision=0,
         )
-        with sqlite3.connect(self.path) as connection:
+        with closing(sqlite3.connect(self.path)) as connection, connection:
             connection.execute("""
                 CREATE TRIGGER dp319_fail_revision BEFORE UPDATE OF revision ON dp319_scopes
                 BEGIN SELECT RAISE(ABORT, 'fault-injected'); END;
@@ -822,7 +772,7 @@ class DurableInvestigationTests(unittest.TestCase):
             self.s, self.assignments, self.source
         )
         self.assertEqual(resumed, first)
-        with sqlite3.connect(self.path) as connection:
+        with closing(sqlite3.connect(self.path)) as connection, connection:
             connection.execute("DROP TRIGGER dp319_fail_revision")
         self.assertEqual(
             self.db.complete(
@@ -919,7 +869,7 @@ print(json.dumps({'revision':snapshot.revision,'reservations':len(snapshot.reser
         # Force a syntactically valid but forged receipt with a consistent SHA
         # in disposable SQLite, simulating administrative repair gone wrong.
         foreign = "investigation-attempt:" + "f" * 64
-        with sqlite3.connect(self.path) as connection:
+        with closing(sqlite3.connect(self.path)) as connection, connection:
             row = connection.execute("SELECT event_json FROM dp319_events").fetchone()
             import json
 
