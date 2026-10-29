@@ -34,7 +34,7 @@ ufficiale. Le coppie di claim sono un *oracle testuale indipendente
 dall'algoritmo*: per ciascuna lingua la data è corretta, ma nella variante
 negativa cambia il fatto giuridico dall'applicazione all'entrata in vigore.
 
-`tests.test_loki_eurlex_case` usa il POC fixture-only per le tre fasi
+Il test storico `tests.test_loki_eurlex_case` usava il POC fixture-only per le tre fasi
 donor: `Decompose` ripristina lo span, `CheckWorthy` riceve un voto
 predefinito, `QueryGenerator` riceve una query predefinita. Passa al
 validator incumbent `candidate_extraction.validate_provider_payload`
@@ -53,10 +53,11 @@ soltanto Gemini 3.8 Flash tramite Antigravity.
 
 ## Esito
 
-Eseguire `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -m unittest
-tests.test_loki_eurlex_case tests.test_loki_private_poc -v` tramite
-resource guard. La prova dell'esecuzione effettiva, il commit remoto e
-il readback del MiniPC sono registrati nella
+I due moduli `tests.test_loki_eurlex_case` e `tests.test_loki_private_poc`
+non sono più eseguibili dopo il ritiro del solo esperimento in #545
+(29 ottobre 2026). La validazione originale e l'integrazione della
+[PR #307](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/pull/307)
+rimangono documentate nella
 [issue originale #160](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/160).
-La differenza con il validator incumbent è soltanto la nuova guardia
-lessicale del POC: entrambi richiedono ancora verifica semantica e fonti.
+La differenza storicamente osservata col validator incumbent era la guardia
+lessicale del POC: nessuno dei due attestava verifica semantica o diritti.
