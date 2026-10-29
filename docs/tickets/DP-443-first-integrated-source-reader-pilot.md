@@ -44,7 +44,7 @@ Future authorized immutable source receipts, MiniPC DB→web/API readback, negat
 
 ### Source-only readiness contract — 11 October 2026
 
-`poc/dichiarazioni_pubbliche/first_integrated_pilot_readiness_v1.py` now provides
+The historical `first_integrated_pilot_readiness_v1.py` provided
 `evaluate_first_integrated_pilot_readiness(manifest, lineage, proofs)`. It accepts a
 **single-sample** frozen `PrivatePilotManifest` from DP-235 and source-only
 `PilotLineage` plus bounded, *externally attested but locally unauthenticated*
@@ -75,16 +75,17 @@ qualified owner decision. No integration/deploy hook consumes this result.
 This deliberately implements one narrow preparatory vertical slice; it does
 not prove the full multi-person/language pilot matrix, nor grant dispatch.
 
-Focused verification:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -m unittest discover -s tests -p 'test_dp443_first_integrated_pilot_readiness.py' -v
-```
+Historical focused verification (retired with this unused module on 29 October 2026):
 
 **14/14 PASS** (plus **13/13** related DP-235 tests), synthetic metadata only.
 The test for a complete-looking
 set of references explicitly requires `NO-GO`, and absent/forged receipts
 fail closed. No source/provider/DB/network input or public publication was used.
+
+The #545 refactor removed the uncalled, always-`NO-GO` preparatory module and
+its fixture-only tests. The actual launch preflight, autonomous publication
+gate, source-rights checks and v3 reader tests remain active. None of the seven
+DP-443 acceptance criteria is satisfied by this deletion.
 
 ## Documentation, data, and migration impact
 

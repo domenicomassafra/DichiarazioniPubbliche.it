@@ -65,12 +65,15 @@ All local tests were admitted by the ControlCenter workload launcher.
 Reproduce on Mac Studio in this repository using the prescribed
 python3 ~/.local/share/controlcenter/resource-guard/workload_launcher.py build --
 prefix before each Python test/check command:
-- env PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -m unittest tests.test_dp443_first_integrated_pilot_readiness -q
 - env PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -m unittest tests.test_dp435_public_statement_seam tests.test_dp436_public_v3_consumer_parity tests.test_dp437_public_opinion_api tests.test_dp438_public_person tests.test_dp439_person_topic_v3 tests.test_dp518_withdrawal_next -q
 - env PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 tools/verify_t4_p02_owner_acceptance.py
 - env PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 tools/check_dp422_live_readback.py --ssh-target minipc --expected-fingerprint 501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a
 - env PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 tools/check_launch_preflight.py --expect-no-go
 - env PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 tools/check_launch_set_manifest.py
+
+The isolated, always-`NO-GO` DP-443 packet validator and its synthetic test
+were retired by #545 on 2026-10-29. The 14 passing tests recorded above are
+historical; the remaining commands exercise the actual source and reader gates.
 
 ## Original AC and disposition
 
