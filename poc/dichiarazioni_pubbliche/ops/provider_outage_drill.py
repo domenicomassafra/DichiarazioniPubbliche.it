@@ -304,18 +304,22 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Prove a provider outage degrades to BLOCKED, never to lower quality."
     )
-    parser.add_argument("--database-url", required=True)
+    parser.add_argument("--database-url")
     parser.add_argument("--registry", type=Path, required=True)
     parser.add_argument("--outage", choices=("credential", "http"), default="credential")
     parser.add_argument("--runs", type=int, default=2)
     args = parser.parse_args(argv)
 
-    if not os.environ.get("DICHIARAZIONI_PUBBLICHE_DATABASE_URL") and not args.database_url:
-        print("PROVIDER OUTAGE DRILL: no database url", file=sys.stderr)
+    database_url = (
+        args.database_url if args.database_url is not None
+        else os.environ.get("DICHIARAZIONI_PUBBLICHE_DATABASE_URL")
+    )
+    if not database_url or not database_url.strip():
+        print("PROVIDER OUTAGE DRILL: nonempty database url required", file=sys.stderr)
         return 2
 
     try:
-        result = run_drill(args.database_url, args.registry, args.outage, args.runs)
+        result = run_drill(database_url, args.registry, args.outage, args.runs)
     except Exception as exc:  # noqa: BLE001 - a drill that cannot run is BLOCKED
         print(
             f"PROVIDER OUTAGE DRILL: BLOCKED, drill could not run: "
