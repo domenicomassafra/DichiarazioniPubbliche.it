@@ -52,6 +52,16 @@ def candidate() -> AutonomousCandidate:
     )
 
 
+def written_candidate() -> AutonomousCandidate:
+    return replace(
+        candidate(),
+        source_kind="WRITTEN",
+        segment_start=21,
+        segment_end=21 + len(candidate().quote),
+        alignment_confidence=None,
+    )
+
+
 def reviews(item: AutonomousCandidate) -> tuple[AgentReview, AgentReview]:
     binding = candidate_fingerprint(item)
     stages = ("PROVENANCE", "WORDING", "SPEAKER", "PERSON", "RIGHTS_PRIVACY")
@@ -102,6 +112,41 @@ class AutonomousPublicationTests(unittest.TestCase):
             item = replace(candidate(), **update)
             result = evaluate_autonomous_publication(item, *reviews(item))
             self.assertIn("WORDING", result.reason_codes)
+
+    def test_written_source_uses_character_offsets_without_acoustic_confidence(self):
+        item = written_candidate()
+        result = evaluate_autonomous_publication(item, *reviews(item))
+        self.assertEqual(result.disposition, "PUBLISH")
+        self.assertEqual(result.reason_codes, ())
+
+    def test_written_source_rejects_invalid_character_offsets_or_fake_alignment(self):
+        item = written_candidate()
+        for update, reason in (
+            ({"segment_start": 21.5}, "PROVENANCE"),
+            ({"segment_start": True}, "PROVENANCE"),
+            ({"segment_start": -1}, "PROVENANCE"),
+            ({"segment_end": 21}, "PROVENANCE"),
+            ({"segment_end": item.source_length_chars + 1}, "PROVENANCE"),
+            ({"alignment_confidence": 0.99}, "WORDING"),
+        ):
+            with self.subTest(update=update):
+                altered = replace(item, **update)
+                self.assertIn(
+                    reason,
+                    evaluate_autonomous_publication(altered, *reviews(altered)).reason_codes,
+                )
+
+    def test_written_source_keeps_rights_and_review_hold(self):
+        item = written_candidate()
+        without_rights = replace(item, rights_cleared=False)
+        self.assertIn(
+            "RIGHTS_PRIVACY",
+            evaluate_autonomous_publication(without_rights, *reviews(without_rights)).reason_codes,
+        )
+        self.assertIn(
+            "INDEPENDENT_REVIEW",
+            evaluate_autonomous_publication(item, reviews(item)[0], None).reason_codes,
+        )
 
     def test_single_source_of_speaker_claim_is_insufficient(self):
         item = replace(
@@ -221,14 +266,15 @@ class SubscriptionReviewPolicyTests(unittest.TestCase):
                 self.assertIn("INDEPENDENT_REVIEW", decision.reason_codes)
 
     def test_two_genuine_subscription_agents_still_use_the_same_model(self):
-        item = candidate()
-        first, second = reviews(item)
-        approved = "antigravity/gemini-3.8-flash-tiered"
-        verdict = evaluate_autonomous_publication(
-            item, replace(first, model_id=approved), replace(second, model_id=approved),
-        )
-        self.assertEqual(verdict.disposition, "HOLD")
-        self.assertIn("INDEPENDENT_REVIEW", verdict.reason_codes)
+        for item in (candidate(), written_candidate()):
+            with self.subTest(source_kind=item.source_kind):
+                first, second = reviews(item)
+                approved = "antigravity/gemini-3.8-flash-tiered"
+                verdict = evaluate_autonomous_publication(
+                    item, replace(first, model_id=approved), replace(second, model_id=approved),
+                )
+                self.assertEqual(verdict.disposition, "HOLD")
+                self.assertIn("INDEPENDENT_REVIEW", verdict.reason_codes)
 
 
 if __name__ == "__main__":
