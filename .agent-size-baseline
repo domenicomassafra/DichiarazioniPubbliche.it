@@ -161,7 +161,7 @@
   "tests/test_dp312_speech_act.py": 37624,
   "tests/test_dp313_procedural_roles.py": 29988,
   "tests/test_dp318_relations.py": 20191,
-  "tests/test_dp319_durable_investigation_next.py": 41538,
+  "tests/test_dp319_durable_investigation_next.py": 39458,
   "tests/test_dp320_revocation_served_surfaces_v1_20261014.py": 21223,
   "tests/test_dp321_independent_reference_benchmark.py": 21513,
   "tests/test_dp438_public_person.py": 27703,
