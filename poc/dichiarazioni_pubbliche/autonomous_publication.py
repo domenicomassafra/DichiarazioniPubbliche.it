@@ -16,8 +16,8 @@ from datetime import datetime
 from urllib.parse import urlsplit
 
 
-# v2 invalidates cached v1 PUBLISH decisions when model authorization tightens.
-POLICY_VERSION = "autonomous-publication-413-v2"
+# v3 invalidates prior receipts when written-source evidence rules change.
+POLICY_VERSION = "autonomous-publication-413-v3"
 # Owner decision 23/25 October 2026: only this subscription route is approved.
 # A second agent using the same model is not a second independent model.
 # Keep review/publication in HOLD until the owner explicitly permits and a
@@ -75,7 +75,7 @@ class AutonomousCandidate:
     segment_end: float
     quote: str
     transcript_segment: str
-    alignment_confidence: float
+    alignment_confidence: float | None
     speaker_id: str
     speaker_signals: tuple[SpeakerSignal, ...]
     public_role_source_url: str | None
@@ -180,8 +180,16 @@ def _provenance(candidate: AutonomousCandidate) -> bool:
             and _sha256(candidate.snapshot_sha256)
             and _sha256(candidate.source_text_sha256)
             and _timestamp(candidate.captured_at)
-            and 0 <= start < end
-            and end < 86400 * 365
+            and (
+                (candidate.source_kind == "TIMED" and 0 <= start < end < 86400 * 365)
+                or (
+                    candidate.source_kind == "WRITTEN"
+                    and type(candidate.segment_start) is int
+                    and type(candidate.segment_end) is int
+                    and type(candidate.source_length_chars) is int
+                    and 0 <= start < end <= candidate.source_length_chars
+                )
+            )
         )
     except (TypeError, ValueError, OverflowError, AttributeError):
         return False
@@ -189,14 +197,16 @@ def _provenance(candidate: AutonomousCandidate) -> bool:
 
 def _wording(candidate: AutonomousCandidate) -> bool:
     try:
+        if not candidate.quote.strip() or candidate.quote != candidate.transcript_segment:
+            return False
+        if candidate.source_kind == "WRITTEN":
+            # The source-backed character selector is checked by the consumer;
+            # a written document has no acoustic confidence to attest.
+            return candidate.alignment_confidence is None
         if type(candidate.alignment_confidence) not in (int, float):
             return False
         confidence = float(candidate.alignment_confidence)
-        return (
-            bool(candidate.quote.strip())
-            and candidate.quote == candidate.transcript_segment
-            and MIN_ALIGNMENT_CONFIDENCE <= confidence <= 1
-        )
+        return MIN_ALIGNMENT_CONFIDENCE <= confidence <= 1
     except (TypeError, ValueError, AttributeError):
         return False
 
