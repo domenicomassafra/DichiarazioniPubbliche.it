@@ -87,7 +87,6 @@ sono sintetici. Questo verbale non sostituisce la firma di release.
 ```bash
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -B -m unittest discover -s tests -p 'test_dp235_bounded_private_pilot_manifest.py' -q
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -B -m unittest discover -s tests -p 'test_dp321_independent_reference_benchmark.py' -q
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -B -m unittest discover -s tests -p 'test_dp443_first_integrated_pilot_readiness.py' -q
 PYTHONDONTWRITEBYTECODE=1 python3 -B tools/report_ticket_status.py --json
 PYTHONDONTWRITEBYTECODE=1 python3 -B tools/check_repository_contract.py
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -B -m dichiarazioni_pubbliche.benchmark
@@ -97,6 +96,8 @@ git diff --check
 
 I controlli sintetici non sono certificati come validazione host MiniPC o
 pubblicazione.
+Il test sintetico DP-443 e il relativo modulo sempre `NO-GO` sono stati
+ritirati con #545 il 29/10/2026: la loro prova resta solo storica.
 
 ## Checkpoint QA integrato del 11 ottobre
 
