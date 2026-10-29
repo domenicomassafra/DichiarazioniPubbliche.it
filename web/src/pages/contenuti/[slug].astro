@@ -1,6 +1,6 @@
 ---
 import ContentRecord from "../../components/ContentRecord.astro";
-import { contentSlug } from "../../lib/format";
+import { publicIdSlug } from "../../lib/format";
 import { loadPublicProjection } from "../../lib/projection";
 import type { PublicContent, PublicDossier } from "../../lib/types";
 
@@ -20,7 +20,7 @@ export async function getStaticPaths() {
   }
   const groups = new Map<string, PublicDossier[]>();
   for (const dossier of projection.dossiers) {
-    const slug = contentSlug(dossier);
+    const slug = publicIdSlug(dossier.source.content_id);
     groups.set(slug, [...(groups.get(slug) ?? []), dossier]);
   }
   return [...groups.entries()].map(([slug, dossiers]) => ({ params: { slug }, props: { content: null, dossiers } }));

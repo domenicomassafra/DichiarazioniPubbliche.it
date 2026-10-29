@@ -2,7 +2,7 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Assessment from "./Assessment.astro";
 import SourceRow from "./SourceRow.astro";
-import { contentSlug, dossierSlug, formatDate, relationSlug } from "../lib/format";
+import { publicIdSlug, dossierSlug, formatDate, relationSlug } from "../lib/format";
 import type { PublicContent, PublicDossier } from "../lib/types";
 
 interface Props {
@@ -44,7 +44,7 @@ const publicDossiers = publishedCandidates.filter((dossier) =>
   dossier.source.url === source.url &&
   (!selectedFindingIds || selectedFindingIds.has(dossier.finding_id))
 );
-const canonicalSlug = content?.slug ?? contentSlug(publicDossiers[0]);
+const canonicalSlug = content?.slug ?? publicIdSlug(publicDossiers[0].source.content_id);
 const canonical = `/contenuti/${canonicalSlug}/`;
 
 const msLabel = (ms?: number | null) => {
