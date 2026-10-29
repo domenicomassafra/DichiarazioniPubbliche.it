@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { contentSlug, dossierSlug, speakerSlug } from "../lib/format";
+import { publicIdSlug, dossierSlug, speakerSlug } from "../lib/format";
 import { loadPublicProjection } from "../lib/projection";
 import { loadPublishedPeopleV3 } from "../lib/publishedPeopleV3";
 import { collectPublicTraces } from "../lib/relations";
@@ -40,7 +40,7 @@ export const GET: APIRoute = async () => {
     if (projection.contents !== undefined) {
       for (const content of projection.contents) routes.add(`/contenuti/${content.slug}/`);
     } else {
-      for (const dossier of projection.dossiers) routes.add(`/contenuti/${contentSlug(dossier)}/`);
+      for (const dossier of projection.dossiers) routes.add(`/contenuti/${publicIdSlug(dossier.source.content_id)}/`);
     }
     for (const trace of collectPublicTraces(projection)) routes.add(`/tracce/${trace.slug}/`);
   }
