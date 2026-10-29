@@ -58,7 +58,7 @@ class ProviderOutageClientTests(unittest.TestCase):
                 self.assertEqual(result, 2)
                 self.assertEqual(intercepted_argv, [], "unsafe psql argv was constructed/executed")
 
-    def test_shell_wrapper_never_invokes_mock_psql_for_blank_explicit_url(self):
+    def test_shell_wrapper_requires_explicit_nonblank_url_before_mock_psql(self):
         # Run the real wrapper with psql replaced by a recording stub in PATH.
         with tempfile.TemporaryDirectory() as tmp:
             fakebin = Path(tmp)
@@ -77,52 +77,39 @@ class ProviderOutageClientTests(unittest.TestCase):
                 "DRILL_PSQL_ARGV_LOG": str(psql_log),
                 "DICHIARAZIONI_PUBBLICHE_DATABASE_URL": "postgresql:///env-db",
             })
-            for value in ("", " \t "):
-                with self.subTest(database_url=repr(value)):
+            for args in (("--database-url", ""), ("--database-url", " \t "), ()):
+                with self.subTest(database_args=args):
                     proc = subprocess.run(
                         ["sh", str(ROOT / "deploy" / "ops" / "provider_outage_drill.sh"),
-                         "--database-url", value],
+                         *args],
                         env=env, capture_output=True, text=True, timeout=15, check=False,
                     )
                     self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
                     self.assertFalse(psql_log.exists(), "shell wrapper invoked mock psql")
 
-    def test_omitted_url_uses_environment_but_explicit_valid_url_wins(self):
-        registry = str(ROOT / "config" / "source-registry.v1.json")
-        for argv, expected_url in (
-            (["--registry", registry], "postgresql:///env-db"),
-            (["--database-url", "postgresql:///explicit-db", "--registry", registry],
-             "postgresql:///explicit-db"),
-        ):
-            with self.subTest(argv=argv):
-                with (
-                    patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_DATABASE_URL": "postgresql:///env-db"}),
-                    patch.object(drill, "run_drill", side_effect=RuntimeError("mock runner")) as runner,
-                    redirect_stderr(io.StringIO()),
-                ):
-                    self.assertEqual(drill.main(argv), 2)
-                runner.assert_called_once_with(expected_url, ROOT / "config" / "source-registry.v1.json", "credential", 2)
-
-    def test_omitted_url_without_environment_fails_before_runner(self):
+    def test_explicit_valid_url_wins_even_with_database_environment(self):
         with (
-            patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_DATABASE_URL": ""}),
-            patch.object(drill, "run_drill") as runner,
+            patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_DATABASE_URL": "postgresql:///env-db"}),
+            patch.object(drill, "run_drill", side_effect=RuntimeError("mock runner")) as runner,
             redirect_stderr(io.StringIO()),
         ):
-            self.assertEqual(drill.main(["--registry", str(ROOT / "config" / "source-registry.v1.json")]), 2)
-        runner.assert_not_called()
+            self.assertEqual(drill.main([
+                "--database-url", "postgresql:///explicit-db",
+                "--registry", str(ROOT / "config" / "source-registry.v1.json"),
+            ]), 2)
+        runner.assert_called_once_with("postgresql:///explicit-db", ROOT / "config" / "source-registry.v1.json", "credential", 2)
 
-    def test_omitted_url_with_blank_environment_fails_before_runner(self):
-        for value in ("", " \t "):
+    def test_missing_database_url_rejected_even_when_env_is_configured(self):
+        for value in ("", " \t ", "postgresql:///env-db"):
             with self.subTest(environment=repr(value)):
                 with (
                     patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_DATABASE_URL": value}),
                     patch.object(drill, "run_drill") as runner,
                     redirect_stderr(io.StringIO()),
                 ):
-                    self.assertEqual(drill.main([
-                        "--registry", str(ROOT / "config" / "source-registry.v1.json")
-                    ]), 2)
+                    with self.assertRaises(SystemExit) as blocked:
+                        drill.main(["--registry", str(ROOT / "config" / "source-registry.v1.json")])
+                self.assertEqual(blocked.exception.code, 2)
                 runner.assert_not_called()
 
     def test_shell_driver_uses_real_worker_drill_module(self):
