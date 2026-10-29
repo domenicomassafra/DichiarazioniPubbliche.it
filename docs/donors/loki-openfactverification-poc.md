@@ -1,5 +1,11 @@
 # #160 — isolated Loki/OpenFactVerification fork POC
 
+**Retired from the executable codebase on 2026-10-29 (#545).** The four
+`loki_*_poc.py` modules were fixture-only, never imported by production code,
+and never granted publication authority. Their two isolated test modules were
+removed with them. This file preserves the historical donor and license audit;
+the shared EUR-Lex source fixture remains for other provenance checks.
+
 - Upstream: https://github.com/Libr-AI/OpenFactVerification, **MIT**, Copyright
   (c) 2024 LibrAI. Complete verbatim notice:
   [loki-openfactverification-mit.txt](./loki-openfactverification-mit.txt).
