@@ -44,7 +44,7 @@ def valid_response_map():
             ) + "</urlset>"
         ).encode()),
         "/_astro/main.css": (200, b"body {margin: 0}"),
-        "/favicon.svg": (200, b'<svg xmlns="http://www.w3.org/2000/svg"></svg>'),
+        "/favicon.svg": (200, b'<svg xmlns="http://www.w3.org/2000/svg"></svg>', "image/svg+xml"),
     }
     for name in ("findings", "people", "topics", "records"):
         responses["/api/v1/" + name] = (200, _body({
@@ -147,6 +147,27 @@ class DP422LiveReadbackTests(unittest.TestCase):
         responses["/"] = (200, responses["/"][1].replace(b'<link rel="icon" href="/favicon.svg">', b""))
         with self.assertRaisesRegex(ReadbackError, "MISSING_FAVICON_LINK:/"):
             check_readback(responses.__getitem__, FINGERPRINT)
+
+    def test_favicon_requires_svg_document_not_svg_marker_in_html(self):
+        for fake in (
+            b'<html><svg xmlns="http://www.w3.org/2000/svg"></svg></html>',
+            b'<svg xmlns="http://www.w3.org/2000/svg"><path></svg>',
+            b'<svg xmlns="http://wrong.example/svg"></svg>',
+            b'<svg></svg>',
+        ):
+            with self.subTest(fake=fake):
+                responses = valid_response_map()
+                responses["/favicon.svg"] = (200, fake, "image/svg+xml")
+                with self.assertRaisesRegex(ReadbackError, "DP422_INVALID_FAVICON"):
+                    check_readback(responses.__getitem__, FINGERPRINT)
+
+        for bad_type in ("text/html", "application/xml", "", None):
+            with self.subTest(content_type=bad_type):
+                responses = valid_response_map()
+                valid_svg = responses["/favicon.svg"][:2]
+                responses["/favicon.svg"] = (*valid_svg, bad_type) if bad_type is not None else valid_svg
+                with self.assertRaisesRegex(ReadbackError, "DP422_INVALID_FAVICON_MIME"):
+                    check_readback(responses.__getitem__, FINGERPRINT)
 
     def test_rejects_sitemap_leaked_route_and_demo_html(self):
         responses = valid_response_map()
