@@ -148,7 +148,7 @@ class IsolatedStatementSource:
             segment_end=locator["end_ms"] / 1000 if timed else locator["end_char"],
             quote=self.row["original_text"],
             transcript_segment=self.row["original_text"],
-            alignment_confidence=0.99,
+            alignment_confidence=0.99 if timed else None,
             speaker_id=self.row["person_id"],
             speaker_signals=(
                 SpeakerSignal("official_channel", "https://example.org/channel"),
