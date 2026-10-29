@@ -18,6 +18,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 CANONICAL_ROUTES = ("/", "/esplora/", "/metodo/", "/correzioni/", "/dati/", "/progetto/")
+UTILITY_ROUTES = ("/privacy/", "/segnalazioni/", "/accedi/", "/account/")
 PRIVATE_OR_UNAPPROVED = (
     "/persone/person-demo-maintenance/",
     "/dichiarazioni/finding-demo-maintenance/",
@@ -101,6 +102,8 @@ def check_readback(read, fingerprint: str) -> dict:
                 f"DP422_CANONICAL_DRIFT:{route}")
         require('<meta name="robots" content="index,follow">' in html,
                 f"DP422_ROBOTS_META_DRIFT:{route}")
+        require(re.search(r'<link rel="icon"[^>]*href="/favicon\.svg"', html) is not None,
+                f"DP422_MISSING_FAVICON_LINK:{route}")
         require(len(re.findall(r"<h1\b", html)) == 1 and '<main id="main">' in html,
                 f"DP422_HTML_SEMANTICS_INVALID:{route}")
         require('href="/esplora/"' in html and 'href="/metodo/"' in html,
@@ -114,6 +117,16 @@ def check_readback(read, fingerprint: str) -> dict:
                 assets_checked.add(asset)
     require(assets_checked, "DP422_NO_STATIC_ASSETS")
 
+    for route in UTILITY_ROUTES:
+        html = get(route).decode("utf-8")
+        require('<meta name="robots" content="noindex,nofollow">' in html,
+                f"DP422_UTILITY_ROBOTS_DRIFT:{route}")
+        require(len(re.findall(r"<h1\b", html)) == 1 and '<main id="main">' in html,
+                f"DP422_UTILITY_HTML_INVALID:{route}")
+        require(re.search(r'<link rel="icon"[^>]*href="/favicon\.svg"', html) is not None,
+                f"DP422_MISSING_FAVICON_LINK:{route}")
+    require(b"<svg" in get("/favicon.svg")[:256], "DP422_INVALID_FAVICON")
+
     for path in PRIVATE_OR_UNAPPROVED:
         get(path, 404)
 
@@ -121,6 +134,8 @@ def check_readback(read, fingerprint: str) -> dict:
         "result": "PASS_APPROVED_EMPTY_ONLY",
         "projection_fingerprint": fingerprint,
         "static_canonical_routes_http_200": len(CANONICAL_ROUTES),
+        "utility_routes_http_200": len(UTILITY_ROUTES),
+        "favicon_http_200": True,
         "rejected_demo_private_legacy_paths_http_404": len(PRIVATE_OR_UNAPPROVED),
         "static_assets_http_200": len(assets_checked),
         "api_resource_lists_empty": 4,
