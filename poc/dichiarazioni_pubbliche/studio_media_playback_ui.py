@@ -20,8 +20,9 @@ MEDIA_PLAYBACK_HTML = """      <form data-endpoint="/v1/media/capture-context">
       </form>
       <p id="media-binding-summary" role="status" aria-live="polite">Nessun binding verificato.</p>
       <button type="button" id="media-play-button">Apri il media autenticato e raggiungi il segmento</button>
-      <audio id="media-verified-audio" controls hidden aria-label="Media autentico, segmento verificato"></audio>
+      <audio id="media-verified-audio" controls hidden preload="none" aria-label="Media autentico, segmento verificato"></audio>
       <p id="media-play-status" role="status" aria-live="polite">Riproduzione disponibile solo dopo verifica dei diritti correnti.</p>
+      <p class="muted">Solo revisione privata: non autorizza la pubblicazione del candidato.</p>
 """
 
 MEDIA_PLAYBACK_SETUP = """    const mediaPlayButton = document.getElementById('media-play-button');
@@ -84,7 +85,7 @@ MEDIA_PLAYBACK_HANDLER = """    mediaAudio?.addEventListener?.('timeupdate', () 
         if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end)
             || start < 0 || end <= start || end - start > 30000
             || !Number.isSafeInteger(size) || size < 1 || size > 64 * 1024 * 1024
-            || !['audio/ogg','audio/wav','audio/x-wav'].includes(contentType)) throw new Error('invalid');
+            || !['audio/ogg','audio/wav','audio/x-wav','audio/mp4'].includes(contentType)) throw new Error('invalid');
         const bytes = await response.arrayBuffer();
         if (generation !== requestGeneration) return;
         activeRequest = null;

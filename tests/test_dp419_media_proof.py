@@ -1,5 +1,6 @@
 """DP-419 media derivation is computed from the captured media, not an attestor digest."""
 import hashlib
+import subprocess
 import tempfile
 import unittest
 import wave
@@ -62,6 +63,43 @@ class MediaCaptureProofTests(unittest.TestCase):
         first = self.derive()
         second = self.derive(start_ms=1700, end_ms=3300)
         self.assertNotEqual(first["evidence_sha256"], second["evidence_sha256"])
+
+    def test_audio_mp4_container_is_hash_pinned_and_decoded(self):
+        mp4 = self.media.with_suffix(".m4a")
+        encoded = subprocess.run(
+            ["ffmpeg", "-nostdin", "-y", "-v", "error", "-i", str(self.media),
+             "-c:a", "aac", "-b:a", "64k", "-movflags", "+faststart",
+             "-f", "mp4", str(mp4)],
+            capture_output=True, check=False, timeout=20,
+        )
+        if encoded.returncode != 0:
+            self.skipTest("ffmpeg AAC/MP4 encoder is unavailable")
+        digest = hashlib.sha256(mp4.read_bytes()).hexdigest()
+        result = self.derive(
+            media_path=mp4, capture_sha256=digest,
+            canonical_text_sha256="c" * 64,
+        )
+        self.assertEqual(result["capture_sha256"], digest)
+        self.assertEqual((result["start_ms"], result["end_ms"]), (1200, 3400))
+        self.assertEqual(result["capture_segment_binding"], "DECODED_FROM_CAPTURE")
+
+    def test_audio_mp4_type_rejects_video_streams(self):
+        media_with_video = self.media.with_suffix(".video.m4a")
+        encoded = subprocess.run(
+            ["ffmpeg", "-nostdin", "-y", "-v", "error", "-f", "lavfi",
+             "-i", "color=c=black:s=16x16:d=4", "-i", str(self.media),
+             "-shortest", "-c:v", "mpeg4", "-c:a", "aac", "-b:a", "64k",
+             "-movflags", "+faststart", "-f", "mp4", str(media_with_video)],
+            capture_output=True, check=False, timeout=20,
+        )
+        if encoded.returncode != 0:
+            self.skipTest("ffmpeg test video encoder is unavailable")
+        digest = hashlib.sha256(media_with_video.read_bytes()).hexdigest()
+        with self.assertRaisesRegex(ValueError, "MEDIA_PROOF_AUDIO_CONTAINER_INVALID"):
+            self.derive(
+                media_path=media_with_video, capture_sha256=digest,
+                canonical_text_sha256="d" * 64,
+            )
 
 
 if __name__ == "__main__":

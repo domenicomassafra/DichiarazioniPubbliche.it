@@ -1,6 +1,7 @@
 """DP419: private real-media byte/rights verification at the playback boundary."""
 import hashlib
 import json
+import subprocess
 import tempfile
 import unittest
 import wave
@@ -58,6 +59,7 @@ class VerifiedPlaybackTests(unittest.TestCase):
             wav.setframerate(16000)
             wav.writeframes(b"\x01\x00" * 16000 * 4)
         self.bytes = source.read_bytes()
+        self.source_path = source
         self.sha = hashlib.sha256(self.bytes).hexdigest()
         proof = derive_media_capture_segment(
             media_path=source, capture_sha256=self.sha, content_id="content:one",
@@ -105,6 +107,36 @@ class VerifiedPlaybackTests(unittest.TestCase):
         self.assertEqual(media.body, self.bytes)
         self.assertEqual((media.start_ms, media.end_ms), (1200, 3400))
         self.assertEqual(media.media_type, "audio/wav")
+
+    def test_original_audio_mp4_bytes_are_playable_without_transcoding(self):
+        mp4 = Path(self.tmp.name) / "source.m4a"
+        encoded = subprocess.run(
+            ["ffmpeg", "-nostdin", "-y", "-v", "error", "-i", str(self.source_path),
+             "-c:a", "aac", "-b:a", "64k", "-movflags", "+faststart",
+             "-f", "mp4", str(mp4)],
+            capture_output=True, check=False, timeout=20,
+        )
+        if encoded.returncode != 0:
+            self.skipTest("ffmpeg AAC/MP4 encoder is unavailable")
+        original_bytes = mp4.read_bytes()
+        digest = hashlib.sha256(original_bytes).hexdigest()
+        proof = derive_media_capture_segment(
+            media_path=mp4, capture_sha256=digest, content_id="content:one",
+            capture_id="capture:mp4", canonical_segment_id="segment:one",
+            canonical_text_sha256="a" * 64, start_ms=1200, end_ms=3400,
+        )
+        receipt = self.store.write(
+            capture_id="capture:mp4", body=original_bytes, content_sha256=digest,
+        )
+        self.reader.state["capture_sha256"] = digest
+        self.reader.material.update({
+            "capture_id": "capture:mp4", "capture_sha256": digest,
+            "body_ref": receipt.body_ref, "media_type": "audio/mp4",
+            "evidence_sha256": proof["evidence_sha256"],
+        })
+        media = self.play()
+        self.assertEqual(media.body, original_bytes)
+        self.assertEqual(media.media_type, "audio/mp4")
 
     def test_current_rights_capture_segment_and_body_must_all_still_match(self):
         from dataclasses import replace

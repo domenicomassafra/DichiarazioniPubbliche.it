@@ -20,7 +20,7 @@ from dichiarazioni_pubbliche.rights_registry import RightsSubject
 
 _REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9_:/.-]{0,179}\Z")
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
-_MEDIA_TYPES = {"audio/ogg": ".ogg", "audio/wav": ".wav", "audio/x-wav": ".wav"}
+_MEDIA_TYPES = {"audio/ogg": ".ogg", "audio/wav": ".wav", "audio/x-wav": ".wav", "audio/mp4": ".m4a"}
 _RIGHTS_USES = ("FETCH", "STORE_BODY", "ASR_MEDIA", "PLAYBACK")
 
 _BINDING_SQL = """

@@ -56,7 +56,7 @@ def derive_media_capture_segment(
     ):
         raise ValueError("MEDIA_PROOF_RANGE_INVALID")
     path = Path(media_path)
-    demuxer = {".ogg": "ogg", ".wav": "wav"}.get(path.suffix.lower())
+    demuxer = {".ogg": "ogg", ".wav": "wav", ".m4a": "mov"}.get(path.suffix.lower())
     if demuxer is None:
         raise ValueError("MEDIA_PROOF_FORMAT_UNSUPPORTED")
     if path.is_symlink() or not path.is_file():
@@ -77,11 +77,16 @@ def derive_media_capture_segment(
     try:
         probe = json.loads(output)
         duration = float(probe["format"]["duration"])
-        has_audio = any(s.get("codec_type") == "audio" for s in probe["streams"])
+        streams = probe["streams"]
+        audio_stream_count = sum(s.get("codec_type") == "audio" for s in streams)
+        has_audio = audio_stream_count > 0
+        has_video = any(s.get("codec_type") == "video" for s in streams)
     except (ValueError, TypeError, KeyError, AttributeError):
         raise ValueError("MEDIA_PROOF_PROBE_INVALID") from None
     if not has_audio or not math.isfinite(duration) or duration <= 0:
         raise ValueError("MEDIA_PROOF_AUDIO_UNAVAILABLE")
+    if demuxer == "mov" and (has_video or audio_stream_count != 1):
+        raise ValueError("MEDIA_PROOF_AUDIO_CONTAINER_INVALID")
     if end_ms > round(duration * 1000) + 1:
         raise ValueError("MEDIA_PROOF_DURATION_MISMATCH")
     pcm = _exec([
