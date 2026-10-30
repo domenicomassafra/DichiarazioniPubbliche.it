@@ -250,6 +250,51 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "STATIC_FORMAT_INVALID"):
             release_tool.validated(self.root, sealed["release_id"])
 
+    def test_search_records_must_match_public_shape_and_empty_projection(self):
+        valid_extra = {
+            "id": "not-in-projection", "kind": "content", "title": "Unapproved record",
+            "subtitle": "", "published_at": None, "assessment": None,
+            "route": "/contenuti/not-in-projection/", "has_corrections": False,
+            "has_rights_of_reply": False, "wording_type": None,
+            "source_wording_type": None, "direct_quote_eligible": False,
+            "primary_terms": [], "secondary_terms": [],
+        }
+        for withdrawn, records in ((False, [{}]),
+                                   (False, [{**valid_extra, "kind": []}]),
+                                   (False, [{**valid_extra, "source_wording_type": {}}]),
+                                   (True, [valid_extra])):
+            with self.subTest(withdrawn=withdrawn):
+                self.make(withdrawn=withdrawn)
+                path = self.static / "search-index.v1.json"
+                index = json.loads(path.read_text())
+                index["records"] = records
+                material = {key: value for key, value in index.items() if key != "index_sha256"}
+                index["index_sha256"] = hashlib.sha256(json.dumps(
+                    material, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+                ).encode()).hexdigest()
+                path.write_text(json.dumps(index))
+                with self.assertRaisesRegex(ValueError, "STATIC_FORMAT_INVALID"):
+                    stage(self.root, self.source, self.static, self.projection,
+                          git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
+                with patch.object(release_tool, "check_static_contract", return_value=None):
+                    sealed = stage(self.root, self.source, self.static, self.projection,
+                                   git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
+                with self.assertRaisesRegex(ValueError, "STATIC_FORMAT_INVALID"):
+                    release_tool.validated(self.root, sealed["release_id"])
+
+    def test_hidden_only_required_page_rejected_before_stage_and_after_sealing(self):
+        self.make(withdrawn=True)
+        path = self.static / "privacy/index.html"
+        path.write_text(path.read_text().replace("<main>", "<main hidden>"))
+        with self.assertRaisesRegex(ValueError, "STATIC_FORMAT_INVALID"):
+            stage(self.root, self.source, self.static, self.projection,
+                  git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
+        with patch.object(release_tool, "check_static_contract", return_value=None):
+            sealed = stage(self.root, self.source, self.static, self.projection,
+                           git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
+        with self.assertRaisesRegex(ValueError, "STATIC_FORMAT_INVALID"):
+            release_tool.validated(self.root, sealed["release_id"])
+
     def test_empty_page_and_missing_astropack_rejected_even_with_sealed_hashes(self):
         self.make(withdrawn=True)
         home = self.static / "index.html"

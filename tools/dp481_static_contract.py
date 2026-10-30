@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from html.parser import HTMLParser
 import hashlib
 import json
@@ -20,6 +21,55 @@ REQUIRED_STATIC_FILES = frozenset({
 })
 VOID_TAGS = frozenset({"area", "base", "br", "col", "embed", "hr", "img", "input",
                        "link", "meta", "param", "source", "track", "wbr"})
+RECORD_FIELDS = frozenset({
+    "id", "kind", "title", "subtitle", "published_at", "assessment", "route",
+    "has_corrections", "has_rights_of_reply", "wording_type", "source_wording_type",
+    "direct_quote_eligible", "primary_terms", "secondary_terms", "person_id", "topic_ids",
+})
+RECORD_KINDS = frozenset({"finding", "statement", "content", "person", "topic"})
+ASSESSMENTS = frozenset({"SUPPORTED", "FACTUALLY_FALSE", "OUTDATED_DATA",
+                         "INSUFFICIENT_EVIDENCE", "UNRESOLVED"})
+
+
+def _valid_search_record(record: object) -> bool:
+    if not isinstance(record, dict) or not RECORD_FIELDS - {"person_id", "topic_ids"} <= record.keys() \
+            or record.keys() - RECORD_FIELDS:
+        return False
+    kind = record["kind"]
+    route = record["route"]
+    published = record["published_at"]
+    if published is not None:
+        if not isinstance(published, str):
+            return False
+        try:
+            datetime.fromisoformat(published.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+    return (
+        isinstance(kind, str) and kind in RECORD_KINDS
+        and all(isinstance(record[key], str) and record[key].strip() for key in ("id", "title"))
+        and isinstance(record["subtitle"], str)
+        and isinstance(route, str) and bool(re.fullmatch(
+            rf"/{'dichiarazioni' if kind in {'finding', 'statement'} else 'persone' if kind == 'person' else 'temi' if kind == 'topic' else 'contenuti'}/[a-z0-9]+(?:-[a-z0-9]+)*/", route))
+        and type(record["has_corrections"]) is bool
+        and type(record["has_rights_of_reply"]) is bool
+        and record["direct_quote_eligible"] is False
+        and record["wording_type"] == ("PARAPHRASE" if kind == "finding" else None)
+        and (isinstance(record["assessment"], str) and record["assessment"] in ASSESSMENTS
+             if kind == "finding"
+             else record["assessment"] is None)
+        and (record["source_wording_type"] is None or
+             (isinstance(record["source_wording_type"], str) and
+              record["source_wording_type"] in {"VERBATIM_ORIGINAL", "REPORTED_QUOTE"}))
+        and (kind == "finding" or record["source_wording_type"] is None)
+        and all(isinstance(record[field], list) and all(isinstance(x, str) for x in record[field])
+                for field in ("primary_terms", "secondary_terms"))
+        and ("person_id" not in record or isinstance(record["person_id"], str))
+        and ("topic_ids" not in record or isinstance(record["topic_ids"], list)
+             and all(isinstance(x, str) for x in record["topic_ids"]))
+        and (kind in {"finding", "statement"} or
+             ("person_id" not in record and "topic_ids" not in record))
+    )
 
 
 class _HTMLDocument(HTMLParser):
@@ -32,6 +82,7 @@ class _HTMLDocument(HTMLParser):
         self.has_main = False
         self.malformed = False
         self.references: set[str] = set()
+        self.hidden_depths: list[int] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag in {"html", "head", "body"}:
@@ -39,6 +90,10 @@ class _HTMLDocument(HTMLParser):
         properties = dict(attrs)
         if tag not in VOID_TAGS:
             self.stack.append(tag)
+            if ("hidden" in properties or properties.get("aria-hidden") == "true"
+                    or re.search(r"(?:display\s*:\s*none|visibility\s*:\s*hidden)",
+                                 properties.get("style") or "", re.I)):
+                self.hidden_depths.append(len(self.stack))
         if tag == "main":
             self.has_main = True
         for attribute in ("href", "src"):
@@ -53,6 +108,8 @@ class _HTMLDocument(HTMLParser):
         if not self.stack or self.stack[-1] != tag:
             self.malformed = True
         else:
+            if self.hidden_depths and self.hidden_depths[-1] == len(self.stack):
+                self.hidden_depths.pop()
             self.stack.pop()
         if tag in {"html", "head", "body"}:
             self.structure.append("-" + tag)
@@ -63,7 +120,8 @@ class _HTMLDocument(HTMLParser):
             self.handle_endtag(tag)
 
     def handle_data(self, data: str) -> None:
-        if "main" in self.stack and not {"script", "style"}.intersection(self.stack) and data.strip():
+        if ("main" in self.stack and not self.hidden_depths
+                and not {"script", "style"}.intersection(self.stack) and data.strip()):
             self.main_has_text = True
 
 
@@ -107,6 +165,10 @@ def check_static_contract(release: Path, assets: dict[str, str]) -> None:
                 or search.get("projection_sha256") != source.get("dataset_sha256")
                 or search.get("generated_at") != source.get("generated_at")
                 or not isinstance(search.get("records"), list)
+                or any(not _valid_search_record(record) for record in search.get("records", []))
+                or (source.get("dossier_count") == 0
+                    and all(source.get(field) == [] for field in ("dossiers", "topics", "contents"))
+                    and search.get("records") != [])
                 or not re.fullmatch(r"[0-9a-f]{64}", str(search.get("index_sha256")))):
             raise ValueError("DP481_STATIC_FORMAT_INVALID")
         material = {key: value for key, value in search.items() if key != "index_sha256"}
