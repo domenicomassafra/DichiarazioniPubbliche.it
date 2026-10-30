@@ -175,5 +175,23 @@ def check_static_contract(release: Path, assets: dict[str, str]) -> None:
         encoded = json.dumps(material, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         if hashlib.sha256(encoded.encode("utf-8")).hexdigest() != search["index_sha256"]:
             raise ValueError("DP481_STATIC_FORMAT_INVALID")
+        # Use the existing public-projection parity source; a valid self-hash does
+        # not authorize orphan, incomplete, duplicate or rebounded search records.
+        try:
+            from dichiarazioni_pubbliche.public_schema import (
+                projection_dataset_sha256, validate_public_bundle,
+            )
+            from dichiarazioni_pubbliche.correction_propagation import (  # noqa: PLC0415
+                _expected_search_records, _projection_state,
+            )
+            validated_source = validate_public_bundle(source)
+            if source["dataset_sha256"] != projection_dataset_sha256(validated_source):
+                raise ValueError("DP481_STATIC_FORMAT_INVALID")
+            approved = _expected_search_records(_projection_state(validated_source))
+        except (ImportError, KeyError, TypeError, ValueError) as error:
+            raise ValueError("DP481_STATIC_FORMAT_INVALID") from error
+        observed = {(row["kind"], row["id"]): row for row in search["records"]}
+        if len(observed) != len(search["records"]) or observed != approved:
+            raise ValueError("DP481_STATIC_FORMAT_INVALID")
     except (OSError, UnicodeError, ElementTree.ParseError, json.JSONDecodeError):
         raise ValueError("DP481_STATIC_FORMAT_INVALID") from None

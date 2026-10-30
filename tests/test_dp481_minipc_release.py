@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 from dichiarazioni_pubbliche.public_api import build_server
 from dichiarazioni_pubbliche.public_schema import projection_dataset_sha256
+from dichiarazioni_pubbliche.correction_propagation import _expected_search_records, _projection_state
 from tools.dp481_minipc_release import activate, rehearse, stage, verify
 from tools import dp481_minipc_release as release_tool
 
@@ -73,7 +74,8 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
             "projection_schema_version": body["schema_version"],
             "projection_sha256": body["dataset_sha256"],
             "generated_at": body["generated_at"],
-            "records": [],
+            "records": sorted(_expected_search_records(_projection_state(body)).values(),
+                              key=lambda item: (item["kind"], item["id"])),
         }
         index["index_sha256"] = hashlib.sha256(json.dumps(
             index, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
