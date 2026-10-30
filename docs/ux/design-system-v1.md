@@ -66,9 +66,9 @@ and P4/P5 are conditional modules with named mounting points.
 
 ## 2. Token inventory
 
-The token layer is `web/src/styles/tokens.css`. Its machine-readable mirror is
-`web/src/lib/tokens.ts`. **Both must change together** — the TS file is a
-mirror, not a second source of truth.
+The token layer is `web/src/styles/tokens.css`, the single source of truth.
+React uses CSS custom properties directly; `web/src/lib/tokens.ts` retains only
+the finding-state text colors/labels and density types that current callers use.
 
 ### 2.1 Grounding rule
 
@@ -633,9 +633,10 @@ contract.
 
 ## 10. Change control
 
-Token or component changes require: updating `tokens.css` **and** `tokens.ts`
-together, recomputing the §6 table if any color moved, re-running the §7 grep
-proof, and recording the reason here.
+Token or component changes require updating `tokens.css`, and the small
+`tokens.ts` mapping only when finding-state colors/labels or density types change.
+Recompute the §6 table if any color moves, re-run the §7 grep proof, and record
+the reason here. The unused TypeScript mirror was removed under DP-546.
 
 Design-system *visual* decisions belong to DP-411; *contract* decisions belong
 to DP-412; product truth belongs to `PRODUCT.md` and cannot be changed by

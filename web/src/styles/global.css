@@ -26,7 +26,8 @@
                       workspace primitives; owns no public page semantics.
 
    Consumable by components/design/** (React) and by any .astro page.
-   The machine-readable mirror of this layer is web/src/lib/tokens.ts.
+   React finding labels/colors live in web/src/lib/tokens.ts; all other
+   tokens are read directly from CSS custom properties.
    ========================================================================== */
 
 @import "./tokens.css";
