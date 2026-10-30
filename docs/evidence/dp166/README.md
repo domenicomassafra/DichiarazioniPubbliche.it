@@ -66,3 +66,7 @@ nella checklist [controlcenter#484](https://github.com/domenicomassafra/controlc
 documentati in `docs/donors/pyannote-diarization.md`; i pesi hanno licenza
 separata (CC-BY-4.0, gated). Nessun codice di terze parti è stato copiato o
 modificato, nessun peso scaricato, nessun provider a pagamento interrogato.
+
+## Nota sullo stato corrente (30/10/2026, #545)
+
+Il precedente wrapper `diarization_candidate_benchmark.py`, citato nella consegna storica sopra, è stato ritirato: i suoi soli chiamanti erano test sintetici. Le metriche DER/F1, i collar e i controlli di safety restano nel modulo canonico `diarization_benchmark.py`, usato direttamente dai test. Nessuna attivazione di modelli o nuovi diritti è implicata.

@@ -18,12 +18,11 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 
 from dichiarazioni_pubbliche.diarization_benchmark import (  # noqa: E402
-    Decision, SensitiveSpan, Turn,
+    Decision, Turn, compute_metrics,
 )
 from dichiarazioni_pubbliche.diarization_candidate_adapter import (  # noqa: E402
     CandidateAuthorization, normalize_anonymous_turns, run_offline_candidate,
 )
-from dichiarazioni_pubbliche.diarization_candidate_benchmark import compare_private_candidate  # noqa: E402
 from dichiarazioni_pubbliche.private_capture_rights import SourceFamilyUseGuard  # noqa: E402
 from dichiarazioni_pubbliche.rights_registry import (  # noqa: E402
     PrivateRightsRecord, RightsSubject, rights_subject_fingerprint,
@@ -323,55 +322,17 @@ class CandidateAdapterTests(unittest.TestCase):
         self.assertNotIn("Doe", repr(result))
 
     @unittest.skipUnless(sys.platform == "linux", "Linux RLIMIT_AS required for execution")
-    def test_baseline_vs_candidate_f1_der_swap_overlap_critical_and_sensitive(self):
-        perfect = self.call()
-        evaluated = compare_private_candidate(
-            reference=self.reference, baseline=(Turn(0, 10000, "TURN_00", self.source_sha),),
-            candidate=perfect, inserted_clip_start_ms=4000, inserted_clip_end_ms=6000,
-            resource_budget_ok=True,
+    def test_held_candidate_uses_canonical_diarization_metrics(self):
+        candidate = self.call()
+        metrics = compute_metrics(self.reference, candidate.turns)
+        baseline = compute_metrics(
+            self.reference, (Turn(0, 10000, "TURN_00", self.source_sha),),
         )
-        self.assertEqual(evaluated.status, "CONTRACT_ONLY_HELD")
-        self.assertEqual(evaluated.candidate_with_collar.der, 0)
-        self.assertEqual(evaluated.candidate_with_collar.speaker_change_f1, 1)
-        self.assertGreater(evaluated.baseline_with_collar.der, 0)
-        self.assertEqual(evaluated.proposed_decision, "GO")
-        self.assertFalse(evaluated.publication_authority)
-        self.assertIsNotNone(evaluated.receipt_sha256)
-
-        swapped = self.call(runner=runner_with(((0, 4000 / 1000, "first"), (4, 6, "second"),
-                                                (6, 8, "first"), (8, 10, "second"))))
-        report = compare_private_candidate(
-            reference=self.reference, baseline=self.reference, candidate=swapped,
-            inserted_clip_start_ms=4000, inserted_clip_end_ms=6000,
-            sensitive_spans=(SensitiveSpan(8500, 9000, "NUMBER"),),
-            resource_budget_ok=True,
-        )
-        self.assertGreater(report.candidate_with_collar.confusion_ms, 0)
-        self.assertTrue(report.sensitive_hold)
-        self.assertIn("NUMBER_SPEAKER_CONFUSION", report.reason_codes)
-
-        overlap_ref = (*self.reference, Turn(5500, 6200, "TURN_00", self.source_sha))
-        report = compare_private_candidate(
-            reference=overlap_ref, baseline=overlap_ref, candidate=perfect,
-            inserted_clip_start_ms=4000, inserted_clip_end_ms=6000,
-            resource_budget_ok=True,
-        )
-        self.assertEqual(report.proposed_decision, "NO_GO")
-        self.assertIn("REFERENCE_OVERLAP_MISSED", report.reason_codes)
-        blocked = compare_private_candidate(
-            reference=self.reference, baseline=self.reference, candidate=perfect,
-            inserted_clip_start_ms=4000, inserted_clip_end_ms=6000,
-            resource_budget_ok=False,
-        )
-        self.assertEqual(blocked.status, "BLOCKED")
-        too_many = tuple(Turn(i * 1000, (i + 1) * 1000, f"TURN_{i:02d}", self.source_sha)
-                         for i in range(7))
-        self.assertEqual(compare_private_candidate(
-            reference=too_many, baseline=too_many, candidate=perfect,
-            inserted_clip_start_ms=4000, inserted_clip_end_ms=6000,
-            resource_budget_ok=True,
-        ).status, "BLOCKED")
-
+        self.assertEqual(candidate.status, "CURRENT_HELD")
+        self.assertEqual(metrics.der, 0)
+        self.assertEqual(metrics.speaker_change_f1, 1)
+        self.assertGreater(baseline.der, 0)
+        self.assertFalse(candidate.public_quote_eligible)
 
     def test_symlinked_parent_of_media_or_model_is_refused(self):
         link = self.audio.parent / "external-parent"
