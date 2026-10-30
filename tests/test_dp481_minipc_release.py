@@ -47,7 +47,16 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
         self.demo = json.loads((ROOT / "web/src/data/demo-projection.json").read_text())
 
     def make(self, *, withdrawn):
-        (self.static / "index.html").write_bytes(b"<html>safe static</html>")
+        home = b'<html><head><link rel="icon" href="/favicon.svg"></head><body>safe static</body></html>'
+        (self.static / "index.html").write_bytes(home)
+        for route in ("esplora", "metodo", "correzioni", "dati", "progetto",
+                      "accedi", "account", "privacy", "segnalazioni"):
+            destination = self.static / route / "index.html"
+            destination.parent.mkdir(exist_ok=True)
+            destination.write_bytes(home)
+        (self.static / "favicon.svg").write_bytes(b'<svg xmlns="http://www.w3.org/2000/svg"/>')
+        (self.static / "robots.txt").write_text("User-agent: *\nDisallow: /account/\n")
+        (self.static / "sitemap.xml").write_text("<urlset/>")
         quote = self.static / "withdrawn.html"
         if withdrawn:
             quote.unlink(missing_ok=True)
@@ -108,7 +117,8 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
             verify(self.root)
         with self.assertRaisesRegex(ValueError, "HASH_MISMATCH"):
             activate(self.root, first["release_id"], expected=first["release_id"])
-        (release / "static" / "index.html").write_bytes(b"<html>safe static</html>")
+        (release / "static" / "index.html").write_bytes(
+            b'<html><head><link rel="icon" href="/favicon.svg"></head><body>safe static</body></html>')
         self.assertEqual(verify(self.root)["status"], "PASS")
         (self.root / "current").unlink()
         (self.root / "current").symlink_to("releases/nonexistent")
@@ -130,6 +140,41 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
         self.assertEqual(result["safe_release_id"], result["rollback_release_id"])
         self.assertEqual(result["withdrawn_old_listener_http"], 404)
         self.assertFalse(result["publication_authorized"])
+
+    def test_missing_required_runtime_routes_and_favicon_fail_before_stage(self):
+        self.make(withdrawn=True)
+        for name in ("privacy/index.html", "segnalazioni/index.html", "favicon.svg",
+                     "accedi/index.html", "robots.txt"):
+            with self.subTest(missing=name):
+                asset = self.static / name
+                content = asset.read_bytes()
+                asset.unlink()
+                try:
+                    with self.assertRaisesRegex(ValueError, "STATIC_ASSET_MISSING"):
+                        stage(self.root, self.source, self.static, self.projection,
+                              git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
+                finally:
+                    asset.parent.mkdir(parents=True, exist_ok=True)
+                    asset.write_bytes(content)
+
+    def test_missing_icon_link_fails_closed_before_stage(self):
+        self.make(withdrawn=True)
+        home = self.static / "index.html"
+        home.write_bytes(b"<html><body>old stale home</body></html>")
+        with self.assertRaisesRegex(ValueError, "STATIC_ICON_LINK_MISSING"):
+            stage(self.root, self.source, self.static, self.projection,
+                  git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
+
+    def test_signed_legacy_incomplete_release_fails_readback(self):
+        self.make(withdrawn=True)
+        (self.static / "privacy" / "index.html").unlink()
+        (self.static / "favicon.svg").unlink()
+        # Reproduce an old signed release from before the required-static check.
+        with patch.object(release_tool, "check_static_contract", return_value=None):
+            legacy = stage(self.root, self.source, self.static, self.projection,
+                           git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
+        with self.assertRaisesRegex(ValueError, "STATIC_ASSET_MISSING"):
+            release_tool.validated(self.root, legacy["release_id"])
 
     def test_symlink_inserted_after_source_preflight_cannot_copy_private_bytes(self):
         self.make(withdrawn=True)

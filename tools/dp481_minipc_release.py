@@ -18,6 +18,11 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+if __package__:
+    from .dp481_static_contract import check_static_contract
+else:
+    from dp481_static_contract import check_static_contract
+
 
 HEX = re.compile(r"[a-f0-9]{64}\Z")
 GIT = re.compile(r"[a-f0-9]{40}\Z")
@@ -114,6 +119,7 @@ def validated(root: Path, ident: str) -> dict:
     actual = collect(release)
     if expected != actual:
         fail("HASH_MISMATCH")
+    check_static_contract(release / "static", actual)
     if (stored.get("publication_authorized") is not False or
             stored.get("manifest_version") != "dp481-v1"):
         fail("MANIFEST_INVALID")
@@ -133,7 +139,7 @@ def validated(root: Path, ident: str) -> dict:
 
 def stage(root: Path, source: Path, static: Path, projection: Path, *,
           git_sha: str, rights_epoch_ref: str) -> dict:
-    """Stage a complete immutable snapshot without modifying the source mirror."""
+    """Stage an immutable snapshot."""
     if not GIT.fullmatch(git_sha) or not rights_epoch_ref or len(rights_epoch_ref) > 256:
         fail("SOURCE_AUTHORITY_INVALID")
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -157,6 +163,7 @@ def stage(root: Path, source: Path, static: Path, projection: Path, *,
         shutil.copytree(static, candidate / "static", symlinks=True)
         shutil.copytree(projection, candidate / "projection", symlinks=True)
         assets = collect(candidate)
+        check_static_contract(candidate / "static", assets)
         try:
             data = json.loads((candidate / "projection" / "index.json").read_bytes())
             schema = data["schema_version"]
@@ -273,7 +280,7 @@ def _http(origin: str, path: str, *, expected_hash: str | None = None) -> bytes:
 
 def rehearse(source: Path, static: Path, projection: Path, *, git_sha: str,
              rights_epoch_ref: str) -> dict:
-    """MiniPC-only loopback rehearsal against the real DRAFT inputs, in /tmp."""
+    """Rehearse DRAFT on private loopback."""
     from dichiarazioni_pubbliche.public_api import build_server
     safe_files(static)
 
