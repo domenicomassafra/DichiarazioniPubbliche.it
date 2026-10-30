@@ -176,6 +176,46 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "STATIC_ASSET_MISSING"):
             release_tool.validated(self.root, legacy["release_id"])
 
+    def test_invalid_required_assets_rejected_before_stage(self):
+        self.make(withdrawn=True)
+        invalid = {
+            "privacy/index.html": b"",
+            "metodo/index.html": b"not an HTML document",
+            "segnalazioni/index.html": b"<html><head></head><body>unfinished",
+            "favicon.svg": b"not an SVG",
+            "sitemap.xml": b"<urlset><url>",
+            "robots.txt": b"not a robots.txt document",
+            "search-index.v1.json": b"{not json}",
+        }
+        for name, contents in invalid.items():
+            with self.subTest(asset=name):
+                asset = self.static / name
+                original = asset.read_bytes()
+                try:
+                    asset.write_bytes(contents)
+                    with self.assertRaisesRegex(ValueError, "STATIC_FORMAT_INVALID"):
+                        stage(self.root, self.source, self.static, self.projection,
+                              git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
+                finally:
+                    asset.write_bytes(original)
+
+    def test_sealed_release_with_matching_hashes_but_invalid_content_rejected(self):
+        self.make(withdrawn=True)
+        (self.static / "privacy" / "index.html").write_bytes(b"")
+        (self.static / "favicon.svg").write_bytes(b"not an SVG")
+        (self.static / "sitemap.xml").write_bytes(b"not XML")
+        with patch.object(release_tool, "check_static_contract", return_value=None):
+            sealed = stage(self.root, self.source, self.static, self.projection,
+                           git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
+            activate(self.root, sealed["release_id"], expected=None)
+        # The historical contract sealed matching hashes and served unusable public assets.
+        host = self.server()
+        self.assertEqual(read(host, "/privacy/"), (200, b""))
+        self.assertEqual(read(host, "/favicon.svg"), (200, b"not an SVG"))
+        self.assertEqual(read(host, "/sitemap.xml"), (200, b"not XML"))
+        with self.assertRaisesRegex(ValueError, "STATIC_FORMAT_INVALID"):
+            release_tool.validated(self.root, sealed["release_id"])
+
     def test_symlink_inserted_after_source_preflight_cannot_copy_private_bytes(self):
         self.make(withdrawn=True)
         secret = self.base / "private.txt"
