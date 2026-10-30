@@ -268,8 +268,9 @@ Visual-direction decisions belong to **DP-411**. Token and component contracts
 belong to **DP-412**. Product truth belongs to `PRODUCT.md` and is not
 changeable by either.
 
-Changing a token value requires updating `web/src/styles/tokens.css` **and**
-`web/src/lib/tokens.ts` together, recomputing the contrast table in the
-contract, and re-running the grep proof. The tokens file is the only file in
-`web/src` permitted to contain a literal color value; that rule is what makes
-the contrast table trustworthy rather than aspirational.
+Change token values in `web/src/styles/tokens.css`. Update
+`web/src/lib/tokens.ts` only when its React-used finding-state colors, labels,
+or types change. Recompute the contrast table in the contract and re-run the
+grep proof whenever colors change. `tokens.css` is the only file in `web/src`
+permitted to contain literal color values; that rule keeps the contrast table
+trustworthy rather than aspirational.
