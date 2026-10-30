@@ -47,7 +47,8 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
         self.demo = json.loads((ROOT / "web/src/data/demo-projection.json").read_text())
 
     def make(self, *, withdrawn):
-        home = b'<html><head><link rel="icon" href="/favicon.svg"></head><body>safe static</body></html>'
+        home = (b'<html><head><link rel="icon" href="/favicon.svg"></head>'
+                b'<body><main><h1>Safe static page</h1></main></body></html>')
         (self.static / "index.html").write_bytes(home)
         for route in ("esplora", "metodo", "correzioni", "dati", "progetto",
                       "accedi", "account", "privacy", "segnalazioni"):
@@ -62,12 +63,22 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
             quote.unlink(missing_ok=True)
         else:
             quote.write_bytes(b"withdrawn quote 481")
-        (self.static / "search-index.v1.json").write_bytes(b"{}" if withdrawn else b'{"old":true}')
         body = dict(self.demo)
         if withdrawn:
             body.update(dossiers=[], dossier_count=0, topics=[], contents=[], omitted_count=0)
             body["dataset_sha256"] = projection_dataset_sha256(body)
         (self.projection / "index.json").write_text(json.dumps(body, sort_keys=True))
+        index = {
+            "schema_version": "dichiarazioni-pubbliche-search-index-v1",
+            "projection_schema_version": body["schema_version"],
+            "projection_sha256": body["dataset_sha256"],
+            "generated_at": body["generated_at"],
+            "records": [],
+        }
+        index["index_sha256"] = hashlib.sha256(json.dumps(
+            index, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+        ).encode()).hexdigest()
+        (self.static / "search-index.v1.json").write_text(json.dumps(index))
         return stage(self.root, self.source, self.static, self.projection,
                      git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
 
@@ -118,7 +129,8 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "HASH_MISMATCH"):
             activate(self.root, first["release_id"], expected=first["release_id"])
         (release / "static" / "index.html").write_bytes(
-            b'<html><head><link rel="icon" href="/favicon.svg"></head><body>safe static</body></html>')
+            (b'<html><head><link rel="icon" href="/favicon.svg"></head>'
+             b'<body><main><h1>Safe static page</h1></main></body></html>'))
         self.assertEqual(verify(self.root)["status"], "PASS")
         (self.root / "current").unlink()
         (self.root / "current").symlink_to("releases/nonexistent")
@@ -182,10 +194,13 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
             "privacy/index.html": b"",
             "metodo/index.html": b"not an HTML document",
             "segnalazioni/index.html": b"<html><head></head><body>unfinished",
+            "account/index.html": b"<html><head></head><body></body></html>",
+            "progetto/index.html": (b"<html><head></head><body><main><h1>Page</h1>"
+                                   b"<section><p>Unclosed paragraph</section></main></body></html>"),
             "favicon.svg": b"not an SVG",
             "sitemap.xml": b"<urlset><url>",
             "robots.txt": b"not a robots.txt document",
-            "search-index.v1.json": b"{not json}",
+            "search-index.v1.json": b"{}",
         }
         for name, contents in invalid.items():
             with self.subTest(asset=name):
@@ -215,6 +230,51 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
         self.assertEqual(read(host, "/sitemap.xml"), (200, b"not XML"))
         with self.assertRaisesRegex(ValueError, "STATIC_FORMAT_INVALID"):
             release_tool.validated(self.root, sealed["release_id"])
+
+    def test_search_index_projection_drift_rejected_with_valid_self_hash(self):
+        self.make(withdrawn=True)
+        path = self.static / "search-index.v1.json"
+        index = json.loads(path.read_text())
+        index["projection_sha256"] = "f" * 64
+        material = {key: value for key, value in index.items() if key != "index_sha256"}
+        index["index_sha256"] = hashlib.sha256(json.dumps(
+            material, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+        ).encode()).hexdigest()
+        path.write_text(json.dumps(index))
+        with self.assertRaisesRegex(ValueError, "STATIC_FORMAT_INVALID"):
+            stage(self.root, self.source, self.static, self.projection,
+                  git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
+        with patch.object(release_tool, "check_static_contract", return_value=None):
+            sealed = stage(self.root, self.source, self.static, self.projection,
+                           git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
+        with self.assertRaisesRegex(ValueError, "STATIC_FORMAT_INVALID"):
+            release_tool.validated(self.root, sealed["release_id"])
+
+    def test_empty_page_and_missing_astropack_rejected_even_with_sealed_hashes(self):
+        self.make(withdrawn=True)
+        home = self.static / "index.html"
+        original = home.read_text()
+        home.write_text(home.read_text().replace(
+            "</head>", '<link rel="stylesheet" href="/_astro/absent.css"></head>'))
+        with self.assertRaisesRegex(ValueError, "STATIC_ASSET_MISSING"):
+            stage(self.root, self.source, self.static, self.projection,
+                  git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
+        with patch.object(release_tool, "check_static_contract", return_value=None):
+            sealed = stage(self.root, self.source, self.static, self.projection,
+                           git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
+        with self.assertRaisesRegex(ValueError, "STATIC_ASSET_MISSING"):
+            release_tool.validated(self.root, sealed["release_id"])
+        home.write_text(original)
+        (self.static / "privacy/index.html").write_text(
+            "<html><head></head><body><main></main></body></html>")
+        with self.assertRaisesRegex(ValueError, "STATIC_FORMAT_INVALID"):
+            stage(self.root, self.source, self.static, self.projection,
+                  git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
+        with patch.object(release_tool, "check_static_contract", return_value=None):
+            sealed_empty = stage(self.root, self.source, self.static, self.projection,
+                                 git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
+        with self.assertRaisesRegex(ValueError, "STATIC_FORMAT_INVALID"):
+            release_tool.validated(self.root, sealed_empty["release_id"])
 
     def test_symlink_inserted_after_source_preflight_cannot_copy_private_bytes(self):
         self.make(withdrawn=True)

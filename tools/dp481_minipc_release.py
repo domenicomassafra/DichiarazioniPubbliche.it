@@ -119,7 +119,7 @@ def validated(root: Path, ident: str) -> dict:
     actual = collect(release)
     if expected != actual:
         fail("HASH_MISMATCH")
-    check_static_contract(release / "static", actual)
+    check_static_contract(release, actual)
     if (stored.get("publication_authorized") is not False or
             stored.get("manifest_version") != "dp481-v1"):
         fail("MANIFEST_INVALID")
@@ -163,7 +163,7 @@ def stage(root: Path, source: Path, static: Path, projection: Path, *,
         shutil.copytree(static, candidate / "static", symlinks=True)
         shutil.copytree(projection, candidate / "projection", symlinks=True)
         assets = collect(candidate)
-        check_static_contract(candidate / "static", assets)
+        check_static_contract(candidate, assets)
         try:
             data = json.loads((candidate / "projection" / "index.json").read_bytes())
             schema = data["schema_version"]
