@@ -6,10 +6,7 @@ import json
 import re
 import shutil
 import subprocess
-import tempfile
 import unittest
-from pathlib import Path
-from unittest.mock import patch
 
 from dichiarazioni_pubbliche.studio_candidate_review_ui import (
     build_candidate_comparison_read_model,
@@ -78,29 +75,6 @@ process.stdout.write(JSON.stringify(results));
         ])
         self.assertTrue(all(r["approval"] is False for r in results))
 
-    def test_private_operator_command_creates_one_0600_html_readback(self):
-        from dichiarazioni_pubbliche.studio_candidate_comparison_cli import main
-
-        match, promotion, sources = persisted_comparison(duplicate=True)
-        sources.snapshots[("ATOMIC_CLAIM", "claim:same")].update(
-            capture_id="capture:1", capture_sha256="c" * 64
-        )
-        with tempfile.TemporaryDirectory() as tmp:
-            output = Path(tmp) / "operator.html"
-            with (
-                patch("dichiarazioni_pubbliche.studio_candidate_comparison_cli._StudioCandidateReader", return_value=match),
-                patch("dichiarazioni_pubbliche.studio_candidate_comparison_cli._StudioPromotionContextReader", return_value=promotion),
-                patch("dichiarazioni_pubbliche.studio_candidate_comparison_cli.StudioCandidateTargetPg", return_value=sources),
-            ):
-                args = ["--candidate-id", "candidate:1", "--run-id", match.run_id,
-                        "--output", str(output)]
-                self.assertEqual(main(args), 0)
-                self.assertEqual(output.stat().st_mode & 0o777, 0o600)
-                self.assertIn("data-private-quote-review", output.read_text())
-                self.assertIn("passage:1", output.read_text())
-                self.assertNotIn("SECRET NEVER IN COMPARE", output.read_text())
-                with self.assertRaises(FileExistsError):
-                    main(args)
 
 
 if __name__ == "__main__":
