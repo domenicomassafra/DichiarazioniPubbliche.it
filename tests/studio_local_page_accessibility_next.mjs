@@ -24,9 +24,11 @@ playableWav.writeUInt16LE(2,32); playableWav.writeUInt16LE(16,34);
 playableWav.write('data',36); playableWav.writeUInt32LE(playableWav.length-44,40);
 const realMediaPath=process.env.DP419_REAL_MEDIA_PATH;
 const playbackBytes=realMediaPath ? await readFile(realMediaPath) : playableWav;
-const playbackType=realMediaPath ? 'audio/ogg' : 'audio/wav';
-const playbackStart=realMediaPath ? 522000 : 1200;
-const playbackEnd=realMediaPath ? 534000 : 2200;
+const playbackType=realMediaPath
+  ? (process.env.DP419_REAL_MEDIA_TYPE || (realMediaPath.endsWith('.m4a') ? 'audio/mp4' : 'audio/ogg'))
+  : 'audio/wav';
+const playbackStart=realMediaPath ? Number(process.env.DP419_REAL_MEDIA_START_MS || 522000) : 1200;
+const playbackEnd=realMediaPath ? Number(process.env.DP419_REAL_MEDIA_END_MS || 534000) : 2200;
 const server = createServer(async (req,res) => {
   if (req.method === 'GET' && req.url === '/') {
     res.writeHead(200, {'Content-Type':'text/html; charset=utf-8', 'Cache-Control':'no-store'});
@@ -138,6 +140,14 @@ try {
   // layout viewport. Reload exactly once under the mobile emulation profile.
   await send('Page.reload',{ignoreCache:true});
   await wait('!!document.querySelector("form[data-endpoint=\\"/v1/candidate/decision-annotate\\"]")');
+  const initialAudio=await evaluate(`(() => {
+    const audio=document.getElementById('media-verified-audio');
+    return {preload:audio.preload,autoplay:audio.autoplay,hasSource:audio.hasAttribute('src'),paused:audio.paused};
+  })()`);
+  assert.equal(initialAudio.preload,'none','private source media must not preload before explicit activation');
+  assert.equal(initialAudio.autoplay,false);
+  assert.equal(initialAudio.hasSource,false);
+  assert.equal(initialAudio.paused,true);
   await evaluate(`document.querySelector('[data-panel="collections"]').click()`);
   const measurements=await evaluate(`(() => {
     const form=document.querySelector('form[data-endpoint="/v1/candidate/decision-annotate"]');
@@ -232,7 +242,7 @@ try {
       source:audio.hasAttribute('src'),paused:audio.paused};
   })()`);
   const seekConfirmed=await evaluate("document.getElementById('media-play-status').textContent.includes('Seek reale')");
-  if (realMediaPath) assert.equal(seekConfirmed,true,'original Ogg must prove native currentTime seek');
+  if (realMediaPath) assert.equal(seekConfirmed,true,'original media bytes must prove native currentTime seek');
   if (seekConfirmed) {
     assert.ok(Math.abs(mediaState.seek-playbackStart/1000)<=0.1,JSON.stringify(mediaState));
     assert.equal(mediaState.hidden,false);
