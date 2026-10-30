@@ -8,7 +8,7 @@ operation must independently re-check those conditions.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 import hashlib
 import hmac
 import ipaddress
@@ -300,16 +300,7 @@ def freeze_private_pilot_manifest(
         budget_eur_cents,
         estimated,
     )
-    return PrivatePilotManifest(
-        rows,
-        _hash(_material(proposed)),
-        False,
-        status,
-        reasons,
-        max_samples,
-        budget_eur_cents,
-        estimated,
-    )
+    return replace(proposed, manifest_sha256=_hash(_material(proposed)))
 
 
 def validate_private_pilot_manifest(manifest: PrivatePilotManifest) -> None:
