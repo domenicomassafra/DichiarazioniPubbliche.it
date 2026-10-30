@@ -1,5 +1,11 @@
 # GOAL INFINITO — Wave 12: official excerpt and private capture metadata
 
+> Historical test record (2026-10-09). On 2026-10-31, the fixture-only
+> `parliamentary_source_family_execution` wrapper and its dedicated tests were
+> retired under #545. Production source normalization, amendment revalidation
+> and excerpt-rights decisions remain in their original modules with independent
+> regression tests; the historical test count below records the original run.
+
 Source baseline: `4f0812e` (Wave 11 GitHub CI
 `37975948272` **SUCCESS**). No production deploy or public release.
 Original untracked owner handoff and legacy ContentAuditClient draft
