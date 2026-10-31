@@ -59,6 +59,10 @@ private passage's literal-text SHA-256. Supply the existing authenticated
 candidate. Existing Senato corpus candidates are HELD, so this returns an
 empty list until they have real approval receipts. Merely changing database
 status or metadata cannot satisfy the later independent publication gates.
+The reader also carries the persisted private passage SHA-256 to the producer:
+the independently reconstructed canonical span must have that exact hash.
+If approved corpus wording and immutable source wording differ, the candidate
+is omitted rather than silently replaced during projection.
 Production wiring for the remaining three independently authenticated
 authorities and the release pin remains pending.
 Call `build_public_projection(adapter, include_public_statements=True)`

@@ -23,7 +23,7 @@ _SHA1 = re.compile(r"[0-9a-f]{40}\Z")
 _CANDIDATE_KEYS = frozenset({
     "statement_id", "version_id", "status", "content_id", "source_version",
     "speech_id", "official_person_uri", "person_id", "speaker_name",
-    "start_char", "end_char",
+    "start_char", "end_char", "quote_sha256",
 })
 _MAX_CANDIDATES = 32
 
@@ -192,6 +192,12 @@ class SenatoPublicV3Source:
                 identifiers.add(identifier)
                 quote = canonical[start:end]
                 if not quote.strip() or len(quote) > 300:
+                    continue
+                # The corpus-approved private passage must be byte-identical
+                # to the independently reconstructed canonical source span.
+                # An approved row with stale offsets must not silently acquire
+                # new wording during projection.
+                if record["quote_sha256"] != hashlib.sha256(quote.encode("utf-8")).hexdigest():
                     continue
                 rows.append({
                     "statement_id": identifier,

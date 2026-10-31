@@ -82,7 +82,7 @@ class CurrentSenatoPostgresCandidates:
                 "start_char", "end_char", "quote", "quote_sha256",
             }:
                 raise ValueError("DP468_CANDIDATE_REPLAY_INVALID")
-            quote, checksum = row.pop("quote"), row.pop("quote_sha256")
+            quote, checksum = row.pop("quote"), row["quote_sha256"]
             if (not isinstance(quote, str) or not quote.strip()
                     or hashlib.sha256(quote.encode()).hexdigest() != checksum
                     or not isinstance(row["statement_id"], str)
