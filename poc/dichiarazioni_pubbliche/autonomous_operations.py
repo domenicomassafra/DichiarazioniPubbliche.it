@@ -102,7 +102,9 @@ def _review_identity_ok(review: AgentReview | None, issuer: ReviewAuthority) -> 
     try:
         return (
             review.agent_id.strip().casefold() == issuer.agent_id.strip().casefold()
-            and review.model_id.strip().casefold() == issuer.model_id.strip().casefold()
+            and review_model_authorized(review.model_id)
+            and review_model_authorized(issuer.model_id)
+            and review.model_id == issuer.model_id
             and bool(issuer.agent_id.strip())
             and bool(issuer.model_id.strip())
         )
@@ -266,8 +268,8 @@ class AutonomousOperations:
             and visible == binding
         )
         model_ids = {
-            review.model_id.strip().casefold() for review in (packet.primary, packet.independent)
-            if isinstance(review, AgentReview) and isinstance(review.model_id, str)
+            review.model_id for review in (packet.primary, packet.independent)
+            if isinstance(review, AgentReview) and review_model_authorized(review.model_id)
         }
         actor_ids = {
             review.agent_id.strip().casefold() for review in (packet.primary, packet.independent)
@@ -278,7 +280,7 @@ class AutonomousOperations:
             and isinstance(getattr(auditor, "agent_id", None), str)
             and bool(auditor.model_id.strip()) and bool(auditor.agent_id.strip())
             and review_model_authorized(auditor.model_id)
-            and auditor.model_id.strip().casefold() not in model_ids
+            and auditor.model_id not in model_ids
             and auditor.agent_id.strip().casefold() not in actor_ids
         )
         third = None

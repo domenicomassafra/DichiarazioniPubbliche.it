@@ -14,7 +14,8 @@ from dataclasses import asdict
 from typing import Callable, Any
 
 from dichiarazioni_pubbliche.autonomous_publication import (
-    AgentReview, AutonomousCandidate, CHECKS, POLICY_VERSION, SUBSCRIPTION_REVIEW_MODEL,
+    AgentReview, AutonomousCandidate, APPROVED_REVIEW_MODELS, CHECKS,
+    POLICY_VERSION, SUBSCRIPTION_REVIEW_MODEL,
     candidate_fingerprint,
 )
 from dichiarazioni_pubbliche.autonomous_runner_v3 import SQLiteRunJournal, _json
@@ -62,7 +63,8 @@ class OmniRouteAgentReview:
     def __init__(
         self, *, agent_id: str, api_key: str,
         journal: SQLiteRunJournal,
-        subscription_gate: Callable[[], bool] | None = None,
+        model_id: str = MODEL,
+        subscription_gate: Callable[[str], bool] | None = None,
         base_url: str = DEFAULT_BASE_URL,
         http_post: Callable[
             [str, dict[str, str], dict[str, Any]], tuple[int, dict[str, Any]]
@@ -70,7 +72,10 @@ class OmniRouteAgentReview:
     ):
         if not isinstance(agent_id, str) or not agent_id.strip():
             raise ValueError("DP413B_AGENT_ID_REQUIRED")
+        if type(model_id) is not str or model_id not in APPROVED_REVIEW_MODELS:
+            raise ValueError("DP413B_MODEL_NOT_AUTHORIZED")
         self.agent_id = agent_id
+        self.model_id = model_id
         self.api_key = api_key
         self.journal = journal
         self.subscription_gate = subscription_gate
@@ -84,13 +89,13 @@ class OmniRouteAgentReview:
             raise RuntimeError("DP413B_UNTRUSTED_OMNIROUTE_GATEWAY")
         if not isinstance(self.api_key, str) or not self.api_key.strip():
             raise RuntimeError("DP413B_PROVIDER_KEY_UNAVAILABLE")
-        if self.subscription_gate is None or self.subscription_gate() is not True:
+        if self.subscription_gate is None or self.subscription_gate(self.model_id) is not True:
             raise RuntimeError("DP413B_SUBSCRIPTION_ROUTE_NOT_VERIFIED")
 
         role = ("Independent adversarial verification" if "independent" in self.agent_id
                 else "Primary source verification")
         payload = {
-            "model": MODEL,
+            "model": self.model_id,
             "messages": [
                 {"role": "system", "content": (
                     role + ". Evaluate each of the five gates independently. "
@@ -143,7 +148,7 @@ class OmniRouteAgentReview:
         )
         if status != 200:
             raise RuntimeError(f"DP413B_OMNIROUTE_HTTP_{status}")
-        if not matches_returned_model(MODEL, response.get("model")):
+        if not matches_returned_model(self.model_id, response.get("model")):
             raise RuntimeError("DP413B_MODEL_SUBSTITUTED")
         request_id = response.get("id")
         usage = response.get("usage")
@@ -200,7 +205,7 @@ class OmniRouteAgentReview:
             "provider_request_id": request_id,
             "agent_id": self.agent_id,
             "provider": "omniroute",
-            "requested_model": MODEL,
+            "requested_model": self.model_id,
             "returned_model": response["model"],
             "prompt_version": PROMPT_VERSION,
             "policy_version": POLICY_VERSION,
@@ -220,5 +225,5 @@ class OmniRouteAgentReview:
             },
         })
         return AgentReview(
-            self.agent_id, MODEL, evidence_sha256, CHECKS, accepted,
+            self.agent_id, self.model_id, evidence_sha256, CHECKS, accepted,
         )

@@ -21,11 +21,13 @@ challenge or provider admission inputs change.
 
 ## Provider admission and identity
 
-`OmniRouteAgentReview` makes one constrained completion through the pinned
-`antigravity/gemini-3.8-flash-tiered` route at the **local** OmniRoute gateway.
-Its required `subscription_gate` must independently verify the DP key's
-current Antigravity Pro subscription account, route allowlist, remaining quota
-and no paid-route fallback before *each* POST. If no such authenticated
+`OmniRouteAgentReview(model_id=...)` makes one constrained completion for
+an exact owner-allowlisted Gemini 3.8 Flash, 3.7 Flash or 3.1 Pro model at
+the **local** OmniRoute gateway. Its required model-aware
+`subscription_gate(model_id)` must independently verify the DP key's
+12 authorized Antigravity Pro account IDs, the particular model's entitlement,
+route allowlist, remaining quota and no paid-route fallback before *each* POST.
+If no such authenticated
 capability exists, the review fails and `AutonomousOperations` records HOLD.
 A gateway model substitution, missing provider completion ID, duplicate ID,
 missing usage or unacceptable source/rights citations also prevents approval.
@@ -36,10 +38,12 @@ Never set the gate to an unverified constant in production.
 - [#458](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/458)
   supplies the authentic, original-source packet and its independent rights
   authority. It was OPEN when this tranche was authored.
-- The approved route currently exposes only one model identity, while
-  `evaluate_autonomous_publication` requires *different* model IDs. Two
-  distinct requests and agent IDs **do not** create a second model. This
-  remains HOLD under the current owner policy; do not relabel either model.
+- The owner approved three distinct models on 31 October 2026, but the
+  read-only gateway metadata of 13 active Pro-labelled connections lists
+  3.8 Flash on 13/13, 3.7 Flash on 0/13 and 3.1 Pro on 0/13. No DP-scoped
+  `allowedConnections` key is proven, nor which exact 12 accounts are subscribed.
+  Thus an allowlist/test fixture is **not** a live two-model review or third
+  audit; HOLD until subscribed provider, quota and no-fallback proofs exist.
 - The existing MiniPC public consumer is on v2. Bind these adapters to its
   separately authenticated DB/readback and withdrawal controls, and install
   through the candidate/verify/swap/rollback runbook after independent review.
