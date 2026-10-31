@@ -324,6 +324,28 @@ class SenatoPublicV3ProducerTests(unittest.TestCase):
         self.assertEqual(self.build(producer)["statements"], [])
         self.assertEqual(canonical[record["start_char"]:record["end_char"]], "Un dato: zero.")
 
+    def test_approved_candidate_revoked_during_replay_is_held(self):
+        raw, pins, _, record = setup()
+        approved = {**record, "status": "APPROVED"}
+        reader = Mock(side_effect=[[approved], [{**approved, "status": "HELD"}]])
+        source = SenatoPublicV3Source(
+            pins, read_original_bytes=lambda: raw, read_current_candidates=reader,
+        )
+        with self.assertRaisesRegex(ValueError, "CANDIDATE_CHANGED_DURING_PROJECTION"):
+            source.projectable_public_statements()
+        self.assertEqual(reader.call_count, 2)
+
+    def test_capture_revoked_after_candidate_replay_is_held(self):
+        raw, pins, _, record = setup()
+        reader = Mock(side_effect=[raw, SourceUseBlocked("SOURCE_USE_REVOKED")])
+        source = SenatoPublicV3Source(
+            pins, read_original_bytes=reader,
+            read_current_candidates=lambda: [{**record, "status": "APPROVED"}],
+        )
+        with self.assertRaisesRegex(SourceUseBlocked, "SOURCE_USE_REVOKED"):
+            source.projectable_public_statements()
+        self.assertEqual(reader.call_count, 2)
+
     def test_missing_unknown_challenge_cannot_pass_autonomous_gate(self):
         raw, pins, _, record = setup()
         adapter = SenatoPublicV3Source(
