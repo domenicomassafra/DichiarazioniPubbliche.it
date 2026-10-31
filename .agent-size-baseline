@@ -200,7 +200,7 @@
   "tools/generate_fixture_inventory.py": 32025,
   "web/scripts/check-browser-qa.mjs": 50893,
   "web/scripts/dp431_rebuild.py": 21719,
-  "web/src/components/ExploreClient.tsx": 27876,
+  "web/src/components/ExploreClient.tsx": 27739,
   "web/src/lib/publicStatementSearchV3.ts": 21162,
   "web/src/lib/searchIndex.ts": 20275,
   "web/src/styles/legacy.css": 66483,

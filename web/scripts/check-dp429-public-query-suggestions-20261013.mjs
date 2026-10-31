@@ -16,9 +16,11 @@ const ts = require("typescript");
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const componentPath = path.join(webRoot, "src/components/ExploreClient.tsx");
 const indexPath = path.join(webRoot, "src/lib/searchIndex.ts");
+const builderPath = path.join(webRoot, "src/lib/searchRecordBuilders.ts");
 const shapePath = path.join(webRoot, "src/lib/searchIndexShape.ts");
 const source = await readFile(componentPath, "utf8");
 const indexSource = await readFile(indexPath, "utf8");
+const builderSource = await readFile(builderPath, "utf8");
 
 // The current v2 index offers result/source publication timestamps, not a
 // source-attested original declaration date or an archive addition timestamp.
@@ -28,7 +30,7 @@ const recordContract = indexSource.split("export interface PublicSearchRecord {"
 assert(recordContract, "public search record schema must be present");
 assert.match(recordContract, /published_at: string \| null/);
 assert.doesNotMatch(recordContract, /statement_date|declaration_date|added_at/);
-assert.match(indexSource, /dossier\.finding\.published_at\s*\?\?\s*dossier\.source\.published_at/);
+assert.match(builderSource, /dossier\.finding\.published_at\s*\?\?\s*dossier\.source\.published_at/);
 
 const transpile = (text, filename) => ts.transpileModule(text, {
   fileName: filename,
@@ -48,10 +50,15 @@ function load(text, filename, dependencies) {
   );
   return out.exports;
 }
-const shape = load(await readFile(shapePath, "utf8"), shapePath, {});
+const shape = load(await readFile(shapePath, "utf8"), shapePath, {
+  "./format.ts": { publicIdSlug: (id) => id.replaceAll(":", "-") },
+});
 const search = load(indexSource, indexPath, {
   "./searchIndexShape.ts": shape,
   "./format.ts": { publicIdSlug: (id) => id.replaceAll(":", "-") },
+  "./searchRecordBuilders.ts": {
+    compactTerms: (terms) => terms, findingRecord() {}, statementRecords() { return []; },
+  },
   "./minisearchAdapter.ts": { publicTextScores: (records, query, fields, normalize) => new Map(
     records.flatMap((row, i) => {
       const terms = [...fields(row).primary, ...fields(row).secondary]
@@ -131,12 +138,22 @@ const countedIndex={records:[
   sample("topic:second", "Secondo tema", "topic", {route:"/temi/topic-second/",person_id:undefined,topic_ids:undefined}),
   sample("finding:one","Bilancio pubblico","finding",{person_id:"person:approved",topic_ids:["topic:approved"]}),
   sample("finding:two","Bilancio approvato","finding",{person_id:"person:approved",topic_ids:["topic:second"]}),
+  sample("statement:one","Bilancio originale","statement",{
+    person_id:"person:approved",wording_type:null,topic_ids:undefined,
+  }),
   sample("finding:held","Totale altro","finding",{person_id:"person:other",topic_ids:["topic:else"]}),
 ]};
 const counted=component.getExploreFacetCounts(countedIndex,"Bilancio",{assessment:"ALL",sort:"relevance"});
-assert.equal(counted.people["person:approved"],2);
+assert.equal(counted.people["person:approved"],3,
+  "approved original Statements count towards their published Person facet");
 assert.equal(counted.topics["topic:approved"],1);
 assert.equal(counted.people["person:other"],undefined,"nonmatching records may not pollute visible option counts");
+assert.equal(component.getExploreFacetCounts(countedIndex,"Bilancio",{kind:"finding"}).people["person:approved"],2,
+  "Finding-only Person counts must exclude original Statements");
+assert.equal(component.getExploreFacetCounts(countedIndex,"Bilancio",{kind:"statement"}).people["person:approved"],1,
+  "Statement-only Person counts must exclude Findings");
+assert.equal(component.getExploreFacetCounts(countedIndex,"Bilancio",{kind:"statement"}).topics["topic:approved"],undefined,
+  "original Statements have no independently approved Topic membership in this v2 index");
 const intersection=component.getExploreFacetCounts(countedIndex,"Bilancio",{
   assessment:"ALL",sort:"relevance",topicId:"topic:approved",personId:"person:approved",
 });
@@ -277,6 +294,18 @@ suggestionButton.props.onClick();
 assert.deepEqual(nextStates, [[0, "  inflazione  "]], "only explicit suggestion click updates query");
 const unchanged = render("Inflazione");
 assert.equal(walk(unchanged, (node) => node.props?.["data-search-suggestion"] === true).length, 0);
+assert(walk(view,node=>node.type===deps["./design/SegmentedControl"].default)
+  .some(node=>node.props.options?.some(option=>option.value==="statement")),
+  "top kind navigation must expose original Statements");
+assert(walk(view,node=>node.type==="option" && node.props.value==="statement").length>0,
+  "mobile filter must expose original Statements");
+for (const [selectedKind,expectedCount] of [["ALL",3],["finding",2],["statement",1]]) {
+  state=["Bilancio","ALL",selectedKind,"relevance","ALL","ALL",true,countedIndex,"ready",false];
+  const selected=render("Bilancio");
+  const personOption=walk(selected,node=>node.type==="option"&&node.props.value==="person:approved")[0];
+  assert(personOption && personOption.props.children.includes(expectedCount),
+    `Person option count must respect selected ${selectedKind} result kind`);
+}
 assert.match(source, /non (?:è|sono) la data della dichiarazione/i,
   "the UI must not mislabel v2 publication as original statement chronology");
 // Mobile refinement controls must expose selected public facets outside the

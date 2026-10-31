@@ -95,6 +95,30 @@ const second = await finalizeSearchIndex(buildSearchIndexMaterial(projection));
 assert.equal(canonicalJson(index), canonicalJson(second), "same projection must produce identical bytes");
 assert.deepEqual(await validateSearchIndex(structuredClone(index), projection.dataset_sha256), index);
 
+// A separately approved and pinned Person-v3 release makes its original
+// Statement wording available to public search. The result card must display
+// those exact words, rather than a generic Person label or a paraphrase.
+const publishedPeople = [{
+  person_id: "person:josé", slug: "person-jose", route: "/persone/person-jose/",
+  display_name: "José Rossi", disambiguator: null, roles: [],
+  statements: [{
+    statement_id: "statement:originale", statement_route: "/dichiarazioni/statement-originale/",
+    original_text: "L'inflazione è al 2 per cento",
+    source_title: "ISTAT", statement_date: "2026-10-05", role_at_statement: null,
+  }],
+}];
+const emptyProjection = { ...projection, dossiers: [], topics: [], contents: [], dossier_count: 0 };
+const releasedIndex = await finalizeSearchIndex(buildSearchIndexMaterial(emptyProjection, publishedPeople));
+await validateSearchIndex(releasedIndex, emptyProjection.dataset_sha256);
+const originalStatement = releasedIndex.records.find(row => row.kind === "statement");
+assert.equal(originalStatement?.title, publishedPeople[0].statements[0].original_text,
+  "the public Statement search-card headline must use the source-approved exact original");
+assert.equal(originalStatement?.route, "/dichiarazioni/statement-originale/");
+assert.deepEqual(searchPublicIndex(releasedIndex, "inflazione", {kind:"statement"}).records.map(row => row.id),
+  ["statement:originale"], "exact published wording must remain searchable");
+assert.equal(buildSearchIndexMaterial(emptyProjection).records.length, 0,
+  "without a separately released Person-v3 collection, no Statement may appear");
+
 const accent = searchPublicIndex(index, "Jose Rossi");
 assert.equal(accent.records[0]?.id, "person:josé rossi", "diacritics must not affect matching");
 const phrase = searchPublicIndex(index, "inflazione");
