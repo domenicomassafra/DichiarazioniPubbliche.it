@@ -377,6 +377,10 @@ class SubscriptionOperationsTests(unittest.TestCase):
             "openrouter/gemini-3.7-flash",
             "kilocode/google/gemini-3.1-pro",
             "antigravity/gemini-3.7-flash-preview",
+            " ANTIGRAVITY/GEMINI-3.7-FLASH ",
+            "antigravity/gemini-3.7-flash ",
+            "ANTIGRAVITY/GEMINI-3.1-PRO",
+            "\tantigravity/gemini-3.1-pro",
         ):
             with self.subTest(unapproved=unapproved):
                 first = Reviewer("agent:first", "antigravity/gemini-3.8-flash-tiered")
@@ -389,6 +393,30 @@ class SubscriptionOperationsTests(unittest.TestCase):
                 self.assertEqual(result.disposition, "HOLD")
                 self.assertIn("INDEPENDENT_REVIEW", result.reason_codes)
                 self.assertEqual((first.calls, second.calls), (0, 0))
+
+    def test_third_audit_model_alias_withdraws_without_calling_provider(self):
+        capture = Capture()
+        first = Reviewer("agent:first", "antigravity/gemini-3.8-flash-tiered")
+        second = Reviewer("agent:independent", "antigravity/gemini-3.7-flash")
+        auditor = Reviewer("agent:nightly", " ANTIGRAVITY/GEMINI-3.1-PRO ")
+        surface = Surface()
+        ops = AutonomousOperations(
+            capture=capture, challenge=Challenge(), first=first, second=second,
+            public_surface=surface, journal=Journal(),
+        )
+        self.assertEqual(
+            ops.evaluate_and_apply("finding:413", now=NOW).disposition, "PUBLISH"
+        )
+        fingerprint = candidate_fingerprint(capture.item)
+        packet = AutonomousProofPacket(
+            capture.item, first.review(capture.item, fingerprint),
+            second.review(capture.item, fingerprint),
+        )
+        result = ops.audit_and_apply(packet, auditor, now=NOW)
+        self.assertEqual(result.disposition, "AUDIT_HOLD")
+        self.assertEqual(result.reason_codes, ("THIRD_REVIEW_FAILED",))
+        self.assertEqual(auditor.calls, 0)
+        self.assertFalse(surface.visible)
 
     def test_fake_second_provider_holds_before_any_provider_calls(self):
         first = Reviewer("agent:first", "antigravity/gemini-3.8-flash-tiered")

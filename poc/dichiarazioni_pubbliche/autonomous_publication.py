@@ -31,15 +31,15 @@ APPROVED_REVIEW_MODELS = frozenset({
 
 
 def review_model_authorized(model_id: object) -> bool:
-    """A model string is eligible only when this policy explicitly permits it."""
-    return isinstance(model_id, str) and model_id.strip().casefold() in APPROVED_REVIEW_MODELS
+    """Require the exact canonical routed ID; no whitespace/case aliases."""
+    return type(model_id) is str and model_id in APPROVED_REVIEW_MODELS
 
 
 def independent_review_models_authorized(first_model: object, second_model: object) -> bool:
     """Require two different model identities, both approved by current policy."""
     if not (review_model_authorized(first_model) and review_model_authorized(second_model)):
         return False
-    return first_model.strip().casefold() != second_model.strip().casefold()
+    return first_model != second_model
 
 
 MIN_ALIGNMENT_CONFIDENCE = 0.95
