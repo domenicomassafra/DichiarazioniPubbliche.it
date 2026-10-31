@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import unittest
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
@@ -21,6 +22,7 @@ from dichiarazioni_pubbliche.senato_public_v3_source import (
     PinnedSenatoV3Source,
     SenatoPublicV3Source,
 )
+from dichiarazioni_pubbliche.senato_v3_postgres_candidates import CurrentSenatoPostgresCandidates
 from dichiarazioni_pubbliche.senato_akoma_corpus_handoff import (
     _canonical_document,
 )
@@ -309,6 +311,44 @@ class SenatoPublicV3ProducerTests(unittest.TestCase):
         self.assertIsNone(adapter.autonomous_publication_evidence("a", "b"))
         self.assertIsNone(adapter.current_statement_challenge_hold("a", "b"))
         self.assertEqual(self.build(adapter)["statements"], [])
+
+    def test_postgres_candidate_reader_uses_pinned_subject_and_omits_unapproved(self):
+        raw, pins, _, _ = setup()
+        store = Mock(run=Mock(return_value="[]"))
+        reader = CurrentSenatoPostgresCandidates(pins, store=store)
+        source = SenatoPublicV3Source(
+            pins, read_original_bytes=lambda: raw,
+            read_current_candidates=reader,
+        )
+        self.assertEqual(self.build(source)["statements"], [])
+        query = store.run.call_args.args[0]
+        self.assertIn("s.status='APPROVED'", query)
+        self.assertIn("speaker_resolution_status'='APPROVED'", query)
+        self.assertIn("c.body_purged_at IS NULL", query)
+        self.assertEqual(store.run.call_args.kwargs, {
+            "content_id": pins.content_id, "source_sha256": pins.xml_sha256,
+            "source_url": pins.source_raw_url,
+        })
+
+    def test_postgres_candidate_reader_rejects_tampering_and_ambiguity(self):
+        _, pins, _, record = setup()
+        valid = {**record, "status": "APPROVED",
+                 "quote": "Un dato: zero.",
+                 "quote_sha256": hashlib.sha256(b"Un dato: zero.").hexdigest()}
+        for rows in (
+            [{**valid, "quote": "alterato"}],
+            [valid, valid],
+            [{**valid, "source_version": "0" * 64}],
+            [{**valid, "status": "HELD"}],
+            [{**valid, "version_id": None}],
+            [{**valid, "quote_sha256": "0" * 64}],
+        ):
+            with self.subTest(rows=rows):
+                reader = CurrentSenatoPostgresCandidates(
+                    pins, store=Mock(run=Mock(return_value=json.dumps(rows))),
+                )
+                with self.assertRaisesRegex(ValueError, "DP468_CANDIDATE_REPLAY_INVALID"):
+                    reader()
 
 
 if __name__ == "__main__":

@@ -48,6 +48,19 @@ representation; they are **not XML byte offsets**.
 rights/privacy/wording/identity/publication reviews, two real different
 authorized-model completion receipts and the challenge status. These
 readers are deliberately **not implemented or defaulted to approval**.
+For the first reader, `CurrentSenatoPostgresCandidates(pins, store=...)`
+replays the native PostgreSQL `statement_candidate`/`passage`/`content_capture`
+records with the exact pinned source, official speech metadata, approved
+identity/quotation status and current Capture status. It requires a stored
+`public_version_id` assigned by the separate review process, and verifies the
+private passage's literal-text SHA-256. Supply the existing authenticated
+`CapturePipelineStore` as `store` and use the reader as
+`read_current_candidates=...`; it never mutates rows or upgrades a HELD
+candidate. Existing Senato corpus candidates are HELD, so this returns an
+empty list until they have real approval receipts. Merely changing database
+status or metadata cannot satisfy the later independent publication gates.
+Production wiring for the remaining three independently authenticated
+authorities and the release pin remains pending.
 Call `build_public_projection(adapter, include_public_statements=True)`
 only in a private verification context; the existing producer calls every
 proof reader and silently omits an ineligible Statement. An empty bundle
