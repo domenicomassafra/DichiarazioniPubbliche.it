@@ -24,7 +24,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 tools/check_contributor_acceptance.py
 cd web && npm run check && DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION=1 npm run build && npm run check:projection-boundary
 ```
 
-Per ogni modifica eseguire prima i test mirati dell'area, poi i gate pertinenti. Prima del push verificare `git diff --check`. Per pubblicare: diff, rebase su `origin/main`, push, SHA remoto riletto; installare con la procedura candidata → verifica → swap con rollback prevista dal runbook del consumer.
+Per ogni modifica eseguire prima i test mirati dell'area, poi i gate pertinenti. Prima del push verificare `git diff --check`. Per pubblicare: verificare il diff e gli eventuali conflitti reali, pushare la PR e rileggere lo SHA remoto; non aggiornare un head pulito e mergeable solo per inseguire `origin/main`. Installare con la procedura candidata → verifica → swap con rollback prevista dal runbook del consumer.
 
 Readback runtime:
 
