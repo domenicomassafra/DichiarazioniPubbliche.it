@@ -54,6 +54,7 @@ def setup():
         "speaker_name": "Persona non approvata",
         "start_char": start,
         "end_char": start + len("Un dato: zero."),
+        "quote_sha256": hashlib.sha256(b"Un dato: zero.").hexdigest(),
     }
     return raw, pins, canonical, record
 
@@ -285,6 +286,7 @@ class SenatoPublicV3ProducerTests(unittest.TestCase):
             {"status": "HELD"},
             {"speech_id": "senato:other"},
             {"start_char": 0},
+            {"quote_sha256": hashlib.sha256(b"Un dato: uno.").hexdigest()},
         ):
             with self.subTest(change=change):
                 source = SenatoPublicV3Source(
@@ -300,6 +302,27 @@ class SenatoPublicV3ProducerTests(unittest.TestCase):
         self.assertEqual(source.projectable_public_statements(), [])
         with self.assertRaisesRegex(ValueError, "SOURCE_VERSION_NOT_CURRENT"):
             source.get_statement_source_text(pins.content_id, "stale")
+
+    def test_approved_corpus_quote_cannot_be_replaced_by_source_span(self):
+        raw, pins, canonical, record = setup()
+        # The stored passage and its hash agree with each other, but no longer
+        # agree with the immutable canonical source at the approved offsets.
+        corrupted = {
+            **record, "status": "APPROVED",
+            "quote_sha256": hashlib.sha256(b"Un dato: uno.").hexdigest(),
+        }
+        store = Mock(run=Mock(return_value=json.dumps([
+            {**corrupted, "quote": "Un dato: uno."}
+        ])))
+        candidates = CurrentSenatoPostgresCandidates(pins, store=store)
+        self.assertEqual(len(candidates()), 1)
+        producer = SenatoPublicV3Source(
+            pins, read_original_bytes=lambda: raw,
+            read_current_candidates=candidates,
+        )
+        self.assertEqual(producer.projectable_public_statements(), [])
+        self.assertEqual(self.build(producer)["statements"], [])
+        self.assertEqual(canonical[record["start_char"]:record["end_char"]], "Un dato: zero.")
 
     def test_missing_unknown_challenge_cannot_pass_autonomous_gate(self):
         raw, pins, _, record = setup()
