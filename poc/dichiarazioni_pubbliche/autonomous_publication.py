@@ -16,14 +16,18 @@ from datetime import datetime
 from urllib.parse import urlsplit
 
 
-# v3 invalidates prior receipts when written-source evidence rules change.
-POLICY_VERSION = "autonomous-publication-413-v3"
-# Owner decision 23/25 October 2026: only this subscription route is approved.
-# A second agent using the same model is not a second independent model.
-# Keep review/publication in HOLD until the owner explicitly permits and a
-# trusted consumer independently verifies a different model and subscription.
+# v4 invalidates prior receipts when the owner-authorized model set changes.
+POLICY_VERSION = "autonomous-publication-413-v4"
+# Owner decision 31 October 2026: three distinct Gemini models, exclusively
+# through existing Antigravity/OmniRoute subscriptions; no direct/paid fallback.
+# Model strings alone never prove actual upstream identity, subscription scope,
+# quota, or permission to publish. The trusted live gateway must attest those.
 SUBSCRIPTION_REVIEW_MODEL = "antigravity/gemini-3.8-flash-tiered"
-APPROVED_REVIEW_MODELS = frozenset({SUBSCRIPTION_REVIEW_MODEL})
+APPROVED_REVIEW_MODELS = frozenset({
+    SUBSCRIPTION_REVIEW_MODEL,
+    "antigravity/gemini-3.7-flash",
+    "antigravity/gemini-3.1-pro",
+})
 
 
 def review_model_authorized(model_id: object) -> bool:
