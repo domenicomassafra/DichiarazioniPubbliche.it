@@ -9,7 +9,8 @@ Missing, ambiguous or stale evidence always yields no publication packet.
 from __future__ import annotations
 
 import re
-from typing import Callable
+from types import MappingProxyType
+from typing import Callable, Mapping
 
 from dichiarazioni_pubbliche.autonomous_agent_review import PROMPT_VERSION
 from dichiarazioni_pubbliche.autonomous_publication import (
@@ -33,6 +34,7 @@ class JournalReviewPacketReader:
         self, *,
         journal: SQLiteRunJournal,
         read_current_candidate: Callable[[str, str], AutonomousCandidate | None],
+        verify_provider_execution: Callable[[Mapping[str, object]], bool] | None = None,
         primary_agent_id: str,
         primary_model_id: str,
         independent_agent_id: str,
@@ -51,6 +53,11 @@ class JournalReviewPacketReader:
             raise ValueError("DP413_REVIEW_MODELS_NOT_INDEPENDENT")
         self.journal = journal
         self.read_current_candidate = read_current_candidate
+        # This MUST query an independently authenticated OmniRoute execution
+        # authority and bind the actual request, key/connection scope, returned
+        # model, prompt/evidence hash and usage to this exact receipt. A local
+        # journal entry, HMAC from the same writer or hardcoded True is not proof.
+        self.verify_provider_execution = verify_provider_execution
         self.identities = (
             (primary_agent_id, primary_model_id),
             (independent_agent_id, independent_model_id),
@@ -109,7 +116,8 @@ class JournalReviewPacketReader:
 
     def __call__(self, record_id: str, version_id: str) -> AutonomousProofPacket | None:
         if (type(record_id) is not str or not record_id
-                or type(version_id) is not str or not version_id):
+                or type(version_id) is not str or not version_id
+                or not callable(self.verify_provider_execution)):
             return None
         try:
             candidate = self.read_current_candidate(record_id, version_id)
@@ -128,6 +136,13 @@ class JournalReviewPacketReader:
                 if len(matching) != 1 or not self._matches(
                     matching[0], candidate, binding, agent_id, model_id,
                 ):
+                    return None
+                # A syntactically valid journal row is only a local claim:
+                # require an independent, currently authenticated execution
+                # witness before it can become a publication review.
+                if self.verify_provider_execution(
+                    MappingProxyType(matching[0]),
+                ) is not True:
                     return None
                 reviews.append(AgentReview(agent_id, model_id, binding, CHECKS, True))
             # Refuse a mid-read revocation, version change or rights change.

@@ -41,11 +41,19 @@ previously persisted by `OmniRouteAgentReview`. Bind it as the callable
 `read_current_autonomous_evidence` on `SenatoPublicV3Source`, supplying a
 separate authenticated `read_current_candidate(statement_id, version_id)`
 that rechecks the exact Capture, rights and identity before and after the
-journal read. It requires current source/quote/rights hashes, policy and
+journal read. Supply `verify_provider_execution(receipt)` from a **separate
+authenticated OmniRoute execution authority** that verifies the real request
+ID, DP key/connection scope, paid-route exclusion, model, response, prompt and
+evidence binding and actual usage. The journal alone is self-asserted storage:
+direct `append_review` calls can fabricate complete-looking receipts. Without
+this independent witness, the reader always returns no packet, even if two
+rows have valid hashes and metadata. A hardcoded `True` is not a production
+execution witness. The reader also requires current source/quote/rights hashes, policy and
 prompt versions, model-response identity, per-stage citations and real
 gateway completion IDs, and rejects ambiguous or tampered receipts.
 
-This is an available **reader component**, not a wired production caller.
+This is an available **fail-closed reader component**, not a wired production
+caller or an implementation of the authenticated OmniRoute execution authority.
 It cannot authenticate an owner-defined DP key, create upstream completions,
 approve privacy, clear a challenge or issue a release pin. The journal's
 private write authority must be limited to the genuine OmniRoute adapter;

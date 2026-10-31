@@ -50,7 +50,9 @@ authorized-model completion receipts and the challenge status. The autonomous
 receipt reader `JournalReviewPacketReader` is now available as a component,
 but still requires a separately authenticated current-candidate source and
 genuine OmniRoute completion receipts. The attestation and challenge readers
-remain unconnected; none of these lanes defaults to approval.
+remain unconnected. The receipt reader additionally requires an independently
+authenticated provider execution witness, because append-only journal entries
+alone can be fabricated by a local writer; none of these lanes defaults to approval.
 For the first reader, `CurrentSenatoPostgresCandidates(pins, store=...)`
 replays the native PostgreSQL `statement_candidate`/`passage`/`content_capture`
 records with the exact pinned source, official speech metadata, approved

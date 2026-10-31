@@ -1,6 +1,7 @@
 """DP-413: durable model receipts cannot be replayed as stale public authority."""
 
 from dataclasses import replace
+import hashlib
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -27,23 +28,48 @@ class PersistedReviewReaderTests(unittest.TestCase):
         self.journal = SQLiteRunJournal(Path(self.temporary.name) / "reviews.sqlite3")
         self.current = candidate()
         self.calls = []
+        # Independent fake gateway-side observations, separate from the
+        # SQLite journal. Only the fake HTTP transport populates this map.
+        self.gateway_events = {}
 
     def read_candidate(self, record_id, version_id):
         if (self.current.record_id, self.current.record_version_id) == (record_id, version_id):
             return self.current
         return None
 
-    def reader(self):
+    def provider_witness(self, receipt):
+        event = self.gateway_events.get(receipt.get("provider_request_id"))
+        return event == {
+            "requested_model": receipt.get("requested_model"),
+            "returned_model": receipt.get("returned_model"),
+            "prompt_sha256": receipt.get("prompt_sha256"),
+            "evidence_sha256": receipt.get("evidence_sha256"),
+            "usage": receipt.get("usage"),
+        }
+
+    def reader(self, *, authenticated=True):
         return JournalReviewPacketReader(
             journal=self.journal, read_current_candidate=self.read_candidate,
+            verify_provider_execution=self.provider_witness if authenticated else None,
             primary_agent_id="agent:primary", primary_model_id=PRIMARY,
             independent_agent_id="agent:independent", independent_model_id=SECOND,
         )
 
     def response(self, _url, _headers, payload):
         self.calls.append(payload["model"])
+        receipt_id = f"completion-{len(self.calls)}"
+        self.gateway_events[receipt_id] = {
+            "requested_model": payload["model"],
+            "returned_model": payload["model"],
+            "prompt_sha256": hashlib.sha256(json.dumps(
+                payload, sort_keys=True, ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode()).hexdigest(),
+            "evidence_sha256": candidate_fingerprint(self.current),
+            "usage": {"prompt_tokens": 100, "completion_tokens": 31},
+        }
         return 200, {
-            "id": f"completion-{len(self.calls)}",
+            "id": receipt_id,
             "model": payload["model"],
             "usage": {"prompt_tokens": 100, "completion_tokens": 31},
             "choices": [{"message": {"content": json.dumps({
@@ -100,6 +126,15 @@ class PersistedReviewReaderTests(unittest.TestCase):
         self.current = replace(original, privacy_cleared=False)
         self.assertIsNone(self.packet())
 
+    def test_locally_forged_receipts_cannot_qualify_without_provider_authority(self):
+        self.complete()
+        record_id = self.current.record_id
+        version_id = self.current.record_version_id
+        # Journal-only data must fail, including when rows look complete.
+        self.assertIsNone(self.reader(authenticated=False)(record_id, version_id))
+        self.gateway_events.clear()  # Provider has no matching executions.
+        self.assertIsNone(self.packet())
+
     def test_duplicate_or_mismatched_reviewer_receipts_fail_closed(self):
         self.complete()
         self.review("agent:primary", PRIMARY)
@@ -129,12 +164,14 @@ class PersistedReviewReaderTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "NOT_INDEPENDENT"):
             JournalReviewPacketReader(
                 journal=self.journal, read_current_candidate=self.read_candidate,
+                verify_provider_execution=self.provider_witness,
                 primary_agent_id="agent:primary", primary_model_id=PRIMARY,
                 independent_agent_id="AGENT:PRIMARY", independent_model_id=SECOND,
             )
         with self.assertRaisesRegex(ValueError, "NOT_INDEPENDENT"):
             JournalReviewPacketReader(
                 journal=self.journal, read_current_candidate=self.read_candidate,
+                verify_provider_execution=self.provider_witness,
                 primary_agent_id="agent:primary", primary_model_id=PRIMARY,
                 independent_agent_id="agent:independent", independent_model_id=PRIMARY,
             )
