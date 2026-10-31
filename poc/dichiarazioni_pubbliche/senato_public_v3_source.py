@@ -165,6 +165,12 @@ class SenatoPublicV3Source:
         observed = self._candidates()
         if not isinstance(observed, (list, tuple)) or len(observed) > _MAX_CANDIDATES:
             raise ValueError("DP468_CANDIDATE_REPLAY_INVALID")
+        # Freeze the first replay: an in-memory list supplied by a caller can
+        # change while proof readers inspect it. Compare with a second durable
+        # read after source and candidate evaluation.
+        snapshot = tuple(
+            dict(item) if isinstance(item, Mapping) else item for item in observed
+        )
         rows: list[dict[str, Any]] = []
         identifiers: set[str] = set()
         conflicted: set[str] = set()
@@ -218,6 +224,16 @@ class SenatoPublicV3Source:
                     "summary": None,
                     "translation": None,
                 })
+        if rows:
+            fresh = self._candidates()
+            if (not isinstance(fresh, (list, tuple))
+                    or len(fresh) > _MAX_CANDIDATES
+                    or tuple(dict(item) if isinstance(item, Mapping) else item
+                             for item in fresh) != snapshot):
+                raise ValueError("DP468_CANDIDATE_CHANGED_DURING_PROJECTION")
+            current_text, current_speeches, current_date = self._source()
+            if (current_text, current_speeches, current_date) != (canonical, speeches, date):
+                raise ValueError("DP468_SOURCE_CHANGED_DURING_PROJECTION")
         return [row for row in rows if row["statement_id"] not in conflicted]
 
     def get_statement_source_text(self, content_id: str, source_version: str) -> str:
