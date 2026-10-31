@@ -63,10 +63,7 @@ export function getExploreActiveFilters(
   return active;
 }
 
-/** Candidate counts are from Finding rows of the already-validated current
- * public index. When switching one facet, hold every other filter fixed;
- * never infer membership from names, mentions or private candidate tables.
- */
+/** Person includes public Findings/Statements; Topic needs reviewed Finding membership. */
 export function getExploreFacetCounts(
   index: PublicSearchIndex,
   query: string,
@@ -76,12 +73,10 @@ export function getExploreFacetCounts(
   const topics: Record<string, number> = Object.create(null);
   const publicPeople = new Set(index.records.filter(item=>item.kind==="person").map(item=>item.id));
   const publicTopics = new Set(index.records.filter(item=>item.kind==="topic").map(item=>item.id));
-  const rowsForPeople = searchPublicIndex(index, query, {
-    ...filters, kind:"finding", personId:"ALL",
-  }).records;
-  const rowsForTopics = searchPublicIndex(index, query, {
-    ...filters, kind:"finding", topicId:"ALL",
-  }).records;
+  const rowsForPeople = searchPublicIndex(index, query, {...filters, personId:"ALL"})
+    .records.filter(row => row.kind === "finding" || row.kind === "statement");
+  const rowsForTopics = searchPublicIndex(index, query, {...filters, topicId:"ALL"})
+    .records.filter(row => row.kind === "finding");
   for (const row of rowsForPeople) {
     if (row.person_id && publicPeople.has(row.person_id)) {
       people[row.person_id] = (people[row.person_id] ?? 0) + 1;
@@ -278,8 +273,8 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
     [index],
   );
   const facetCounts = useMemo(() => index ? getExploreFacetCounts(index, query, {
-    assessment, sort, personId, topicId,
-  }) : {people:{},topics:{}}, [index,query,assessment,sort,personId,topicId]);
+    assessment, kind, sort, personId, topicId,
+  }) : {people:{},topics:{}}, [index,query,assessment,kind,sort,personId,topicId]);
 
   const kindCounts = useMemo(() => {
     const counts: Record<SearchRecordKind | "ALL", number> = {
@@ -450,13 +445,10 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
         name="tipo-record"
         value={kind}
         onChange={(value) => changeKind(value as SearchRecordKind | "ALL")}
-        options={[
-          { value: "ALL", label: "Tutto", count: kindCounts.ALL },
-          { value: "finding", label: "Dichiarazioni", count: kindCounts.finding },
-          { value: "person", label: "Persone", count: kindCounts.person },
-          { value: "topic", label: "Temi", count: kindCounts.topic },
-          { value: "content", label: "Contenuti", count: kindCounts.content },
-        ]}
+        options={([
+          ["ALL","Tutto"],["finding","Dichiarazioni"],["statement","Originali"],
+          ["person","Persone"],["topic","Temi"],["content","Contenuti"],
+        ] as const).map(([value,label])=>({value,label,count:kindCounts[value]}))}
       />
 
       <div className="filter-row">
@@ -533,6 +525,7 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
             <select className="filter-button" value={kind} onChange={(event) => changeKind(event.target.value as SearchRecordKind | "ALL")}>
               <option value="ALL">Tutti i tipi</option>
               <option value="finding">Dichiarazioni</option>
+              <option value="statement">Dichiarazioni originali</option>
               <option value="person">Persone</option>
               <option value="topic">Temi</option>
               <option value="content">Contenuti</option>
