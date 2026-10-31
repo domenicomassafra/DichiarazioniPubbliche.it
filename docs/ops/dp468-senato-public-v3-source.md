@@ -29,7 +29,10 @@ canonical text SHA-256. Give `CurrentSenatoCaptureBytes` the existing
 `SourceFamilyUseGuard` using the current revocable private rights registry.
 It checks `PARSE_TEXT` before and after a bounded body read and checks
 the Capture record again, rejecting purged, quarantined, held, changed or
-rights-unknown captures. This permits an internal integrity read only.
+rights-unknown captures. Before reading, it also binds the private-use
+guard to the exact Senato source family, Content ID and pinned source URL;
+a PARSE_TEXT grant for another artifact must never read these bytes.
+This permits an internal integrity read only.
 
 Pass this callable to `SenatoPublicV3Source(read_original_bytes=...)`.
 For real candidate consumption, `read_current_candidates` must independently

@@ -5,8 +5,15 @@ from __future__ import annotations
 import hashlib
 import unittest
 from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
 
+from dichiarazioni_pubbliche.private_capture_rights import (
+    SourceFamilyUseGuard, SourceUseBlocked,
+)
+from dichiarazioni_pubbliche.rights_registry import (
+    PrivateRightsRecord, RightsSubject, rights_subject_fingerprint,
+)
 from dichiarazioni_pubbliche.public_projection import build_public_projection
 from dichiarazioni_pubbliche.public_schema import PUBLIC_STATEMENT_SCHEMA_VERSION
 from dichiarazioni_pubbliche.senato_public_v3_source import (
@@ -82,6 +89,7 @@ class SenatoPublicV3ProducerTests(unittest.TestCase):
         capture = Mock(find_capture=Mock(return_value=row))
         body = Mock(read=Mock(return_value=raw))
         guard = Mock(require=Mock())
+        guard.subject.source_family = "senato_open_data_akn"
         read_bytes = CurrentSenatoCaptureBytes(
             pins, capture_store=capture, body_store=body,
             private_source_guard=guard,
@@ -97,6 +105,68 @@ class SenatoPublicV3ProducerTests(unittest.TestCase):
         body.read.assert_called_once_with(
             "body:private", expected_sha256=pins.xml_sha256, max_bytes=3_000_000,
         )
+
+    def test_private_parse_right_is_bound_to_exact_senato_subject_before_body_read(self):
+        raw, pins, _, _ = setup()
+        capture_row = {
+            "content_id": pins.content_id, "content_sha256": pins.xml_sha256,
+            "final_url": pins.source_raw_url, "status": "CAPTURED",
+            "hold_status": "NONE", "rights_status": "CLEARED",
+            "body_ref": "body:private", "body_purged_at": None,
+        }
+        now = datetime(2026, 10, 31, 8, tzinfo=timezone.utc)
+
+        def guard_for(*, content_id, url, family):
+            subject = RightsSubject(
+                source_family=family, locator_kind="URL",
+                locator_value=url, content_id=content_id,
+            )
+            record = PrivateRightsRecord(
+                id="private-rights:senato", subject_fingerprint=rights_subject_fingerprint(subject),
+                source_family=family, locator_kind="URL", locator_value=url,
+                content_id=content_id, evidence_id=None,
+                transcript_segment_id=None, canonical_segment_id=None, passage_id=None,
+                rights_status="CLEARED", rights_receipt_ref="receipt:source",
+                permitted_uses=("PARSE_TEXT",), attribution_requirements=(),
+                reviewed_at=(now - timedelta(days=1)).isoformat(),
+                expires_at=(now + timedelta(days=1)).isoformat(),
+                reviewer_ref="reviewer:source", policy_version="private-use-policy-v1",
+                record_visibility="PRIVATE", supersedes_id=None, version_state="CURRENT",
+            )
+            return SourceFamilyUseGuard(
+                read_current=lambda _: record, subject=subject,
+                rights_record_id=record.id, policy_version=record.policy_version,
+                expected_sha256=pins.xml_sha256, clock=lambda: now,
+            )
+
+        for details in (
+            {"content_id": "content:other", "url": "https://example.org/other.xml",
+             "family": "senato_open_data_akn"},
+            {"content_id": pins.content_id, "url": pins.source_raw_url,
+             "family": "other_official_source"},
+        ):
+            with self.subTest(details=details):
+                body_store = Mock(read=Mock(return_value=raw))
+                reader = CurrentSenatoCaptureBytes(
+                    pins,
+                    capture_store=Mock(find_capture=Mock(return_value=capture_row)),
+                    body_store=body_store,
+                    private_source_guard=guard_for(**details),
+                )
+                with self.assertRaises(SourceUseBlocked):
+                    reader()
+                body_store.read.assert_not_called()
+
+        accepted = CurrentSenatoCaptureBytes(
+            pins,
+            capture_store=Mock(find_capture=Mock(return_value=capture_row)),
+            body_store=Mock(read=Mock(return_value=raw)),
+            private_source_guard=guard_for(
+                content_id=pins.content_id, url=pins.source_raw_url,
+                family="senato_open_data_akn",
+            ),
+        )
+        self.assertEqual(accepted(), raw)
 
     def test_capture_hold_revocation_and_midread_swap_refuse_original(self):
         raw, pins, _, _ = setup()
@@ -118,25 +188,30 @@ class SenatoPublicV3ProducerTests(unittest.TestCase):
             {"rights_status": "UNKNOWN"},
         ):
             with self.subTest(damage=damage):
+                guard = Mock(require=Mock())
+                guard.subject.source_family = "senato_open_data_akn"
                 reader = CurrentSenatoCaptureBytes(
                     pins,
                     capture_store=Mock(find_capture=Mock(return_value={**good, **damage})),
                     body_store=Mock(read=Mock(return_value=raw)),
-                    private_source_guard=Mock(require=Mock()),
+                    private_source_guard=guard,
                 )
                 with self.assertRaisesRegex(ValueError, "CURRENT_CAPTURE_UNAVAILABLE"):
                     reader()
+        guard = Mock(require=Mock())
+        guard.subject.source_family = "senato_open_data_akn"
         reader = CurrentSenatoCaptureBytes(
             pins,
             capture_store=Mock(find_capture=Mock(side_effect=[
                 good, {**good, "hold_status": "RIGHTS_HOLD"},
             ])),
             body_store=Mock(read=Mock(return_value=raw)),
-            private_source_guard=Mock(require=Mock()),
+            private_source_guard=guard,
         )
         with self.assertRaisesRegex(ValueError, "CAPTURE_CHANGED_DURING_READ"):
             reader()
         guard = Mock(require=Mock(side_effect=RuntimeError("PRIVATE_RIGHTS_REVOKED")))
+        guard.subject.source_family = "senato_open_data_akn"
         reader = CurrentSenatoCaptureBytes(
             pins, capture_store=Mock(find_capture=Mock(return_value=good)),
             body_store=Mock(read=Mock(return_value=raw)),

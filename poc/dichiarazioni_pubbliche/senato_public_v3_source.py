@@ -13,6 +13,7 @@ import hashlib
 import re
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable, Mapping
+from .private_capture_rights import SourceUseBlocked
 
 from .senato_akoma_corpus_handoff import _canonical_document
 from .senato_akoma_stenographic import import_senato_akoma_stenographic
@@ -58,7 +59,8 @@ class CurrentSenatoCaptureBytes:
         if (not isinstance(pins, PinnedSenatoV3Source)
                 or not callable(getattr(capture_store, "find_capture", None))
                 or not callable(getattr(body_store, "read", None))
-                or not callable(getattr(private_source_guard, "require", None))):
+                or not callable(getattr(private_source_guard, "require", None))
+                or not callable(getattr(private_source_guard, "bind_capture", None))):
             raise ValueError("DP468_TRUSTED_CAPTURE_READER_REQUIRED")
         self.pins = pins
         self.capture_store = capture_store
@@ -66,6 +68,11 @@ class CurrentSenatoCaptureBytes:
         self.private_source_guard = private_source_guard
 
     def __call__(self) -> bytes:
+        if getattr(self.private_source_guard.subject, "source_family", None) != "senato_open_data_akn":
+            raise SourceUseBlocked("DP468_SENATO_SOURCE_FAMILY_MISMATCH")
+        self.private_source_guard.bind_capture(
+            content_id=self.pins.content_id, url=self.pins.source_raw_url,
+        )
         self.private_source_guard.require("PARSE_TEXT", content_sha256=self.pins.xml_sha256)
         row = self.capture_store.find_capture(self.pins.content_id, self.pins.xml_sha256)
         if (not isinstance(row, dict)
