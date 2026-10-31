@@ -148,6 +148,12 @@ assert.equal(counted.people["person:approved"],3,
   "approved original Statements count towards their published Person facet");
 assert.equal(counted.topics["topic:approved"],1);
 assert.equal(counted.people["person:other"],undefined,"nonmatching records may not pollute visible option counts");
+assert.equal(component.getExploreFacetCounts(countedIndex,"Bilancio",{kind:"finding"}).people["person:approved"],2,
+  "Finding-only Person counts must exclude original Statements");
+assert.equal(component.getExploreFacetCounts(countedIndex,"Bilancio",{kind:"statement"}).people["person:approved"],1,
+  "Statement-only Person counts must exclude Findings");
+assert.equal(component.getExploreFacetCounts(countedIndex,"Bilancio",{kind:"statement"}).topics["topic:approved"],undefined,
+  "original Statements have no independently approved Topic membership in this v2 index");
 const intersection=component.getExploreFacetCounts(countedIndex,"Bilancio",{
   assessment:"ALL",sort:"relevance",topicId:"topic:approved",personId:"person:approved",
 });
@@ -288,6 +294,18 @@ suggestionButton.props.onClick();
 assert.deepEqual(nextStates, [[0, "  inflazione  "]], "only explicit suggestion click updates query");
 const unchanged = render("Inflazione");
 assert.equal(walk(unchanged, (node) => node.props?.["data-search-suggestion"] === true).length, 0);
+assert(walk(view,node=>node.type===deps["./design/SegmentedControl"].default)
+  .some(node=>node.props.options?.some(option=>option.value==="statement")),
+  "top kind navigation must expose original Statements");
+assert(walk(view,node=>node.type==="option" && node.props.value==="statement").length>0,
+  "mobile filter must expose original Statements");
+for (const [selectedKind,expectedCount] of [["ALL",3],["finding",2],["statement",1]]) {
+  state=["Bilancio","ALL",selectedKind,"relevance","ALL","ALL",true,countedIndex,"ready",false];
+  const selected=render("Bilancio");
+  const personOption=walk(selected,node=>node.type==="option"&&node.props.value==="person:approved")[0];
+  assert(personOption && personOption.props.children.includes(expectedCount),
+    `Person option count must respect selected ${selectedKind} result kind`);
+}
 assert.match(source, /non (?:è|sono) la data della dichiarazione/i,
   "the UI must not mislabel v2 publication as original statement chronology");
 // Mobile refinement controls must expose selected public facets outside the
