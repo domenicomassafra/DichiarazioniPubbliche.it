@@ -154,6 +154,16 @@ class HealthDigestPostgresTests(unittest.TestCase):
                     window = read_billing_day_window(
                         captured_query, current=datetime.fromisoformat(when)
                     )
+                # Always verify the canonical PostgreSQL day, even when host
+                # tzdata disagrees and the consumer correctly refuses it.
+                self.assertEqual(
+                    datetime.fromisoformat(observed["window_start"])
+                    .astimezone(timezone.utc).isoformat(), start
+                )
+                self.assertEqual(
+                    datetime.fromisoformat(observed["window_end"])
+                    .astimezone(timezone.utc).isoformat(), end
+                )
                 if not _host_agrees_with_pg_boundary_offsets(observed):
                     # A PostgreSQL/OS timezone database mismatch is a real
                     # budget-admission hold, not a test failure or an excuse
@@ -203,11 +213,20 @@ class HealthDigestPostgresTests(unittest.TestCase):
                         captured_query, current=datetime.fromisoformat(current)
                     )
                     digest = self.digest(datetime.fromisoformat(current))
+                self.assertEqual(
+                    datetime.fromisoformat(observed["window_start"])
+                    .astimezone(timezone.utc).isoformat(), start
+                )
+                self.assertEqual(
+                    datetime.fromisoformat(observed["window_end"])
+                    .astimezone(timezone.utc).isoformat(), end
+                )
                 if not _host_agrees_with_pg_boundary_offsets(observed):
                     billing = digest["billing_today"]
                     self.assertEqual(billing["window_timezone_status"], "UNKNOWN")
                     self.assertIsNone(billing["window_start"])
                     self.assertIsNone(billing["window_end"])
+                    self.assertIsNone(billing["attempt_count"])
                     self.assertFalse(billing["authorizes_dispatch"])
                     continue
                 self.assertEqual(digest["billing_today"]["window_timezone_status"], "KNOWN")
