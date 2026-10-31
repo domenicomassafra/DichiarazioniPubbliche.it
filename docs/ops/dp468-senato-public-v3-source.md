@@ -46,8 +46,11 @@ representation; they are **not XML byte offsets**.
 `read_current_attestations`, `read_current_autonomous_evidence` and
 `read_current_challenge_hold` must independently replay current persistent
 rights/privacy/wording/identity/publication reviews, two real different
-authorized-model completion receipts and the challenge status. These
-readers are deliberately **not implemented or defaulted to approval**.
+authorized-model completion receipts and the challenge status. The autonomous
+receipt reader `JournalReviewPacketReader` is now available as a component,
+but still requires a separately authenticated current-candidate source and
+genuine OmniRoute completion receipts. The attestation and challenge readers
+remain unconnected; none of these lanes defaults to approval.
 For the first reader, `CurrentSenatoPostgresCandidates(pins, store=...)`
 replays the native PostgreSQL `statement_candidate`/`passage`/`content_capture`
 records with the exact pinned source, official speech metadata, approved
@@ -63,8 +66,8 @@ The reader also carries the persisted private passage SHA-256 to the producer:
 the independently reconstructed canonical span must have that exact hash.
 If approved corpus wording and immutable source wording differ, the candidate
 is omitted rather than silently replaced during projection.
-Production wiring for the remaining three independently authenticated
-authorities and the release pin remains pending.
+Production wiring for the independent authorities, registered model-scoped
+credentials, nightly auditor and release pin remains pending.
 Call `build_public_projection(adapter, include_public_statements=True)`
 only in a private verification context; the existing producer calls every
 proof reader and silently omits an ineligible Statement. An empty bundle

@@ -33,6 +33,25 @@ A gateway model substitution, missing provider completion ID, duplicate ID,
 missing usage or unacceptable source/rights citations also prevents approval.
 Never set the gate to an unverified constant in production.
 
+## Durable review readback for Statement v3
+
+`JournalReviewPacketReader` in `autonomous_review_reader.py` reconstructs
+an `AutonomousProofPacket` only from two exact-model, distinct-agent receipts
+previously persisted by `OmniRouteAgentReview`. Bind it as the callable
+`read_current_autonomous_evidence` on `SenatoPublicV3Source`, supplying a
+separate authenticated `read_current_candidate(statement_id, version_id)`
+that rechecks the exact Capture, rights and identity before and after the
+journal read. It requires current source/quote/rights hashes, policy and
+prompt versions, model-response identity, per-stage citations and real
+gateway completion IDs, and rejects ambiguous or tampered receipts.
+
+This is an available **reader component**, not a wired production caller.
+It cannot authenticate an owner-defined DP key, create upstream completions,
+approve privacy, clear a challenge or issue a release pin. The journal's
+private write authority must be limited to the genuine OmniRoute adapter;
+test fixtures are not release evidence. A missing upstream service yields
+no packet and therefore HOLD.
+
 ## Dependencies before activation
 
 - [#458](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/458)
@@ -58,3 +77,5 @@ python3 ~/.local/share/controlcenter/resource-guard/workload_launcher.py build -
 
 The gateway fixtures exercise parsing and identity contracts. They are **not**
 two actual model executions and do not satisfy #464's live acceptance.
+Run `tests.test_dp413_persisted_review_reader` for receipt-replay and
+revocation regressions before connecting a real candidate source.
