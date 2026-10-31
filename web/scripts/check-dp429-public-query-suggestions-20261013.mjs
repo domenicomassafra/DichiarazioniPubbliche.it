@@ -16,9 +16,11 @@ const ts = require("typescript");
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const componentPath = path.join(webRoot, "src/components/ExploreClient.tsx");
 const indexPath = path.join(webRoot, "src/lib/searchIndex.ts");
+const builderPath = path.join(webRoot, "src/lib/searchRecordBuilders.ts");
 const shapePath = path.join(webRoot, "src/lib/searchIndexShape.ts");
 const source = await readFile(componentPath, "utf8");
 const indexSource = await readFile(indexPath, "utf8");
+const builderSource = await readFile(builderPath, "utf8");
 
 // The current v2 index offers result/source publication timestamps, not a
 // source-attested original declaration date or an archive addition timestamp.
@@ -28,7 +30,7 @@ const recordContract = indexSource.split("export interface PublicSearchRecord {"
 assert(recordContract, "public search record schema must be present");
 assert.match(recordContract, /published_at: string \| null/);
 assert.doesNotMatch(recordContract, /statement_date|declaration_date|added_at/);
-assert.match(indexSource, /dossier\.finding\.published_at\s*\?\?\s*dossier\.source\.published_at/);
+assert.match(builderSource, /dossier\.finding\.published_at\s*\?\?\s*dossier\.source\.published_at/);
 
 const transpile = (text, filename) => ts.transpileModule(text, {
   fileName: filename,
@@ -48,10 +50,15 @@ function load(text, filename, dependencies) {
   );
   return out.exports;
 }
-const shape = load(await readFile(shapePath, "utf8"), shapePath, {});
+const shape = load(await readFile(shapePath, "utf8"), shapePath, {
+  "./format.ts": { publicIdSlug: (id) => id.replaceAll(":", "-") },
+});
 const search = load(indexSource, indexPath, {
   "./searchIndexShape.ts": shape,
   "./format.ts": { publicIdSlug: (id) => id.replaceAll(":", "-") },
+  "./searchRecordBuilders.ts": {
+    compactTerms: (terms) => terms, findingRecord() {}, statementRecords() { return []; },
+  },
   "./minisearchAdapter.ts": { publicTextScores: (records, query, fields, normalize) => new Map(
     records.flatMap((row, i) => {
       const terms = [...fields(row).primary, ...fields(row).secondary]
@@ -131,10 +138,14 @@ const countedIndex={records:[
   sample("topic:second", "Secondo tema", "topic", {route:"/temi/topic-second/",person_id:undefined,topic_ids:undefined}),
   sample("finding:one","Bilancio pubblico","finding",{person_id:"person:approved",topic_ids:["topic:approved"]}),
   sample("finding:two","Bilancio approvato","finding",{person_id:"person:approved",topic_ids:["topic:second"]}),
+  sample("statement:one","Bilancio originale","statement",{
+    person_id:"person:approved",wording_type:null,topic_ids:undefined,
+  }),
   sample("finding:held","Totale altro","finding",{person_id:"person:other",topic_ids:["topic:else"]}),
 ]};
 const counted=component.getExploreFacetCounts(countedIndex,"Bilancio",{assessment:"ALL",sort:"relevance"});
-assert.equal(counted.people["person:approved"],2);
+assert.equal(counted.people["person:approved"],3,
+  "approved original Statements count towards their published Person facet");
 assert.equal(counted.topics["topic:approved"],1);
 assert.equal(counted.people["person:other"],undefined,"nonmatching records may not pollute visible option counts");
 const intersection=component.getExploreFacetCounts(countedIndex,"Bilancio",{

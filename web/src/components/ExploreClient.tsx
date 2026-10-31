@@ -63,9 +63,8 @@ export function getExploreActiveFilters(
   return active;
 }
 
-/** Candidate counts are from Finding rows of the already-validated current
- * public index. When switching one facet, hold every other filter fixed;
- * never infer membership from names, mentions or private candidate tables.
+/** Count published Findings and Statements for Person.
+ * Topic counts require approved Finding membership.
  */
 export function getExploreFacetCounts(
   index: PublicSearchIndex,
@@ -77,8 +76,8 @@ export function getExploreFacetCounts(
   const publicPeople = new Set(index.records.filter(item=>item.kind==="person").map(item=>item.id));
   const publicTopics = new Set(index.records.filter(item=>item.kind==="topic").map(item=>item.id));
   const rowsForPeople = searchPublicIndex(index, query, {
-    ...filters, kind:"finding", personId:"ALL",
-  }).records;
+    ...filters, kind:"ALL", personId:"ALL",
+  }).records.filter(row => row.kind === "finding" || row.kind === "statement");
   const rowsForTopics = searchPublicIndex(index, query, {
     ...filters, kind:"finding", topicId:"ALL",
   }).records;

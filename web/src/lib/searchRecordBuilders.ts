@@ -44,7 +44,8 @@ export function findingRecord(dossier: PublicDossier): PublicSearchRecord {
 }
 
 /** Index approved original Statements without inventing a factual Finding.
- * The original text appears on the separately gated Statement page.
+ * Only the separately authorized Person-v3 release reaches this builder;
+ * its source-approved original is the search-card headline as on the detail.
  * Search-index wording metadata is for normalized Finding/source-occurrence
  * labels, not a separate quote licence; direct_quote_eligible remains false.
  */
@@ -55,7 +56,7 @@ export function statementRecords(people: ApprovedPersonV3[]): PublicSearchRecord
       records.push({
         id: statement.statement_id,
         kind: "statement",
-        title: `Dichiarazione di ${person.display_name}`,
+        title: statement.original_text,
         subtitle: `${statement.source_title} · ${statement.statement_date}`,
         published_at: null, // Statement date is not a publication timestamp.
         assessment: null,
