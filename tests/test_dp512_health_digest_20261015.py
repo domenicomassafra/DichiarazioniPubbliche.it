@@ -6,11 +6,22 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 from tests import test_dp512_billing_pg_fence_next as pg_fixture
 from dichiarazioni_pubbliche.health_digest import build_health_digest
 from dichiarazioni_pubbliche.ops.budget_exposure_v1 import read_billing_day_window
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
+
+
+def _host_agrees_with_pg_boundary_offsets(response):
+    """Identify real host/PostgreSQL tzdata drift at the two DB day boundaries."""
+    zone = ZoneInfo(response["timezone"])
+    for key in ("window_start", "window_end"):
+        postgres = datetime.fromisoformat(response[key])
+        if postgres.utcoffset() != postgres.astimezone(zone).utcoffset():
+            return False
+    return True
 
 
 class HealthDigestPostgresTests(unittest.TestCase):
@@ -131,11 +142,36 @@ class HealthDigestPostgresTests(unittest.TestCase):
         )
         for zone, when, start, end in cases:
             with self.subTest(zone=zone, when=when):
+                observed = {}
+
+                def captured_query(sql, **params):
+                    raw = self.db.run(sql, **params)
+                    observed.update(json.loads(raw))
+                    return raw
+
                 with patch.dict(os.environ, PGTZ=zone):
                     self.assertEqual(self.db.run("SHOW TIME ZONE;"), zone)
                     window = read_billing_day_window(
-                        self.db.run, current=datetime.fromisoformat(when)
+                        captured_query, current=datetime.fromisoformat(when)
                     )
+                # Always verify the canonical PostgreSQL day, even when host
+                # tzdata disagrees and the consumer correctly refuses it.
+                self.assertEqual(
+                    datetime.fromisoformat(observed["window_start"])
+                    .astimezone(timezone.utc).isoformat(), start
+                )
+                self.assertEqual(
+                    datetime.fromisoformat(observed["window_end"])
+                    .astimezone(timezone.utc).isoformat(), end
+                )
+                if not _host_agrees_with_pg_boundary_offsets(observed):
+                    # A PostgreSQL/OS timezone database mismatch is a real
+                    # budget-admission hold, not a test failure or an excuse
+                    # to accept contradictory billing windows.
+                    self.assertEqual(window.timezone_status, "UNKNOWN")
+                    self.assertIsNone(window.start_utc)
+                    self.assertIsNone(window.end_utc)
+                    continue
                 self.assertEqual(window.timezone_status, "KNOWN")
                 self.assertEqual(window.start_utc.isoformat(), start)
                 self.assertEqual(window.end_utc.isoformat(), end)
@@ -166,7 +202,33 @@ class HealthDigestPostgresTests(unittest.TestCase):
                         f"WHERE id='receipt:{key}';"
                     )
                 with patch.dict(os.environ, PGTZ=zone):
+                    observed = {}
+
+                    def captured_query(sql, **params):
+                        raw = self.db.run(sql, **params)
+                        observed.update(json.loads(raw))
+                        return raw
+
+                    read_billing_day_window(
+                        captured_query, current=datetime.fromisoformat(current)
+                    )
                     digest = self.digest(datetime.fromisoformat(current))
+                self.assertEqual(
+                    datetime.fromisoformat(observed["window_start"])
+                    .astimezone(timezone.utc).isoformat(), start
+                )
+                self.assertEqual(
+                    datetime.fromisoformat(observed["window_end"])
+                    .astimezone(timezone.utc).isoformat(), end
+                )
+                if not _host_agrees_with_pg_boundary_offsets(observed):
+                    billing = digest["billing_today"]
+                    self.assertEqual(billing["window_timezone_status"], "UNKNOWN")
+                    self.assertIsNone(billing["window_start"])
+                    self.assertIsNone(billing["window_end"])
+                    self.assertIsNone(billing["attempt_count"])
+                    self.assertFalse(billing["authorizes_dispatch"])
+                    continue
                 self.assertEqual(digest["billing_today"]["window_timezone_status"], "KNOWN")
                 self.assertEqual(digest["billing_today"]["window_start"], start)
                 self.assertEqual(digest["billing_today"]["window_end"], end)
