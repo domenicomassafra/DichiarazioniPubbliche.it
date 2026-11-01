@@ -12,41 +12,32 @@ export async function checkExploreKindRadios({ cdp, key, waitFor, searchIndex, r
     const checkedValue = radio.properties?.find((property) => property.name === "checked")?.value?.value;
     assert.equal(String(checkedValue), String(checked), `${name}: assistive-tech checked state differs from DOM selection`);
   };
+  const selectNextKind = async (kind, name) => {
+    await key(cdp, "ArrowRight", { code: "ArrowRight", keyCode: 39 });
+    await waitFor(cdp, `document.querySelector('input[type=radio][value=${kind}]').checked`, `${kind}: keyboard transition failed`);
+    const count = searchIndex.records.filter((record) => record.kind === kind).length;
+    await waitFor(cdp, `document.querySelectorAll('.explore-row').length === ${count}`, `${kind}: visible results differ from approved index`);
+    assert.match(await cdp.evaluate("location.search"), new RegExp(`[?&]tipo=${kind}(?:&|$)`), `${kind}: URL filter mismatch`);
+    await assertRadioAx(name, "true");
+    return count;
+  };
   await assertRadioAx("Tutto", "true");
 
   await cdp.evaluate("document.querySelector('input[type=radio][value=ALL]').focus()");
-  await key(cdp, "ArrowRight", { code: "ArrowRight", keyCode: 39 });
-  await waitFor(cdp, "document.querySelector('input[type=radio][value=finding]').checked", "arrow-key radio transition failed");
+  const findingCount = await selectNextKind("finding", "Dichiarazioni");
   assert.equal(await cdp.evaluate("document.activeElement?.value"), "finding", "selected radio did not retain keyboard focus");
-  assert.match(await cdp.evaluate("location.search"), /tipo=finding/, "keyboard filter transition did not serialize URL state");
-  const findingCount = searchIndex.records.filter((record) => record.kind === "finding").length;
   await waitFor(cdp, `document.querySelector('.results-count')?.textContent?.includes('${findingCount} risultat')`, "filtered finding count not updated for screen readers");
-  assert.equal(await cdp.evaluate("document.querySelectorAll('.explore-row').length"), findingCount,
-    "filtered findings did not match visible result list");
-  await assertRadioAx("Dichiarazioni", "true");
   await assertRadioAx("Tutto", "false");
 
   // The public type grammar includes Originali between Dichiarazioni and Persone.
   // Exercise each native-radio arrow step; skipping an option would mask a
   // keyboard-navigation regression instead of checking the rendered order.
-  await key(cdp, "ArrowRight", { code: "ArrowRight", keyCode: 39 });
-  await waitFor(cdp, "document.querySelector('input[type=radio][value=statement]').checked", "keyboard statement-kind transition failed");
-  const statementCount = searchIndex.records.filter((record) => record.kind === "statement").length;
-  assert.equal(await cdp.evaluate("document.querySelectorAll('.explore-row').length"), statementCount,
-    "Statement radio filter does not match approved public Statement records");
-  assert.match(await cdp.evaluate("location.search"), /tipo=statement/, "Statement filter did not serialize shareable URL");
-  await assertRadioAx("Originali", "true");
+  await selectNextKind("statement", "Originali");
 
-  await key(cdp, "ArrowRight", { code: "ArrowRight", keyCode: 39 });
-  await waitFor(cdp, "document.querySelector('input[type=radio][value=person]').checked", "keyboard next-kind transition failed");
-  const personCount = searchIndex.records.filter((record) => record.kind === "person").length;
-  assert.equal(await cdp.evaluate("document.querySelectorAll('.explore-row').length"), personCount,
-    "People radio filter does not match approved public Person records");
+  const personCount = await selectNextKind("person", "Persone");
   assert.equal(await cdp.evaluate("document.querySelector('.results-count[aria-live=polite]')?.textContent.trim()"),
     `${personCount} ${personCount === 1 ? "risultato" : "risultati"}`,
     "filtered Person result count not announced semantically");
-  assert.match(await cdp.evaluate("location.search"), /tipo=person/, "Person filter did not serialize shareable URL");
-  await assertRadioAx("Persone", "true");
   const personLinks = await cdp.evaluate("[...document.querySelectorAll('.explore-row .claim-row-claim')].map(link => link.getAttribute('href'))");
   assert(personLinks.every((route) => route.startsWith("/persone/") && routes.includes(route)),
     "Person results link outside built canonical destinations");
