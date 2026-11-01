@@ -1,13 +1,7 @@
-"""DP-468 durable, fail-closed authorities for public Statement v3.
+"""DP-468 private, fail-closed Statement v3 authorities and challenge ledgers.
 
-Authority events bind an exact statement version to source and quote hashes.
-Rights grants are revocable by appending a later RIGHTS event. Privacy and
-retention decisions are separate persisted gates. Challenge requests and
-their state transitions are private append-only ledgers.
-
-This module never creates an approval from a local journal claim. Model review
-gates must match a current JournalReviewPacketReader packet; rights, privacy and
-retention events require an independently verified durable review reference.
+Model reviews bind exact semantic decisions to provider-witnessed receipts.
+Rights, privacy and retention approvals require durable independent evidence.
 """
 
 from __future__ import annotations
@@ -15,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Mapping
 
@@ -30,6 +25,8 @@ _AUTHORITY_KINDS = (
     "CONTEXT", "WORDING", "PUBLICATION",
 )
 _MODEL_REVIEW_KINDS = frozenset({"ATTRIBUTION", "CONTEXT", "WORDING"})
+AUTHORITY_CHECKS = (*CHECKS, "AUTHORITY_DECISION")
+AUTHORITY_PROMPT_VERSION = "dp468-authority-review-v1"
 _CHALLENGE_STATES = frozenset({
     "OPEN", "TRIAGED", "NEEDS_INFO", "UPHELD", "CORRECTED", "RETRACTED",
     "REJECTED", "WITHDRAWN", "CLOSED_NO_CHANGE",
@@ -53,12 +50,41 @@ _CHALLENGE_TRANSITIONS = {
 }
 
 
+@dataclass(frozen=True)
+class AuthorityReviewPacket:
+    """Two independent model receipts for one exact private authority decision."""
+
+    candidate: AutonomousCandidate
+    authority_kind: str
+    decision: Mapping[str, object]
+    primary: AgentReview
+    independent: AgentReview
+
+
 def _canonical(value: object) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
 def _digest(value: object) -> str:
     return hashlib.sha256(_canonical(value).encode("utf-8")).hexdigest()
+
+
+def authority_review_fingerprint(
+    candidate: AutonomousCandidate, authority_kind: str,
+    decision: Mapping[str, object],
+) -> str:
+    """Fingerprint the source candidate and the exact semantic decision reviewed."""
+    if (not isinstance(candidate, AutonomousCandidate)
+            or type(authority_kind) is not str
+            or authority_kind not in _MODEL_REVIEW_KINDS
+            or not isinstance(decision, Mapping)):
+        raise ValueError("DP468_AUTHORITY_REVIEW_DECISION_INVALID")
+    return _digest({
+        "prompt_version": AUTHORITY_PROMPT_VERSION,
+        "candidate_evidence_sha256": candidate_fingerprint(candidate),
+        "authority_kind": authority_kind,
+        "decision": dict(decision),
+    })
 
 
 def _text(value: object, code: str) -> str:
@@ -137,13 +163,11 @@ def validate_statement_binding(binding: Mapping[str, object]) -> dict[str, objec
     return result
 
 
-def _review_evidence(
-    packet: AutonomousProofPacket, binding: Mapping[str, object],
-) -> dict[str, object]:
-    if (not isinstance(packet, AutonomousProofPacket)
-            or not isinstance(packet.candidate, AutonomousCandidate)):
+def _review_candidate_fingerprint(
+    candidate: AutonomousCandidate, binding: Mapping[str, object],
+) -> str:
+    if not isinstance(candidate, AutonomousCandidate):
         raise ValueError("DP468_MODEL_REVIEW_PACKET_REQUIRED")
-    candidate = packet.candidate
     parsed_binding = validate_statement_binding(binding)
     try:
         evidence_sha256 = candidate_fingerprint(candidate)
@@ -177,6 +201,15 @@ def _review_evidence(
         or not _valid_https_url(candidate.privacy_citation_url)
     ):
         raise ValueError("DP468_MODEL_REVIEW_CANDIDATE_BINDING_MISMATCH")
+    return evidence_sha256
+
+
+def _review_evidence(
+    packet: AutonomousProofPacket, binding: Mapping[str, object],
+) -> dict[str, object]:
+    if not isinstance(packet, AutonomousProofPacket):
+        raise ValueError("DP468_MODEL_REVIEW_PACKET_REQUIRED")
+    evidence_sha256 = _review_candidate_fingerprint(packet.candidate, binding)
 
     primary, independent = packet.primary, packet.independent
     if not isinstance(primary, AgentReview) or not isinstance(independent, AgentReview):
@@ -231,6 +264,103 @@ def _review_evidence(
         raise ValueError("DP468_MODEL_REVIEW_NOT_INDEPENDENT")
     return {
         "evidence_sha256": evidence_sha256,
+        "primary": receipts[0],
+        "independent": receipts[1],
+    }
+
+
+def _authority_review_evidence(
+    packet: AuthorityReviewPacket, binding: Mapping[str, object],
+    authority_kind: str, decision: Mapping[str, object],
+) -> dict[str, object]:
+    if not isinstance(packet, AuthorityReviewPacket):
+        raise ValueError("DP468_AUTHORITY_REVIEW_PACKET_REQUIRED")
+    parsed_decision = dict(decision)
+    if (packet.authority_kind != authority_kind
+            or not isinstance(packet.decision, Mapping)
+            or dict(packet.decision) != parsed_decision):
+        raise ValueError("DP468_AUTHORITY_REVIEW_DECISION_MISMATCH")
+    candidate_evidence_sha256 = _review_candidate_fingerprint(packet.candidate, binding)
+    parsed_binding = validate_statement_binding(binding)
+    if authority_kind == "ATTRIBUTION":
+        candidate_identity_sources = {
+            value for value in (
+                packet.candidate.public_role_source_url,
+                packet.candidate.public_context_source_url,
+            ) if isinstance(value, str) and value
+        }
+        decision_identity_sources = {
+            value for value in (
+                parsed_decision.get("official_person_uri"),
+                parsed_decision.get("public_role_source_url"),
+            ) if isinstance(value, str) and value
+        }
+        if (parsed_decision.get("speaker_name") != parsed_binding["speaker_name"]
+                or not candidate_identity_sources.intersection(decision_identity_sources)):
+            raise ValueError("DP468_AUTHORITY_REVIEW_DECISION_MISMATCH")
+    elif (authority_kind == "WORDING"
+          and parsed_decision.get("source_kind") != packet.candidate.source_kind):
+        raise ValueError("DP468_AUTHORITY_REVIEW_DECISION_MISMATCH")
+    evidence_sha256 = authority_review_fingerprint(
+        packet.candidate, authority_kind, parsed_decision,
+    )
+    primary, independent = packet.primary, packet.independent
+    if not isinstance(primary, AgentReview) or not isinstance(independent, AgentReview):
+        raise ValueError("DP468_AUTHORITY_REVIEW_PACKET_REQUIRED")
+    primary_agent = _text(primary.agent_id, "DP468_MODEL_REVIEW_RECEIPT_INVALID")
+    independent_agent = _text(independent.agent_id, "DP468_MODEL_REVIEW_RECEIPT_INVALID")
+    if (not independent_review_models_authorized(
+            primary.model_id, independent.model_id,
+        ) or primary_agent.casefold() == independent_agent.casefold()):
+        raise ValueError("DP468_MODEL_REVIEW_NOT_INDEPENDENT")
+
+    receipts: list[dict[str, object]] = []
+    for review in (primary, independent):
+        _text(review.agent_id, "DP468_MODEL_REVIEW_RECEIPT_INVALID")
+        if (
+            review.evidence_sha256 != evidence_sha256
+            or review.provider != "omniroute"
+            or not matches_returned_model(review.model_id, review.returned_model)
+            or review.accepted is not True
+            or review.checked_stages != AUTHORITY_CHECKS
+        ):
+            raise ValueError("DP468_MODEL_REVIEW_RECEIPT_INVALID")
+        request_id = _text(
+            review.provider_request_id, "DP468_MODEL_REVIEW_RECEIPT_INVALID",
+        )
+        prompt_sha256 = _sha(
+            review.prompt_sha256, "DP468_MODEL_REVIEW_RECEIPT_INVALID",
+        )
+        usage = review.usage
+        if (not isinstance(usage, Mapping)
+                or type(usage.get("prompt_tokens")) is not int
+                or usage["prompt_tokens"] <= 0
+                or type(usage.get("completion_tokens")) is not int
+                or usage["completion_tokens"] < 0):
+            raise ValueError("DP468_MODEL_REVIEW_RECEIPT_INVALID")
+        receipts.append({
+            "agent_id": review.agent_id,
+            "model_id": review.model_id,
+            "provider": review.provider,
+            "provider_request_id": request_id,
+            "returned_model": review.returned_model,
+            "prompt_sha256": prompt_sha256,
+            "usage": {
+                "prompt_tokens": usage["prompt_tokens"],
+                "completion_tokens": usage["completion_tokens"],
+            },
+            "accepted": True,
+            "checked_stages": list(AUTHORITY_CHECKS),
+            "evidence_sha256": evidence_sha256,
+        })
+    if receipts[0]["provider_request_id"] == receipts[1]["provider_request_id"]:
+        raise ValueError("DP468_MODEL_REVIEW_NOT_INDEPENDENT")
+    return {
+        "evidence_sha256": evidence_sha256,
+        "candidate_evidence_sha256": candidate_evidence_sha256,
+        "authority_kind": authority_kind,
+        "decision_sha256": _digest(parsed_decision),
+        "decision": parsed_decision,
         "primary": receipts[0],
         "independent": receipts[1],
     }

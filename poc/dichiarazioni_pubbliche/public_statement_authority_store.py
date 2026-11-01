@@ -5,7 +5,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Callable, Mapping
 from .autonomous_publication import AutonomousProofPacket
 from .public_statement_authority_common import (
-    _AUTHORITY_KINDS, _MODEL_REVIEW_KINDS, _digest, _text, _iso_datetime,
+    AuthorityReviewPacket, _AUTHORITY_KINDS, _MODEL_REVIEW_KINDS,
+    _authority_review_evidence, _digest, _text, _iso_datetime,
     _canonical, _review_evidence, _model_review_event_id,
     _validate_release_dispositions, validate_statement_binding,
 )
@@ -52,6 +53,7 @@ class PublicStatementAuthorityStore:
         review_event_id: str | None = None,
         review_evidence: Mapping[str, object] | None = None,
         review_packet: AutonomousProofPacket | None = None,
+        authority_review_packet: AuthorityReviewPacket | None = None,
         expires_at: str | None = None,
         verify_authority_review: Callable[[Mapping[str, object]], bool] | None = None,
     ) -> str:
@@ -80,9 +82,11 @@ class PublicStatementAuthorityStore:
                 authority_kind, parsed_payload, parsed_expiry, now=current_time,
             )
             if authority_kind in _MODEL_REVIEW_KINDS:
-                if review_packet is None:
-                    raise ValueError("DP468_MODEL_REVIEW_PACKET_REQUIRED")
-                evidence = _review_evidence(review_packet, parsed_binding)
+                if authority_review_packet is None:
+                    raise ValueError("DP468_AUTHORITY_REVIEW_PACKET_REQUIRED")
+                evidence = _authority_review_evidence(
+                    authority_review_packet, parsed_binding, authority_kind, parsed_payload,
+                )
                 review_evidence = evidence
                 review_event_id = _model_review_event_id(authority_kind, evidence)
             elif authority_kind == "PUBLICATION":
@@ -191,12 +195,16 @@ class PublicStatementAuthorityStore:
 
     def current_attestations(
         self, *, binding: Mapping[str, object], review_packet: AutonomousProofPacket,
+        authority_review_packets: Mapping[str, AuthorityReviewPacket],
         verify_authority_review: Callable[[Mapping[str, object]], bool] | None,
         now: datetime | None = None,
     ) -> dict[str, dict[str, object]] | None:
         try:
             parsed_binding = validate_statement_binding(binding)
             evidence = _review_evidence(review_packet, parsed_binding)
+            if (not isinstance(authority_review_packets, Mapping)
+                    or set(authority_review_packets) != set(_MODEL_REVIEW_KINDS)):
+                return None
             rows = self.events(
                 str(parsed_binding["statement_id"]), str(parsed_binding["version_id"]),
             )
@@ -235,8 +243,13 @@ class PublicStatementAuthorityStore:
                 payload = row["payload"]
                 _validate_approved_payload(kind, payload, expiry, now=current_time)
                 if kind in _MODEL_REVIEW_KINDS:
-                    if (row.get("review_evidence") != evidence
-                            or row.get("review_event_id") != _model_review_event_id(kind, evidence)):
+                    authority_evidence = _authority_review_evidence(
+                        authority_review_packets[kind], parsed_binding, kind, payload,
+                    )
+                    if (row.get("review_evidence") != authority_evidence
+                            or row.get("review_event_id") != _model_review_event_id(
+                                kind, authority_evidence,
+                            )):
                         return None
                 else:
                     if kind == "PUBLICATION":

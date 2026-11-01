@@ -8,7 +8,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dichiarazioni_pubbliche.public_statement_authority import PublicStatementChallengeStore
-from test_dp468_public_statement_authority import MemoryPostgres
+from dp468_authority_support import MemoryPostgres
 
 class PublicStatementChallengeTests(unittest.TestCase):
     def setUp(self):
