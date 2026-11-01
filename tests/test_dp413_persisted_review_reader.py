@@ -84,6 +84,11 @@ class PersistedReviewReaderTests(unittest.TestCase):
                 citations["AUTHORITY_DECISION"].extend([
                     decision["official_person_uri"], decision["public_role_source_url"],
                 ])
+            elif (authority["authority_kind"] == "CONTEXT"
+                  and self.current.public_context_source_url):
+                citations["AUTHORITY_DECISION"].append(
+                    self.current.public_context_source_url,
+                )
         self.gateway_events[receipt_id] = {
             "requested_model": payload["model"],
             "returned_model": payload["model"],

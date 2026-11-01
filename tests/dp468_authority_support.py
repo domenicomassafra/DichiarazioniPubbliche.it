@@ -20,6 +20,7 @@ from dichiarazioni_pubbliche.public_statement_authority_common import (
     AUTHORITY_CHECKS, AuthorityReviewPacket, authority_review_fingerprint,
 )
 from test_autonomous_publication import written_candidate
+from tests.test_dp413_persisted_review_reader import PersistedReviewReaderTests
 
 
 PRIMARY_MODEL = "antigravity/gemini-3.8-flash-tiered"
@@ -216,26 +217,30 @@ class AuthorityFixture(unittest.TestCase):
     def setUp(self):
         self.now, self.binding, self.packet, self.third = fixture()
         self.db = MemoryPostgres()
-        self.store = PublicStatementAuthorityStore(store=self.db)
+        self.provider = PersistedReviewReaderTests(methodName="runTest")
+        self.provider.setUp()
+        self.addCleanup(self.provider.doCleanups)
+        self.provider.current = self.packet.candidate
+        self.model_reader = self.provider.reader()
+        self.store = PublicStatementAuthorityStore(
+            store=self.db, model_execution_reader=self.model_reader,
+        )
         self.expiry = (self.now + timedelta(days=7)).isoformat()
-        self.verify = lambda row: row.get("review_event_id", "").startswith("review:")
+        # Synthetic trusted witness for fixture-only tests; production must
+        # independently verify current journal/provider execution for models.
+        self.verify = lambda row: row.get("review_event_id", "").startswith(
+            ("review:", "public-statement-review:")
+        )
         self.authority_packets = {}
 
     def authority_packet(self, kind, decision):
-        evidence = authority_review_fingerprint(self.packet.candidate, kind, decision)
-        packet = AuthorityReviewPacket(
-            self.packet.candidate, kind, dict(decision),
-            replace(
-                self.packet.primary, evidence_sha256=evidence,
-                checked_stages=AUTHORITY_CHECKS,
-                provider_request_id=f"completion:{kind.lower()}:primary",
-            ),
-            replace(
-                self.packet.independent, evidence_sha256=evidence,
-                checked_stages=AUTHORITY_CHECKS,
-                provider_request_id=f"completion:{kind.lower()}:independent",
-            ),
+        self.provider.review_authority("agent:primary", PRIMARY_MODEL, kind, decision)
+        self.provider.review_authority("agent:independent", SECOND_MODEL, kind, decision)
+        packet = self.model_reader.authority_packet(
+            self.binding["statement_id"], self.binding["version_id"], kind, decision,
         )
+        if packet is None:
+            raise AssertionError("test gateway witness missing")
         self.authority_packets[kind] = packet
         return packet
 

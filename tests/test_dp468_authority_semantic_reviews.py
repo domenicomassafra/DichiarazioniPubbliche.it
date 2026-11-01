@@ -77,6 +77,49 @@ class PublicStatementAuthoritySemanticReviewTests(AuthorityFixture):
                 authority_review_packet=replace(valid_packet, primary=invalid),
             )
 
+    def test_model_receipt_metadata_without_provider_witness_is_rejected(self):
+        decision = {
+            "speech_act": "DIRECT_ASSERTION", "endorsed": True,
+            "source_session_ref": "senato-session:2026-10-31",
+        }
+        packet = self.authority_packet("CONTEXT", decision)
+        self.provider.gateway_events.clear()
+        with self.assertRaisesRegex(ValueError, "DP468_AUTHORITY_REVIEW_NOT_AUTHENTICATED"):
+            self.append("CONTEXT", decision, authority_review_packet=packet)
+        self.assertEqual(self.db.authority_events, [])
+
+    def test_stale_provider_completion_fails_on_current_replay(self):
+        self.append_all()
+        self.provider.gateway_events.clear()
+        self.assertIsNone(self.store.current_attestations(
+            binding=self.binding, review_packet=self.packet,
+            authority_review_packets=self.authority_packets,
+            verify_authority_review=self.verify, now=self.now,
+        ))
+
+    def test_semantic_model_packet_without_external_witness_is_held(self):
+        decision = {
+            "speech_act": "DIRECT_ASSERTION", "endorsed": True,
+            "source_session_ref": "senato-session:2026-10-31",
+        }
+        packet = self.authority_packet("CONTEXT", decision)
+        with self.assertRaisesRegex(ValueError, "DP468_EXTERNAL_AUTHORITY_REVIEW_INVALID"):
+            self.append(
+                "CONTEXT", decision, authority_review_packet=packet,
+                verify=lambda _row: False,
+            )
+        self.assertEqual(self.db.authority_events, [])
+
+    def test_model_authority_lost_after_provider_witness_revocation(self):
+        self.append_all()
+        self.assertIsNone(self.store.current_attestations(
+            binding=self.binding, review_packet=self.packet,
+            authority_review_packets=self.authority_packets,
+            verify_authority_review=lambda row: row["authority_kind"] not in {
+                "ATTRIBUTION", "CONTEXT", "WORDING",
+            }, now=self.now,
+        ))
+
     def test_changed_context_payload_cannot_reuse_accepted_reviews_on_append(self):
         original = {
             "speech_act": "DIRECT_ASSERTION", "endorsed": True,

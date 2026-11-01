@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Mapping
 from .autonomous_publication import AutonomousProofPacket
+from .autonomous_review_reader import JournalReviewPacketReader
 from .public_statement_authority_common import (
     AuthorityReviewPacket, _AUTHORITY_KINDS, _MODEL_REVIEW_KINDS,
     _authority_review_evidence, _digest, _text, _iso_datetime,
@@ -17,10 +18,31 @@ from .public_statement_authority_policy import (
 class PublicStatementAuthorityStore:
     """Append-only authority event store over the existing Postgres runtime."""
 
-    def __init__(self, *, store: object):
+    def __init__(
+        self, *, store: object,
+        model_execution_reader: JournalReviewPacketReader | None = None,
+    ):
         if not callable(getattr(store, "run", None)):
             raise ValueError("DP468_AUTHORITY_STORE_REQUIRED")
+        if (model_execution_reader is not None
+                and not isinstance(model_execution_reader, JournalReviewPacketReader)):
+            raise ValueError("DP468_MODEL_EXECUTION_READER_INVALID")
         self.store = store
+        self.model_execution_reader = model_execution_reader
+
+    def _verified_model_packet(
+        self, binding: Mapping[str, object], kind: str,
+        payload: Mapping[str, object], packet: AuthorityReviewPacket,
+    ) -> bool:
+        reader = self.model_execution_reader
+        if (reader is None or not callable(reader.verify_provider_execution)):
+            return False
+        # Journal replay independently authenticates both provider completions.
+        fresh = reader.authority_packet(
+            str(binding["statement_id"]), str(binding["version_id"]),
+            kind, payload,
+        )
+        return fresh is not None and fresh == packet
 
     def events(self, statement_id: str, version_id: str) -> list[dict[str, object]]:
         raw = self.store.run(
@@ -87,6 +109,10 @@ class PublicStatementAuthorityStore:
                 evidence = _authority_review_evidence(
                     authority_review_packet, parsed_binding, authority_kind, parsed_payload,
                 )
+                if not self._verified_model_packet(
+                    parsed_binding, authority_kind, parsed_payload, authority_review_packet,
+                ):
+                    raise ValueError("DP468_AUTHORITY_REVIEW_NOT_AUTHENTICATED")
                 review_evidence = evidence
                 review_event_id = _model_review_event_id(authority_kind, evidence)
             elif authority_kind == "PUBLICATION":
@@ -146,7 +172,7 @@ class PublicStatementAuthorityStore:
         }
         integrity = _digest(material)
         event_id = "public-statement-authority:" + integrity
-        if status == "APPROVED" and authority_kind not in _MODEL_REVIEW_KINDS:
+        if status == "APPROVED":
             review_row = {
                 **material, "event_id": event_id, "integrity_sha256": integrity,
             }
@@ -246,17 +272,20 @@ class PublicStatementAuthorityStore:
                     authority_evidence = _authority_review_evidence(
                         authority_review_packets[kind], parsed_binding, kind, payload,
                     )
-                    if (row.get("review_evidence") != authority_evidence
+                    if (not self._verified_model_packet(
+                            parsed_binding, kind, payload, authority_review_packets[kind])
+                            or row.get("review_evidence") != authority_evidence
                             or row.get("review_event_id") != _model_review_event_id(
                                 kind, authority_evidence,
                             )):
                         return None
-                else:
-                    if kind == "PUBLICATION":
-                        _validate_release_dispositions(row.get("review_evidence"), evidence)
-                    if (not callable(verify_authority_review)
-                            or verify_authority_review(row) is not True):
-                        return None
+                elif kind == "PUBLICATION":
+                    _validate_release_dispositions(row.get("review_evidence"), evidence)
+                # Recheck the independent authority on every replay, including
+                # semantic decisions; in-memory model metadata is not an execution.
+                if (not callable(verify_authority_review)
+                        or verify_authority_review(row) is not True):
+                    return None
                 decision_id = str(row["decision_id"])
                 review_id = str(row["review_event_id"])
                 if decision_id in decision_ids or review_id in review_ids:
