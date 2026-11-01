@@ -226,4 +226,10 @@ class OmniRouteAgentReview:
         })
         return AgentReview(
             self.agent_id, self.model_id, evidence_sha256, CHECKS, accepted,
+            provider="omniroute", provider_request_id=request_id,
+            returned_model=response["model"], prompt_sha256=prompt_digest,
+            usage={
+                "prompt_tokens": usage["prompt_tokens"],
+                "completion_tokens": usage["completion_tokens"],
+            },
         )

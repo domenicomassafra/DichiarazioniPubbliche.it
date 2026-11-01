@@ -101,6 +101,11 @@ class AgentReview:
     evidence_sha256: str
     checked_stages: tuple[str, ...]
     accepted: bool
+    provider: str | None = None
+    provider_request_id: str | None = None
+    returned_model: str | None = None
+    prompt_sha256: str | None = None
+    usage: dict[str, int] | None = None
 
 
 @dataclass(frozen=True)

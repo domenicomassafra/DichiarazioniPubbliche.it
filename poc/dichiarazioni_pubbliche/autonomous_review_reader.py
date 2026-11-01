@@ -144,7 +144,14 @@ class JournalReviewPacketReader:
                     MappingProxyType(matching[0]),
                 ) is not True:
                     return None
-                reviews.append(AgentReview(agent_id, model_id, binding, CHECKS, True))
+                reviews.append(AgentReview(
+                    agent_id, model_id, binding, CHECKS, True,
+                    provider="omniroute",
+                    provider_request_id=matching[0]["provider_request_id"],
+                    returned_model=matching[0]["returned_model"],
+                    prompt_sha256=matching[0]["prompt_sha256"],
+                    usage=dict(matching[0]["usage"]),
+                ))
             # Refuse a mid-read revocation, version change or rights change.
             if self.read_current_candidate(record_id, version_id) != candidate:
                 return None
