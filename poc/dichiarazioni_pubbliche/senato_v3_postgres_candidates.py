@@ -42,7 +42,8 @@ SELECT COALESCE(json_agg(item)::text, '[]') FROM (
       AND s.metadata->>'quote_review_status'='APPROVED'
       AND s.metadata->>'public_version_id' IS NOT NULL
       AND s.metadata->>'source_speech_id'=p.metadata->>'source_speech_id'
-      AND s.normalized_statement=p.private_text
+      -- normalized_statement is a reviewed summary, not the verbatim quote.
+      -- Bind the approved quote through its hash to the persisted passage.
       AND s.statement_text_hash=p.text_sha256
       AND c.content_sha256=:'source_sha256' AND c.final_url=:'source_url'
       AND c.status='CAPTURED' AND c.hold_status='NONE'

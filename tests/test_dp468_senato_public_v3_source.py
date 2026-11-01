@@ -370,6 +370,10 @@ class SenatoPublicV3ProducerTests(unittest.TestCase):
         self.assertIn("s.status='APPROVED'", query)
         self.assertIn("speaker_resolution_status'='APPROVED'", query)
         self.assertIn("c.body_purged_at IS NULL", query)
+        # A candidate may have a normalized summary different from the exact
+        # approved quote; only the quote hash may bind it to the source passage.
+        self.assertIn("s.statement_text_hash=p.text_sha256", query)
+        self.assertNotIn("s.normalized_statement=p.private_text", query)
         self.assertEqual(store.run.call_args.kwargs, {
             "content_id": pins.content_id, "source_sha256": pins.xml_sha256,
             "source_url": pins.source_raw_url,
