@@ -65,10 +65,12 @@ no packet and therefore HOLD.
 - [#458](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/458)
   supplies the authentic, original-source packet and its independent rights
   authority. It was OPEN when this tranche was authored.
-- The owner approved three distinct models on 31 October 2026, but the
-  read-only gateway metadata of 13 active Pro-labelled connections lists
-  3.8 Flash on 13/13, 3.7 Flash on 0/13 and 3.1 Pro on 0/13. No DP-scoped
-  `allowedConnections` key is proven, nor which exact 12 accounts are subscribed.
+- The owner approved three distinct models on 31 October 2026 and, on
+  1 November, authorized all 13 then-configured Google AI Pro connections,
+  subject to verifying each account's legitimate subscription. The prior
+  read-only gateway metadata listed 3.8 Flash on 13/13 connections, 3.7 Flash
+  on 0/13 and 3.1 Pro on 0/13. No DP-scoped `allowedConnections` key or
+  ownership/entitlement proof for all 13 is yet demonstrated.
   Thus an allowlist/test fixture is **not** a live two-model review or third
   audit; HOLD until subscribed provider, quota and no-fallback proofs exist.
 - The existing MiniPC public consumer is on v2. Bind these adapters to its
