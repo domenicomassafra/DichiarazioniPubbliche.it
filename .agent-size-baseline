@@ -100,7 +100,7 @@
   "poc/dichiarazioni_pubbliche/policy/intent_policy.py": 20542,
   "poc/dichiarazioni_pubbliche/policy/privacy_policy.py": 24972,
   "poc/dichiarazioni_pubbliche/privacy_decision_persistence.py": 27231,
-  "poc/dichiarazioni_pubbliche/privacy_field_inventory.py": 30286,
+  "poc/dichiarazioni_pubbliche/privacy_field_inventory.py": 30245,
   "poc/dichiarazioni_pubbliche/privacy_runtime.py": 21438,
   "poc/dichiarazioni_pubbliche/private_synopsis_refresh_cohort_v1.py": 23599,
   "poc/dichiarazioni_pubbliche/procedural_document_roles.py": 25196,

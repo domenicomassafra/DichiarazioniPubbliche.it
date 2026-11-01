@@ -236,6 +236,74 @@ class SenatoPublicV3Source:
                 raise ValueError("DP468_SOURCE_CHANGED_DURING_PROJECTION")
         return [row for row in rows if row["statement_id"] not in conflicted]
 
+    def current_statement_binding(
+        self, statement_id: str, version_id: str,
+    ) -> dict[str, object] | None:
+        """Reconstruct the exact current approved source span for the authority ledger."""
+        if self._candidates is None:
+            return None
+        try:
+            canonical, speeches, date = self._source()
+            observed = self._candidates()
+            if not isinstance(observed, (list, tuple)) or len(observed) > _MAX_CANDIDATES:
+                return None
+            snapshot = tuple(
+                dict(item) if isinstance(item, Mapping) else item for item in observed
+            )
+            matches: list[dict[str, object]] = []
+            for record in observed:
+                if (not isinstance(record, Mapping) or set(record) != _CANDIDATE_KEYS
+                        or record.get("status") != "APPROVED"
+                        or record.get("statement_id") != statement_id
+                        or record.get("version_id") != version_id
+                        or record.get("content_id") != self.pins.content_id
+                        or record.get("source_version") != self.pins.xml_sha256):
+                    continue
+                span = speeches.get(record.get("speech_id"))
+                start, end = record.get("start_char"), record.get("end_char")
+                if (span is None or span[0] != record.get("official_person_uri")
+                        or type(start) is not int or type(end) is not int
+                        or not span[1] <= start < end <= span[2]):
+                    continue
+                if any(
+                    type(record.get(key)) is not str or not record[key].strip()
+                    for key in ("statement_id", "version_id", "person_id", "speaker_name")
+                ):
+                    continue
+                quote = canonical[start:end]
+                quote_sha256 = hashlib.sha256(quote.encode("utf-8")).hexdigest()
+                if (not quote.strip() or len(quote) > 300
+                        or record.get("quote_sha256") != quote_sha256):
+                    continue
+                matches.append({
+                    "statement_id": statement_id,
+                    "version_id": version_id,
+                    "content_id": self.pins.content_id,
+                    "source_version": self.pins.xml_sha256,
+                    "source_sha256": self.pins.canonical_text_sha256,
+                    "quote_sha256": quote_sha256,
+                    "person_id": record["person_id"],
+                    "speaker_name": record["speaker_name"],
+                    "statement_date": date,
+                    "span_start": start,
+                    "span_end": end,
+                    "source_url": self.pins.source_raw_url,
+                    "source_title": f"Resoconto stenografico Senato {date}",
+                })
+            if len(matches) != 1:
+                return None
+            fresh = self._candidates()
+            if (not isinstance(fresh, (list, tuple))
+                    or len(fresh) > _MAX_CANDIDATES
+                    or tuple(dict(item) if isinstance(item, Mapping) else item
+                             for item in fresh) != snapshot):
+                return None
+            if self._source() != (canonical, speeches, date):
+                return None
+            return matches[0]
+        except Exception:
+            return None
+
     def get_statement_source_text(self, content_id: str, source_version: str) -> str:
         if (content_id != self.pins.content_id
                 or source_version != self.pins.xml_sha256):

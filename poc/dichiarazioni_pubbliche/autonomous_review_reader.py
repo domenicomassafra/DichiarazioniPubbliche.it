@@ -17,6 +17,10 @@ from dichiarazioni_pubbliche.autonomous_publication import (
     AgentReview, AutonomousCandidate, AutonomousProofPacket, CHECKS,
     POLICY_VERSION, candidate_fingerprint, independent_review_models_authorized,
 )
+from dichiarazioni_pubbliche.public_statement_authority_common import (
+    AUTHORITY_CHECKS, AUTHORITY_PROMPT_VERSION, AuthorityReviewPacket,
+    _MODEL_REVIEW_KINDS, _digest, authority_review_fingerprint,
+)
 from dichiarazioni_pubbliche.autonomous_runner_v3 import SQLiteRunJournal
 from dichiarazioni_pubbliche.claim_runtime import matches_returned_model
 
@@ -114,6 +118,123 @@ class JournalReviewPacketReader:
                     for stage, required in canonical_sources.items())
         )
 
+    @staticmethod
+    def _matches_authority(
+        receipt: object, candidate: AutonomousCandidate, binding: str,
+        authority_kind: str, decision: Mapping[str, object],
+        agent_id: str, model_id: str,
+    ) -> bool:
+        if not isinstance(receipt, dict):
+            return False
+        usage = receipt.get("usage")
+        citations = receipt.get("stage_citations")
+        if (not isinstance(usage, dict)
+                or type(usage.get("prompt_tokens")) is not int
+                or usage["prompt_tokens"] <= 0
+                or type(usage.get("completion_tokens")) is not int
+                or usage["completion_tokens"] < 0
+                or not isinstance(citations, dict)
+                or set(citations) != set(AUTHORITY_CHECKS)
+                or any(not isinstance(values, list)
+                       or not values or any(type(value) is not str or not value
+                                            for value in values)
+                       for values in citations.values())):
+            return False
+        canonical_sources = {
+            "PROVENANCE": {candidate.source_url, candidate.snapshot_url},
+            "WORDING": {candidate.snapshot_url},
+            "SPEAKER": {candidate.public_role_source_url or candidate.public_context_source_url},
+            "PERSON": {candidate.public_role_source_url or candidate.public_context_source_url},
+            "RIGHTS_PRIVACY": {candidate.rights_citation_url, candidate.privacy_citation_url},
+        }
+        authority_sources = {candidate.source_url, candidate.snapshot_url}
+        if authority_kind == "ATTRIBUTION":
+            for key in ("official_person_uri", "public_role_source_url"):
+                value = decision.get(key)
+                if isinstance(value, str) and value:
+                    authority_sources.add(value)
+        elif authority_kind == "CONTEXT" and candidate.public_context_source_url:
+            authority_sources.add(candidate.public_context_source_url)
+        elif authority_kind == "WORDING":
+            authority_sources = {candidate.snapshot_url}
+        canonical_sources["AUTHORITY_DECISION"] = authority_sources
+        return (
+            receipt.get("agent_id") == agent_id
+            and receipt.get("requested_model") == model_id
+            and matches_returned_model(model_id, receipt.get("returned_model"))
+            and receipt.get("provider") == "omniroute"
+            and type(receipt.get("provider_request_id")) is str
+            and bool(receipt["provider_request_id"].strip())
+            and receipt.get("policy_version") == POLICY_VERSION
+            and receipt.get("prompt_version") == AUTHORITY_PROMPT_VERSION
+            and receipt.get("authority_kind") == authority_kind
+            and receipt.get("authority_decision_sha256") == _digest(dict(decision))
+            and receipt.get("checked_stages") == list(AUTHORITY_CHECKS)
+            and type(receipt.get("prompt_sha256")) is str
+            and _SHA256.fullmatch(receipt["prompt_sha256"]) is not None
+            and receipt.get("record_id") == candidate.record_id
+            and receipt.get("record_version_id") == candidate.record_version_id
+            and receipt.get("source_version") == candidate.source_version
+            and receipt.get("source_sha256") == candidate.snapshot_sha256
+            and receipt.get("statement_sha256") == candidate.source_text_sha256
+            and receipt.get("rights_attestation_sha256") == candidate.rights_attestation_sha256
+            and receipt.get("evidence_sha256") == binding
+            and receipt.get("accepted") is True
+            and all(required <= set(citations[stage])
+                    for stage, required in canonical_sources.items())
+        )
+
+    def authority_packet(
+        self, record_id: str, version_id: str, authority_kind: str,
+        decision: Mapping[str, object],
+    ) -> AuthorityReviewPacket | None:
+        """Rehydrate two independently witnessed receipts for an exact decision."""
+        if (type(authority_kind) is not str
+                or authority_kind not in _MODEL_REVIEW_KINDS
+                or not isinstance(decision, Mapping)
+                or type(record_id) is not str or not record_id
+                or type(version_id) is not str or not version_id
+                or not callable(self.verify_provider_execution)):
+            return None
+        try:
+            candidate = self.read_current_candidate(record_id, version_id)
+            if (not isinstance(candidate, AutonomousCandidate)
+                    or candidate.record_id != record_id
+                    or candidate.record_version_id != version_id):
+                return None
+            evidence = authority_review_fingerprint(candidate, authority_kind, decision)
+            receipts = self.journal.review_executions(evidence)
+            reviews = []
+            for agent_id, model_id in self.identities:
+                matching = [
+                    receipt for receipt in receipts
+                    if isinstance(receipt, dict) and receipt.get("agent_id") == agent_id
+                ]
+                if (len(matching) != 1 or not self._matches_authority(
+                        matching[0], candidate, evidence, authority_kind, decision,
+                        agent_id, model_id,
+                    )):
+                    return None
+                if self.verify_provider_execution(
+                    MappingProxyType(matching[0]),
+                ) is not True:
+                    return None
+                reviews.append(AgentReview(
+                    agent_id, model_id, evidence, AUTHORITY_CHECKS, True,
+                    provider="omniroute",
+                    provider_request_id=matching[0]["provider_request_id"],
+                    returned_model=matching[0]["returned_model"],
+                    prompt_sha256=matching[0]["prompt_sha256"],
+                    usage=dict(matching[0]["usage"]),
+                ))
+            if self.read_current_candidate(record_id, version_id) != candidate:
+                return None
+            return AuthorityReviewPacket(
+                candidate, authority_kind, dict(decision), reviews[0], reviews[1],
+            )
+        except Exception:
+            return None
+
     def __call__(self, record_id: str, version_id: str) -> AutonomousProofPacket | None:
         if (type(record_id) is not str or not record_id
                 or type(version_id) is not str or not version_id
@@ -144,7 +265,14 @@ class JournalReviewPacketReader:
                     MappingProxyType(matching[0]),
                 ) is not True:
                     return None
-                reviews.append(AgentReview(agent_id, model_id, binding, CHECKS, True))
+                reviews.append(AgentReview(
+                    agent_id, model_id, binding, CHECKS, True,
+                    provider="omniroute",
+                    provider_request_id=matching[0]["provider_request_id"],
+                    returned_model=matching[0]["returned_model"],
+                    prompt_sha256=matching[0]["prompt_sha256"],
+                    usage=dict(matching[0]["usage"]),
+                ))
             # Refuse a mid-read revocation, version change or rights change.
             if self.read_current_candidate(record_id, version_id) != candidate:
                 return None

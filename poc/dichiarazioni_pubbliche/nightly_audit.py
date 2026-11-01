@@ -110,6 +110,11 @@ def _audit_evidence(packet: AutonomousProofPacket | None,
             'model_id': review.model_id if isinstance(review.model_id, str) else None,
             'evidence_sha256': review.evidence_sha256 if isinstance(review.evidence_sha256, str) else None,
             'accepted': review.accepted if type(review.accepted) is bool else False,
+            'provider': review.provider,
+            'provider_request_id': review.provider_request_id,
+            'returned_model': review.returned_model,
+            'prompt_sha256': review.prompt_sha256,
+            'usage': dict(review.usage) if isinstance(review.usage, dict) else None,
             'checked_stages': list(review.checked_stages)
             if isinstance(review.checked_stages, tuple)
             and all(isinstance(stage, str) for stage in review.checked_stages)
