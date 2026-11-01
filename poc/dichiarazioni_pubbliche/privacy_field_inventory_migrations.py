@@ -27,6 +27,15 @@ _MIGRATIONS = (
         {"private_camera_parse_attestation"},
         "PRIVACY_DP449_CAMERA_PARSE_TABLE_DRIFT",
     ),
+    (
+        "20261101-add-public-statement-authority-ledgers.sql",
+        {
+            "public_statement_authority_event",
+            "public_statement_challenge_request",
+            "public_statement_challenge_event",
+        },
+        "PRIVACY_DP468_PUBLIC_STATEMENT_TABLE_DRIFT",
+    ),
 )
 
 
@@ -45,7 +54,7 @@ def register_versioned_privacy_migrations(
     return tuple(loaded)
 
 
-def privacy_schema_origin(table: str, column: str, monthly: dict, watch: dict, nightly: dict, camera: dict) -> str:
+def privacy_schema_origin(table: str, column: str, monthly: dict, watch: dict, nightly: dict, camera: dict, dp468: dict) -> str:
     """Trace private columns to the reviewed schema or versioned migration."""
     if table == "public_schema_contract":
         return "20260926_PUBLIC_SCHEMA_CONTRACT_MIGRATION"
@@ -59,4 +68,6 @@ def privacy_schema_origin(table: str, column: str, monthly: dict, watch: dict, n
         return "20261026_DP413E_NIGHTLY_MIGRATION"
     if table in camera:
         return "20261026_DP449_CAMERA_PARSE_MIGRATION"
+    if table in dp468:
+        return "20261101_DP468_PUBLIC_STATEMENT_MIGRATION"
     return "CANONICAL_SCHEMA_V1"

@@ -389,7 +389,7 @@ def make_inventory(schema: str) -> dict[str, Any]:
         raise FieldInventoryError("PRIVACY_LEGACY_RELATION_POLICY_SCOPE_DRIFT")
     tables["public_schema_contract"] = registry["public_schema_contract"]
     tables["claim_relation_candidate"] = (*tables["claim_relation_candidate"], "policy_version")
-    monthly, watch, nightly, camera = register_versioned_privacy_migrations(
+    migrations = register_versioned_privacy_migrations(
         ROOT, tables, parse_schema_fields, FieldInventoryError,
     )
     _check_literal_migration_coverage(tables)
@@ -398,7 +398,7 @@ def make_inventory(schema: str) -> dict[str, Any]:
         fields = {}
         for column in columns:
             fields[column] = {
-                "schema_origin": privacy_schema_origin(table, column, monthly, watch, nightly, camera),
+                "schema_origin": privacy_schema_origin(table, column, *migrations),
                 "data_class": classify_field(table, column),
                 "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
                 "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
