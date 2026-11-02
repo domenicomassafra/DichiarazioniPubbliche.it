@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { assertAtlasReadingPath } from "./check-atlas-browser.mjs";
 import { checkExploreKindRadios } from "./check-browser-explore-radio.mjs";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
@@ -681,9 +682,7 @@ try {
     topicShot = await screenshot(cdp, "topic-desktop");
   }
 
-  // DP-422.8: exercise every canonical v4 page family in one real Chrome
-  // session, both desktop and phone. A fixture route is not runtime approval;
-  // the matrix is reported explicitly and missing families are never forged.
+  // DP-422.8: exercise public page families in Chrome on desktop and phone.
   const dp422Families = new Map([
     ["home", "/"], ["explore", "/esplora/"],
     ["statement", scanRoutes.find((route) => route.startsWith("/dichiarazioni/"))],
@@ -714,6 +713,7 @@ try {
       assert(!state.horizontalScroll, `${family} ${variant}: horizontal page overflow ${JSON.stringify(state)}`);
       assert.equal(state.h1.length, 1, `${family} ${variant}: must have exactly one primary heading`);
       assert(state.h1[0].length > 0 && state.main, `${family} ${variant}: primary heading or main missing`);
+      await assertAtlasReadingPath(cdp, family, variant);
       if (family === "home" || family === "method" || family === "utility") {
         const geometry = await cdp.evaluate(`(() => {
           const box = (selector) => {
@@ -724,13 +724,13 @@ try {
           };
           return {
             intro: box('${family === "home" ? ".hero-copy-v4" : ".dp-utility-document__header"}'),
-            partner: box('${family === "home" ? ".hero-search-v4" : ".dp-utility-document__rail"}'),
+            partner: box('${family === "home" ? ".atlas-reading-path" : ".dp-utility-document__rail"}'),
             body: box('${family === "home" ? ".home-recent" : ".dp-utility-document__body"}'),
           };
         })()`);
         assert(geometry.intro && geometry.partner && geometry.body, `${family} ${variant}: split template element missing`);
         if (variant === "desktop") {
-          assert(geometry.partner.left >= geometry.intro.right - 1, `${family}: primary search/context rail must occupy right desktop column: ${JSON.stringify(geometry)}`);
+          assert(geometry.partner.left >= geometry.intro.right - 1, `${family}: reading rail must occupy right desktop column: ${JSON.stringify(geometry)}`);
           assert(geometry.partner.top < geometry.intro.bottom, `${family}: right column must be alongside introduction, not stacked below: ${JSON.stringify(geometry)}`);
         } else {
           assert(geometry.partner.top >= geometry.intro.bottom - 1, `${family}: phone reading order must put context after introduction: ${JSON.stringify(geometry)}`);

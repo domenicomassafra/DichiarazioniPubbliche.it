@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import AtlasRoute from "./AtlasRoute.astro";
 import Assessment from "./Assessment.astro";
 import { dossierSlug, formatDate } from "../lib/format";
 import { describeReviewedRelation } from "../lib/relation-description";
@@ -23,6 +24,11 @@ const relationTitle = `${relation.label}: dichiarazioni nel tempo`;
       <div class="eyebrow">Traccia nel tempo</div>
       <h1 class="page-title">{relationTitle}</h1>
       <p class="lede">{relation.copy}</p>
+      <AtlasRoute steps={[
+        { label: "Parole nella sequenza", href: "#trace-chronology-heading" },
+        { label: "Fonti di ogni evento", href: "#trace-chronology-heading" },
+        { label: "Provenienza della relazione", href: "#atlas-trace-provenance" },
+      ]} />
     </div>
   </header>
 
@@ -75,7 +81,7 @@ const relationTitle = `${relation.label}: dichiarazioni nel tempo`;
       </ol>
     </section>
 
-    <details class="comparison-review dp-trace-provenance">
+    <details class="comparison-review dp-trace-provenance" id="atlas-trace-provenance">
       <summary>Provenienza della relazione</summary>
       <p>Tipo dominio: <code>{trace.relationType}</code>. Versione: <code>{trace.relationVersion}</code>. Review event: <code>{trace.reviewEventId}</code>.</p>
       {trace.rationaleCodes.length > 0 && <p>Codici di razionale revisionati: {trace.rationaleCodes.join(", ")}.</p>}

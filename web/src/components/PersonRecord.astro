@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import AtlasRoute from "./AtlasRoute.astro";
 import SearchField from "./SearchField.astro";
 import ClaimRow from "./ClaimRow.astro";
 import { claimTypeLabel, dossierSlug, formatDate, relationSlug, speakerSlug } from "../lib/format";
@@ -123,12 +124,17 @@ const roleAt = (dossier: PublicDossier) => {
         <p class="person-boundary">{isPubliclyEmpty
           ? "Questa pagina contiene soltanto informazioni approvate per la pubblicazione. L'assenza di dichiarazioni pubblicate non è una valutazione della persona."
           : "Cronologia di dichiarazioni già pubblicate nel record. Gli esiti appartengono alle singole dichiarazioni: non esiste un punteggio della persona."}</p>
+        <AtlasRoute steps={[
+          { label: "Parole e date", href: "#atlas-person-chronology" },
+          { label: "Fonti nelle schede pubblicate", href: "#atlas-person-chronology" },
+          { label: "Metodo e limiti", href: "/metodo/" },
+        ]} />
       </div>
       <SearchField action="/esplora/" name="q" placeholder="Cerca nel record pubblico" compact />
     </div>
   </header>
 
-  <section class="shell page-section-tight person-chronology">
+  <section class="shell page-section-tight person-chronology" id="atlas-person-chronology">
     {isPubliclyEmpty ? (
       <section class="dp-utility-empty" aria-labelledby="person-empty-title">
         <h2 id="person-empty-title">Nessuna dichiarazione pubblicata per questa persona</h2>
