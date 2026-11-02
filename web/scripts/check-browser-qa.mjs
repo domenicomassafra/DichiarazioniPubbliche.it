@@ -724,13 +724,13 @@ try {
           };
           return {
             intro: box('${family === "home" ? ".hero-copy-v4" : ".dp-utility-document__header"}'),
-            partner: box('${family === "home" ? ".hero-search-v4" : ".dp-utility-document__rail"}'),
+            partner: box('${family === "home" ? ".atlas-reading-path" : ".dp-utility-document__rail"}'),
             body: box('${family === "home" ? ".home-recent" : ".dp-utility-document__body"}'),
           };
         })()`);
         assert(geometry.intro && geometry.partner && geometry.body, `${family} ${variant}: split template element missing`);
         if (variant === "desktop") {
-          assert(geometry.partner.left >= geometry.intro.right - 1, `${family}: primary search/context rail must occupy right desktop column: ${JSON.stringify(geometry)}`);
+          assert(geometry.partner.left >= geometry.intro.right - 1, `${family}: reading rail must occupy right desktop column: ${JSON.stringify(geometry)}`);
           assert(geometry.partner.top < geometry.intro.bottom, `${family}: right column must be alongside introduction, not stacked below: ${JSON.stringify(geometry)}`);
         } else {
           assert(geometry.partner.top >= geometry.intro.bottom - 1, `${family}: phone reading order must put context after introduction: ${JSON.stringify(geometry)}`);

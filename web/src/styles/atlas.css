@@ -1,0 +1,72 @@
+/* DP-442 — Atlante delle parole: editorial reading path on the Public Home. */
+body:not(.is-studio) .atlas-hero {
+  grid-template-columns: minmax(0, 1.3fr) minmax(16rem, 0.7fr);
+  align-items: start;
+  gap: var(--space-8);
+}
+
+body:not(.is-studio) .atlas-hero .hero-copy-v4 {
+  max-width: none;
+}
+
+body:not(.is-studio) .atlas-hero .display-title {
+  max-width: 12ch;
+}
+
+body:not(.is-studio) .atlas-hero .hero-search-v4 {
+  margin-top: var(--space-7);
+  max-width: var(--width-reading);
+}
+
+body:not(.is-studio) .atlas-reading-path {
+  min-width: 0;
+  border-inline-start: 1px solid var(--rule-hairline-strong);
+  padding-inline-start: var(--space-5);
+}
+
+body:not(.is-studio) .atlas-reading-path h2 {
+  max-width: 18ch;
+  margin: var(--space-3) 0 var(--space-6);
+  font-family: var(--font-claim);
+  font-size: var(--text-headline);
+  line-height: var(--leading-headline);
+}
+
+body:not(.is-studio) .atlas-reading-path ol {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-5);
+}
+
+body:not(.is-studio) .atlas-reading-path li {
+  display: grid;
+  grid-template-columns: var(--space-7) minmax(0, 1fr);
+  gap: var(--space-3);
+  padding-block: var(--space-4);
+  border-top: 1px solid var(--rule-hairline);
+}
+
+body:not(.is-studio) .atlas-reading-path li > span:first-child {
+  color: var(--cobalt-700);
+  font-family: var(--font-data);
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 40rem) {
+  body:not(.is-studio) .atlas-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-7);
+  }
+
+  body:not(.is-studio) .atlas-reading-path {
+    border-inline-start: 0;
+    border-top: 1px solid var(--rule-hairline-strong);
+    padding-inline-start: 0;
+    padding-top: var(--space-5);
+  }
+
+  body:not(.is-studio) .atlas-reading-path h2 {
+    margin-bottom: var(--space-4);
+  }
+}
