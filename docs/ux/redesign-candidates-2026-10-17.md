@@ -1,5 +1,7 @@
 # DP-441 — confronto redesign, 17 ottobre 2026
 
+**Aggiornamento 2/11/2026:** selezionata la direzione A, Atlante delle parole, per la preview. [Decisione motivata](dp441-design-selection-2026-11-02.md). Le note successive sul rinvio documentano lo stato storico al 17/25 ottobre.
+
 **Decisione dell'owner: in attesa.** Le alternative sono anteprime offline, non
 una nuova UI pubblicata. Baseline: il codice Astro sotto `web/src/pages/` e il
 prototipo già presente in `prototypes/final-hybrid/`. Sono stati riutilizzati
@@ -49,3 +51,36 @@ L'implementazione DP-442 richiede l'opzione **A**, **B** o una revisione definit
 dall'owner, con data e motivazione. Solo allora fissare token, componenti,
 migrazione CSS e regressioni di tutte le nove famiglie Astro. Lo stato attuale è
 `PENDING_OWNER_SELECTION`; non viene inventata una firma o una direzione.
+
+## Evidence di rendering browser — 25 ottobre 2026
+
+Sorgente: `prototypes/redesign-candidates/build.py`, fixture inventata identica per A/B.
+Consumer di prova: Chrome di automazione dedicato sul Mac Studio (`automation-browser-visible`, CDP locale 17630), in una scheda temporanea poi chiusa.
+Il readback MiniPC separato ha risposto `dichiarazioni-pubbliche-web.service=active`,
+`/api/v1/health status=ok`, `contract_status=DRAFT`, `dossier_count=0`;
+quindi le schede illustrate **non sono dati pubblicati**.
+
+| Vista (primo viewport) | A · Atlante | B · Biblioteca |
+| --- | --- | --- |
+| Home, 1440 CSS px | [Screenshot A](../../prototypes/redesign-candidates/screenshots/atlante-home-1440.png) | [Screenshot B](../../prototypes/redesign-candidates/screenshots/biblioteca-home-1440.png) |
+| Home, 390 CSS px | [Screenshot A](../../prototypes/redesign-candidates/screenshots/atlante-home-390.png) | [Screenshot B](../../prototypes/redesign-candidates/screenshots/biblioteca-home-390.png) |
+| Esplora vuoto, 320 CSS px | [Screenshot A](../../prototypes/redesign-candidates/screenshots/atlante-explore-320.png) | [Screenshot B](../../prototypes/redesign-candidates/screenshots/biblioteca-explore-320.png) |
+| Statement fittizio, 1440 CSS px | [Screenshot A](../../prototypes/redesign-candidates/screenshots/atlante-statement-1440.png) | [Screenshot B](../../prototypes/redesign-candidates/screenshots/biblioteca-statement-1440.png) |
+| Statement fittizio, 390 CSS px | [Screenshot A](../../prototypes/redesign-candidates/screenshots/atlante-statement-390.png) | [Screenshot B](../../prototypes/redesign-candidates/screenshots/biblioteca-statement-390.png) |
+| Persona × Tema, 390 CSS px | [Screenshot A](../../prototypes/redesign-candidates/screenshots/atlante-intersection-390.png) | [Screenshot B](../../prototypes/redesign-candidates/screenshots/biblioteca-intersection-390.png) |
+| Contenuto, 390 CSS px | [Screenshot A](../../prototypes/redesign-candidates/screenshots/atlante-source-390.png) | [Screenshot B](../../prototypes/redesign-candidates/screenshots/biblioteca-source-390.png) |
+| Traccia e correzioni, 390 CSS px | [Screenshot A](../../prototypes/redesign-candidates/screenshots/atlante-trace-390.png) | [Screenshot B](../../prototypes/redesign-candidates/screenshots/biblioteca-trace-390.png) |
+
+Osservazione visiva personale sui PNG di Home desktop e Statement mobile:
+A imposta una gerarchia editoriale frase → fonte, B imposta catalogo/fonte → frase;
+su 390 CSS px il contenuto originale è leggibile con attribuzione e data
+in entrambe, ma B richiede più scroll per arrivare alle parole perché precede
+la scheda di catalogazione. Tradeoff da sottoporre all'owner, non risultato
+di un test con lettori reali.
+
+La cattura automatica certifica le dimensioni e i DOM osservati in
+[render-evidence.json](../../prototypes/redesign-candidates/render-evidence.json),
+con SHA-256 dell'HTML sorgente e di ciascuno screenshot.
+Restano valutazioni umane: comprensione effettiva dopo cinque secondi,
+VoiceOver/tastiera completi, preferenza estetica e scelta finale.
+**Esito della scelta: PENDING_OWNER_SELECTION.**
