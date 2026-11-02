@@ -25,7 +25,7 @@ challenge or provider admission inputs change.
 an exact owner-allowlisted Gemini 3.8 Flash, 3.7 Flash or 3.1 Pro model at
 the **local** OmniRoute gateway. Its required model-aware
 `subscription_gate(model_id)` must independently verify the DP key's
-12 authorized Antigravity Pro account IDs, the particular model's entitlement,
+13 currently authorized and independently verified Antigravity Pro account IDs,
 route allowlist, remaining quota and no paid-route fallback before *each* POST.
 If no such authenticated
 capability exists, the review fails and `AutonomousOperations` records HOLD.
