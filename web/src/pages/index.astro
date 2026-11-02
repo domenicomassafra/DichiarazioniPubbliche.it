@@ -16,26 +16,37 @@ const hasPublicRecords = projection.dossiers.length > 0 || (projection.topics?.l
 ---
 
 <BaseLayout title="Dichiarazioni Pubbliche" canonicalPath="/">
-  <section class="shell home-hero home-hero-v4">
+  <section class="shell home-hero home-hero-v4 atlas-hero">
     <div class="hero-copy hero-copy-v4">
-      <p class="eyebrow">Dichiarazioni Pubbliche</p>
-      <h1 class="display-title">Le parole contano. Le fonti anche.</h1>
-      <p class="lede">Un archivio per ritrovare le dichiarazioni pubbliche, leggere le fonti originali e capire come sono state verificate. Senza classifiche delle persone.</p>
+      <p class="eyebrow">Dichiarazioni Pubbliche · archivio delle parole</p>
+      <h1 class="display-title">La parola lascia una traccia.</h1>
+      <p class="lede">Ritrova le dichiarazioni pubbliche, leggi le parole originali e risali alla fonte, alle verifiche e alle correzioni.</p>
+      {hasPublicRecords ? (
+        <div class="hero-search hero-search-v4" aria-label="Ricerca principale">
+          <strong>Comincia da una dichiarazione</strong>
+          <SearchField placeholder="Cerca una dichiarazione, una persona o un tema…" />
+          <p class="search-note">Solo record pubblicati con provenienza verificata. <a href="/esplora/">Esplora l'archivio →</a></p>
+        </div>
+      ) : (
+        <aside class="hero-search hero-search-v4 home-launch-status" aria-labelledby="archivio-stato">
+          <p class="eyebrow">Stato attuale · 0 record</p>
+          <h2 id="archivio-stato">Nessuna dichiarazione ancora pubblicata.</h2>
+          <p>La ricerca sarà disponibile con i primi record approvati. Il metodo, le fonti richieste e le correzioni sono già consultabili.</p>
+          <a class="text-link" href="/esplora/">Apri Esplora <span aria-hidden="true">→</span></a>
+        </aside>
+      )}
     </div>
-    {hasPublicRecords ? (
-      <div class="hero-search hero-search-v4" aria-label="Ricerca principale">
-        <strong>Cerca nell'archivio</strong>
-        <SearchField placeholder="Cerca una dichiarazione, una persona o un tema…" />
-        <p class="search-note">Solo risultati con una fonte e una revisione pubblicate. <a href="/esplora/">Esplora l'archivio →</a></p>
-      </div>
-    ) : (
-      <aside class="hero-search hero-search-v4 home-launch-status" aria-labelledby="archivio-stato">
-        <p class="eyebrow">Stato dell'archivio</p>
-        <h2 id="archivio-stato">Nessuna dichiarazione ancora pubblicata.</h2>
-        <p>Il sito è consultabile. Le schede compariranno solo dopo il controllo delle fonti, delle attribuzioni e delle verifiche.</p>
-        <a class="text-link" href="/metodo/">Scopri come funziona <span aria-hidden="true">→</span></a>
-      </aside>
-    )}
+    <aside class="atlas-reading-path" aria-labelledby="atlas-reading-heading">
+      <p class="eyebrow">Un percorso leggibile</p>
+      <h2 id="atlas-reading-heading">Dalle parole al contesto.</h2>
+      <ol>
+        <li><span aria-hidden="true">01</span><span>Individua una dichiarazione pubblicata.</span></li>
+        <li><span aria-hidden="true">02</span><span>Leggi il testo originale e l'attribuzione.</span></li>
+        <li><span aria-hidden="true">03</span><span>Esamina la fonte, le prove e gli eventuali limiti.</span></li>
+        <li><span aria-hidden="true">04</span><span>Segui aggiornamenti, repliche e correzioni.</span></li>
+      </ol>
+      <a class="text-link" href="/metodo/">Leggi il metodo <span aria-hidden="true">→</span></a>
+    </aside>
   </section>
 
   {hasPublicRecords && <section class="shell page-section-tight home-recent">

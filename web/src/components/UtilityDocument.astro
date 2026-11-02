@@ -9,10 +9,15 @@ const { eyebrow, title, lede } = Astro.props;
 ---
 
 <article class="shell dp-utility-document">
-  <header class="dp-utility-document__header">
+  <header class="dp-utility-document__header atlas-utility-header">
     <div class="eyebrow">{eyebrow}</div>
     <h1>{title}</h1>
     <p class="lede">{lede}</p>
+    <nav class="atlas-utility-path" aria-label="Percorso documenti dell'Atlante">
+      <a href="/metodo/">Metodo</a>
+      <a href="/correzioni/">Correzioni</a>
+      <a href="/dati/">Fonti e dati</a>
+    </nav>
   </header>
   <aside class="dp-utility-document__rail" aria-label="Orientamento nel registro">
     {Astro.slots.has("rail") ? (

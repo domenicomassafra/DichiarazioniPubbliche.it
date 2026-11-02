@@ -1,0 +1,15 @@
+---
+interface Props {
+  steps: Array<{label: string; href?: string}>;
+}
+const {steps} = Astro.props;
+---
+
+<nav class="atlas-route" aria-label="Percorso di lettura dell'Atlante">
+  <p class="eyebrow">Orientarsi nel record</p>
+  <ol>
+    {steps.map(({label, href}) => (
+      <li>{href ? <a href={href}>{label}</a> : <span>{label}</span>}</li>
+    ))}
+  </ol>
+</nav>
