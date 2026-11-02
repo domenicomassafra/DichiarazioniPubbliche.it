@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """DP-603: generate the tracked fixture inventory from curated ROW_DECISIONS.
 
-Hashes come from real files; unknown assets fail closed. Use --check for CI.
+Unknown assets fail closed.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from datetime import date
 from pathlib import Path
 
 from dp312_gold_fixture_rights import dp312_gold_row
+from dp441_screenshot_rights import dp441_screenshot_rows
 from dp238_bhl_gold_fixture_rights import dp238_bhl_gold_row
 from dp420_usability_fixture_rights import dp420_usability_fixture_row
 from fixture_inventory_candidates import is_candidate
@@ -31,10 +32,11 @@ OWNER = "Dichiarazioni Pubbliche maintainers (owner: repo principal)"
 CODE_LICENSE = "Apache-2.0"
 FIXTURE_POLICY = "DICHIARAZIONI-PUBBLICHE-FIXTURE-POLICY-1.0"
 
-# Curated per-path rights decisions; the code license does not grant data rights.
+# Curated asset rights.
 ROW_DECISIONS: dict[str, dict] = {
     **web_project_asset_rows(CODE_LICENSE, FIXTURE_POLICY, REVIEW_DATE),
-    # ---- synthetic fixtures authored for this project ----
+    **dp441_screenshot_rows(FIXTURE_POLICY),
+    # Synthetic fixtures
     "poc/fixtures/italian_cases.json": dict(
         artifact_kind="synthetic",
         origin="Dichiarazioni Pubbliche contributors",
