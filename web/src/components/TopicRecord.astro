@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import AtlasRoute from "./AtlasRoute.astro";
 import ClaimRow from "./ClaimRow.astro";
 import SearchField from "./SearchField.astro";
 import { claimTypeLabel, dossierSlug, formatDate, publicIdSlug, relationSlug } from "../lib/format";
@@ -50,6 +51,11 @@ const rowDate = (dossier: PublicDossier) => dossier.source.published_at ?? dossi
         ) : (
           <p class="topic-scope-missing">Definizione pubblica non disponibile. Il dossier mostra soltanto appartenenze al Tema già approvate.</p>
         )}
+        <AtlasRoute steps={[
+          { label: "Parole collegate al tema", href: ordered.length ? "#topic-statements-heading" : undefined },
+          { label: "Fonti e contesto", href: ordered.length ? "#atlas-topic-sources" : undefined },
+          { label: "Metodo e limiti", href: "/metodo/" },
+        ]} />
       </div>
       <div class="topic-header-search">
         <SearchField action="/esplora/" name="q" placeholder="Cerca nel record pubblico" compact />
@@ -133,7 +139,7 @@ const rowDate = (dossier: PublicDossier) => dossier.source.published_at ?? dossi
         </section>
       </section>
 
-      <aside class="topic-context" aria-label="Contesto del Tema">
+      <aside class="topic-context" id="atlas-topic-sources" aria-label="Contesto del Tema">
         <section class="topic-context-section">
           <div class="eyebrow">Persone nel dossier</div>
           <h2>Indice alfabetico</h2>

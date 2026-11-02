@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Assessment from "./Assessment.astro";
+import AtlasRoute from "./AtlasRoute.astro";
 import SourceRow from "./SourceRow.astro";
 import { dossierSlug, formatDate, relationSlug } from "../lib/format";
 import type { PublicDossier } from "../lib/types";
@@ -73,18 +74,11 @@ const statementStructuredData = {
         <span aria-hidden="true">·</span>
         <span>{locator}</span>
       </div>
-
-      <section class="dp-finding-summary" aria-labelledby="finding-heading">
-        <div>
-          <div class="eyebrow" id="finding-heading">In breve</div>
-          <Assessment code={dossier.finding.assessment} />
-        </div>
-        <p>{dossier.finding.rationale}</p>
-        <div class="dp-finding-summary__version">
-          {dossier.finding.supersedes_id ? "Versione corretta" : "Versione pubblicata"}<br />
-          {formatDate(dossier.finding.published_at)}
-        </div>
-      </section>
+      <AtlasRoute steps={[
+        { label: "Parole e attribuzione", href: "#wording-heading" },
+        { label: "Fonte originale", href: dossier.source.url },
+        { label: "Verifica e cronologia", href: "#finding-heading" },
+      ]} />
 
       <section class="dp-provenance-disclosure" aria-labelledby="wording-heading">
         <div class="eyebrow" id="wording-heading">Parole, attribuzione e fonte</div>
@@ -117,6 +111,18 @@ const statementStructuredData = {
             ))}
           </div>
         )}
+      </section>
+
+      <section class="dp-finding-summary" aria-labelledby="finding-heading">
+        <div>
+          <div class="eyebrow" id="finding-heading">In breve</div>
+          <Assessment code={dossier.finding.assessment} />
+        </div>
+        <p>{dossier.finding.rationale}</p>
+        <div class="dp-finding-summary__version">
+          {dossier.finding.supersedes_id ? "Versione corretta" : "Versione pubblicata"}<br />
+          {formatDate(dossier.finding.published_at)}
+        </div>
       </section>
     </div>
   </header>

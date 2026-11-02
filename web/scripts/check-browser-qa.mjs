@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { assertAtlasReadingPath } from "./check-atlas-browser.mjs";
 import { checkExploreKindRadios } from "./check-browser-explore-radio.mjs";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
@@ -681,9 +682,7 @@ try {
     topicShot = await screenshot(cdp, "topic-desktop");
   }
 
-  // DP-422.8: exercise every canonical v4 page family in one real Chrome
-  // session, both desktop and phone. A fixture route is not runtime approval;
-  // the matrix is reported explicitly and missing families are never forged.
+  // DP-422.8: exercise public page families in Chrome on desktop and phone.
   const dp422Families = new Map([
     ["home", "/"], ["explore", "/esplora/"],
     ["statement", scanRoutes.find((route) => route.startsWith("/dichiarazioni/"))],
@@ -714,6 +713,7 @@ try {
       assert(!state.horizontalScroll, `${family} ${variant}: horizontal page overflow ${JSON.stringify(state)}`);
       assert.equal(state.h1.length, 1, `${family} ${variant}: must have exactly one primary heading`);
       assert(state.h1[0].length > 0 && state.main, `${family} ${variant}: primary heading or main missing`);
+      await assertAtlasReadingPath(cdp, family, variant);
       if (family === "home" || family === "method" || family === "utility") {
         const geometry = await cdp.evaluate(`(() => {
           const box = (selector) => {

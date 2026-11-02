@@ -1,6 +1,7 @@
 ---
 /** Original attributed wording only from the validated current Person release. */
 import BaseLayout from "../layouts/BaseLayout.astro";
+import AtlasRoute from "./AtlasRoute.astro";
 import { formatDate } from "../lib/format";
 import type { ApprovedPersonV3, ApprovedPersonV3Statement } from "../lib/publicPersonV3";
 
@@ -15,10 +16,15 @@ const { person, statement } = Astro.props;
       <h1>{person.display_name}</h1>
       {person.disambiguator && <p>{person.disambiguator}</p>}
       <p><a href={person.route}>Archivio della persona</a></p>
+      <AtlasRoute steps={[
+        { label: "Parole originali", href: "#atlas-statement-original" },
+        { label: "Fonte primaria", href: statement.source_url },
+        { label: "Archivio e contesto", href: person.route },
+      ]} />
     </div>
   </header>
   <main class="shell page-section-tight">
-    <article class="prose">
+    <article class="prose" id="atlas-statement-original">
       <time datetime={statement.statement_date}>{formatDate(statement.statement_date)}</time>
       <blockquote lang={statement.language} cite={statement.source_url}><p>{statement.original_text}</p></blockquote>
       <p><a href={statement.source_url} rel="noreferrer">Fonte originale: {statement.source_title}</a></p>

@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import AtlasRoute from "./AtlasRoute.astro";
 import Assessment from "./Assessment.astro";
 import SourceRow from "./SourceRow.astro";
 import { publicIdSlug, dossierSlug, formatDate, relationSlug } from "../lib/format";
@@ -154,6 +155,11 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
           {timedMoments.length > 0 && <span>{timedMoments.length} con locator temporale</span>}
           {writtenMoments.length > 0 && <span>{writtenMoments.length} con locator testuale</span>}
         </div>
+        <AtlasRoute steps={[
+          { label: "Fonte originale", href: source.url },
+          { label: "Parole e locator pubblicati", href: "#content-moments-heading" },
+          { label: "Metodo e correzioni", href: "/metodo/" },
+        ]} />
       </div>
       <div class="content-record-source">
         <div class="eyebrow">Fonte originale</div>
