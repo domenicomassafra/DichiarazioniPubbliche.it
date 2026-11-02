@@ -1,7 +1,10 @@
 """DP-319C2: bounded subscription dispatch fenced by canonical PostgreSQL D.
 
 The caller supplies fresh, private rights and OmniRoute route readbacks.
-No local observation can establish the 12 subscription entitlements by itself.
+No local observation can establish the subscription entitlements by itself.
+Owner decision 1/11/2026: every Google AI Pro connection configured in
+OmniRoute is authorized, including future ones, so the gate verifies the
+non-empty distinct set actually read back instead of a fixed account count.
 Each durable reservation is pessimistically pending-unknown before the POST;
 only the process that inserted it may invoke the provider, exactly once.
 """
@@ -46,15 +49,16 @@ class SubscriptionGate:
 
     def blocker(self) -> str | None:
         accounts = self.authorized_connection_fingerprints
+        observed = self.observed_connection_fingerprints
         if (
             self.model != _MODEL
             or not self.account_scope.startswith("subscription:")
             or not _PRIVATE_REF.fullmatch(self.account_scope)
-            or len(accounts) != 12
-            or len(set(accounts)) != 12
+            or not accounts
+            or len(set(accounts)) != len(accounts)
             or any(not _FINGERPRINT.fullmatch(value) for value in accounts)
-            or set(accounts) != set(self.observed_connection_fingerprints)
-            or len(self.observed_connection_fingerprints) != 12
+            or set(accounts) != set(observed)
+            or len(set(observed)) != len(observed)
             or not self.subscription_only
             or not self.paid_fallback_disabled
             or not _PRIVATE_REF.fullmatch(self.evidence_ref)

@@ -124,6 +124,56 @@ class SubscriptionDPgTests(unittest.TestCase):
                 self.assertEqual(outcome.new_child_task_count, 0)
         self.assertEqual(self.scalar("SELECT count(*) FROM provider_receipt"), "0")
 
+    def test_gate_accepts_any_nonempty_authorized_connection_set(self):
+        # Owner decision 1/11: every Google AI Pro connection configured in
+        # OmniRoute is authorized, including future ones. No fixed account count.
+        for count in (1, 5, 13, 31):
+            with self.subTest(count=count):
+                accounts = tuple(
+                    hashlib.sha256(f"subscription-{count}-{n}".encode()).hexdigest()
+                    for n in range(count)
+                )
+                outcome = self.dispatch(
+                    gate=self.gate(
+                        account_scope=f"subscription:approved-{count}",
+                        authorized_connection_fingerprints=accounts,
+                        observed_connection_fingerprints=accounts,
+                    )
+                )
+                self.assertEqual(outcome.status, "RECONCILED")
+                self.assertEqual(
+                    self.scalar("SELECT count(*) FROM provider_receipt"), "1"
+                )
+                self.exec_sql(self.dsn, "DELETE FROM provider_receipt;")
+
+    def test_gate_rejects_empty_duplicate_or_mismatched_connection_sets(self):
+        accounts = self.gate().authorized_connection_fingerprints
+        for gate in (
+            self.gate(
+                authorized_connection_fingerprints=(),
+                observed_connection_fingerprints=(),
+            ),
+            self.gate(
+                authorized_connection_fingerprints=accounts + (accounts[0],),
+                observed_connection_fingerprints=accounts + (accounts[0],),
+            ),
+            self.gate(observed_connection_fingerprints=accounts[:-1]),
+            self.gate(
+                observed_connection_fingerprints=accounts
+                + (hashlib.sha256(b"future-connection").hexdigest(),)
+            ),
+        ):
+            with self.subTest(observed=len(gate.observed_connection_fingerprints)):
+                outcome = self.dispatch(
+                    gate=gate,
+                    provider=lambda: self.fail("unverified route dispatched"),
+                )
+                self.assertEqual(
+                    (outcome.status, outcome.reason_code),
+                    ("WAIT_EXTERNAL", "SUBSCRIPTION_ROUTE_UNVERIFIED"),
+                )
+        self.assertEqual(self.scalar("SELECT count(*) FROM provider_receipt"), "0")
+
     def test_unapproved_attempt_cannot_dispatch_despite_available_quota(self):
         outcome = self.dispatch(
             authorized=False, provider=lambda: self.fail("unauthorized dispatch")
