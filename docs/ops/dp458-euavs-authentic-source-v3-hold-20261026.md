@@ -107,3 +107,16 @@ rm /home/udodo/.local/share/dichiarazioni-pubbliche/dp458/studio-browser-token
 Observed **exit 0** with the tested script staged in /tmp: status REAL_PERSISTED_STUDIO_BROWSER_FAIL_CLOSED, keyboard activation **true**, authenticated /v1/media/binding **HTTP 503** and /v1/media/playback **HTTP 503** (the missing persisted binding produces generic backend-unavailable API responses), original media **never returned to the browser**, no media src/blob, audio hidden/paused, native currentTime **0**, no autoplay, no page text or private media URL leak, browser token input cleared, native_seek **NOT_AUTHORIZED**, publication_authorized **false**. The installed browser page reports preload=metadata before activation but has **no media src and makes no media request before user action**; do not misreport preload=none for this installed build. The 503 is a generic service error code rather than a precise rights reason: the independent DB readback binding_count=0 and the real v3 HOLD provide the source-specific explanation. After the test the actual listener was stopped (port 18777 no listener), private ephemeral token deleted, and disposable Chrome profiles cleaned (0 remaining).
 
 This fulfills a **real browser negative HOLD and leakage/autoplay/keyboard proof** on the persisted record, but **does not fulfill positive native currentTime seek acceptance**. A separate independently aligned, genuinely version-bound current Capture→Segment proof and a supported browser decoder are still necessary. No source-use/publication clearance is inferred from the browser having loaded the Studio page.
+
+## Native browser driver — 2026-11-03 (#587)
+
+The original persisted-PostgreSQL receipt above is historical. The DP-458
+test now uses native `agent-browser` for Chrome, keyboard, DOM waits and HTTP
+status capture. The bearer travels via batch stdin with `--omit-command`, in
+an isolated random session with restore disabled; `finally` closes the session.
+Existing HTTP 503, no-playback, privacy and token-clear assertions remain.
+
+The synthetic MiniPC fixture returned `SYNTHETIC_BROWSER_CAPABILITY_ONLY`
+with `real_postgres_source:false`, two HTTP 503 responses, keyboard activation
+and successful cleanup. It is not a new real-source acceptance. Re-run the
+preflight HELD + binding_count=0 above before testing a persisted candidate.

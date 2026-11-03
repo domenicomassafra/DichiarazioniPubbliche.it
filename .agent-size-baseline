@@ -90,7 +90,7 @@
   "poc/dichiarazioni_pubbliche/operation_ledger.py": 21464,
   "poc/dichiarazioni_pubbliche/ops/cost_policy.py": 53599,
   "poc/dichiarazioni_pubbliche/ops/monthly_liability_pg_v1.py": 31046,
-  "poc/dichiarazioni_pubbliche/ops/threats.py": 37834,
+  "poc/dichiarazioni_pubbliche/ops/threats.py": 37797,
   "poc/dichiarazioni_pubbliche/original_source_investigation_pg_v1.py": 28057,
   "poc/dichiarazioni_pubbliche/original_source_investigation_v1.py": 41784,
   "poc/dichiarazioni_pubbliche/original_source_resolver.py": 22375,
