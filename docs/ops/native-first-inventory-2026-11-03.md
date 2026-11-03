@@ -1,8 +1,8 @@
 # DP #587 — inventario operativo native-first, 3 novembre 2026
 
 Snapshot sorgenti: origin/main 903f19a552ed7a6ef6e8478d187859436ba55749; esecuzione sul worktree Studio fix/587-native-first.
-Criterio: file Git tracciati che configurano strumenti, avviano operazioni, rappresentano hook/workflow/timer/patch, e adattatori esterni di primo livello. Esclusi i moduli di logica interna non esposti come wrapper e i documenti storici.
-Perimetro esaminato: 200 entrypoint; NATIVE=22, REPLACE=2, GAP=176.
+Criterio: file Git tracciati che configurano strumenti, avviano operazioni, rappresentano hook/workflow/timer/patch, e adattatori esterni di primo livello, inclusi script di test e prototipi eseguibili. Esclusi i moduli di logica interna non esposti come wrapper e i documenti storici.
+Perimetro esaminato: 212 entrypoint; NATIVE=23, REPLACE=3, GAP=186.
 
 NATIVE = file conforme a funzionalita nativa; REPLACE = alternativa identica usata senza shim; GAP = il tool nativo lascia una invariante del dominio scoperta. Le classi GAP non sono autorizzazioni a nuove dipendenze.
 
@@ -12,6 +12,7 @@ NATIVE = file conforme a funzionalita nativa; REPLACE = alternativa identica usa
 - Studio: test focalizzati su Python 3.14 via ControlCenter resource guard: 7/7 PASS. Il modulo ritorna exit 2 per URL vuoto/assente senza avviare psql; nessuna chiamata provider.
 
 - REPLACE: tools/extract_passage_candidates.py — eliminato; era un alias che importava ed eseguiva soltanto main da tools/extract_research_candidates.py. Nessun chiamante attivo dipende dal nome storico; la guida operativa docs/ops/private-candidate-extraction-20261008.md ora invoca direttamente la CLI custodita. Le note storiche DP-211 restano documentazione delle decisioni precedenti.
+- REPLACE: tools/dp458_studio_browser_hold.mjs — rimosso il driver Chrome/CDP costruito a mano (spawn Chrome, websocket e protocollo eventi). Il test negativo DP-458 usa ora il CLI nativo agent-browser, namespace/sessione temporanea, input segreto via JSON/stdin e batch --omit-command, wait --fn, press Enter, eval e network requests con status 503; close in finally. La logica di dominio che vieta playback, leak di testo e persistenza del token resta in assertions. Smoke 2026-11-03 su MiniPC con fixture locale porta 18777, token fittizio: SYNTHETIC_BROWSER_CAPABILITY_ONLY, real_postgres_source=false, 2 risposte 503, keyboard_activation, nessuna sorgente media o leak, token cancellato, exit 0 e browser chiuso. La ripetizione su candidate PostgreSQL reale richiede il preflight privato DP-458, non simulato dalla fixture.
 
 ## Dipendenze e comportamento dei quattro host
 
@@ -31,17 +32,19 @@ NATIVE = file conforme a funzionalita nativa; REPLACE = alternativa identica usa
 - S-PY — Python -m CLI ufficiale (verificato 2026-11-03) e modulo argparse/test reale: https://docs.python.org/3.12/using/cmdline.html
 - S-POSTGRES — strumenti nativi pg_dump/pg_restore v18 docs (consultati 2026-11-03): https://www.postgresql.org/docs/current/app-pgdump.html ; https://www.postgresql.org/docs/current/app-pgrestore.html
 - S-PLAYWRIGHT — Playwright browserContext.offline limita solo le richieste del browser; non equivale a namespace OS: https://playwright.dev/python/docs/api/class-browsercontext (consultato 2026-11-03).
+- S-AGENT-BROWSER — agent-browser 0.41.1 MiniPC e 0.41.0 MateBook (CLI nativo consultato 2026-11-03); capability batch JSON via stdin, --omit-command, wait --fn, network requests --status, session namespace isolata e close. Smoke MiniPC isolato 2026-11-03: fixture DP-458, 2x503, keyboard, nessun media src/leak, token cleared, exit 0; nessuna attestazione PostgreSQL reale. Manuale CLI: agent-browser batch --help e agent-browser network requests --help.
 - S-ORCA — Orca 1.4.243, output nativo orca agent-context --help letto via SSH Studio il 2026-11-03.
 - S-LOCAL — implementazione tracciata in origin/main (SHA sopra), lettura del comando/config e relativi chiamanti il 2026-11-03.
 
 ## Inventario puntuale
 
-I file sono raggruppati in quattro tabelle per rispettare il limite di dimensione dei file del repository. Tutte le 200 righe appartengono allo stesso audit e condividono le fonti S-... indicate sopra.
+I file sono raggruppati in cinque tabelle per rispettare il limite di dimensione dei file del repository. Tutte le 212 righe appartengono allo stesso audit e condividono le fonti S-... indicate sopra.
 
 - Questa pagina: workflow, configurazione, deploy e runtime Python (54 righe).
 - [Operator CLI e strumenti A](native-first-inventory-tools-a-2026-11-03.md) (44 righe).
 - [Operator CLI e strumenti B](native-first-inventory-tools-b-2026-11-03.md) (44 righe).
 - [Configurazione web e QA Astro](native-first-inventory-web-2026-11-03.md) (58 righe).
+- [Node test e prototipi eseguibili](native-first-inventory-tests-2026-11-03.md) (12 righe).
 
 | Percorso | Funzione osservata | Tool o alternativa nativa | Classe | Evidenza e motivazione |
 | --- | --- | --- | --- | --- |
@@ -71,7 +74,7 @@ I file sono raggruppati in quattro tabelle per rispettare il limite di dimension
 | `deploy/ops/backup.sh` | backup.sh | PostgreSQL e verifica DP | **GAP** | S-POSTGRES: pg_dump/pg_restore nativi gia usati; manifest diritti, conteggi e restore DR sono invarianti propri |
 | `deploy/ops/provider_outage_drill.sh` | provider_outage_drill.sh | Python -m | **REPLACE** | S-PY: shell shim duplicava una CLI Python che accetta gia gli argomenti e respinge DB non espliciti |
 | `deploy/ops/restore_drill.sh` | restore_drill.sh | PostgreSQL e verifica DP | **GAP** | S-POSTGRES: pg_dump/pg_restore nativi gia usati; manifest diritti, conteggi e restore DR sono invarianti propri |
-| `deploy/ops/verify_projection_bundle.py` | Verify a generated public projection bundle is internally consistent. Stdlib onl | PostgreSQL e verifica DP | **GAP** | S-POSTGRES: pg_dump/pg_restore nativi gia usati; manifest diritti, conteggi e restore DR sono invarianti propri |
+| `deploy/ops/verify_projection_bundle.py` | Verifica hash e contratto degli artefatti pubblici | Python stdlib (validazione bundle) | **GAP** | S-LOCAL: checker DP specifico della proiezione, indipendente da backup/restore PostgreSQL |
 | `deploy/systemd/dichiarazioni-pubbliche-health.service` | dichiarazioni-pubbliche-health.service | systemd user units | **NATIVE** | S-SYSTEMD: unit/service/timer nativi con scheduling gestito da systemd |
 | `deploy/systemd/dichiarazioni-pubbliche-health.timer` | dichiarazioni-pubbliche-health.timer | systemd user units | **NATIVE** | S-SYSTEMD: unit/service/timer nativi con scheduling gestito da systemd |
 | `deploy/systemd/dichiarazioni-pubbliche-source-poll-daily.service` | dichiarazioni-pubbliche-source-poll-daily.service | systemd user units | **NATIVE** | S-SYSTEMD: unit/service/timer nativi con scheduling gestito da systemd |
