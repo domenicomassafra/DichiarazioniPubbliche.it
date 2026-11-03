@@ -22,10 +22,10 @@ challenge or provider admission inputs change.
 ## Provider admission and identity
 
 `OmniRouteAgentReview(model_id=...)` makes one constrained completion for
-an exact owner-allowlisted Gemini 3.8 Flash, 3.7 Flash or 3.1 Pro model at
+an exact allowlisted Gemini 3.8 Flash tiered, 3 Flash or 2.5 Pro model at
 the **local** OmniRoute gateway. Its required model-aware
 `subscription_gate(model_id)` must independently verify the DP key's
-13 currently authorized and independently verified Antigravity Pro account IDs,
+currently authorized and independently verified Antigravity Pro account IDs,
 route allowlist, remaining quota and no paid-route fallback before *each* POST.
 If no such authenticated
 capability exists, the review fails and `AutonomousOperations` records HOLD.
@@ -65,14 +65,16 @@ no packet and therefore HOLD.
 - [#458](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/458)
   supplies the authentic, original-source packet and its independent rights
   authority. It was OPEN when this tranche was authored.
-- The owner approved three distinct models on 31 October 2026 and, on
-  1 November, authorized all 13 then-configured Google AI Pro connections,
-  subject to verifying each account's legitimate subscription. The prior
-  read-only gateway metadata listed 3.8 Flash on 13/13 connections, 3.7 Flash
-  on 0/13 and 3.1 Pro on 0/13. No DP-scoped `allowedConnections` key or
-  ownership/entitlement proof for all 13 is yet demonstrated.
-  Thus an allowlist/test fixture is **not** a live two-model review or third
-  audit; HOLD until subscribed provider, quota and no-fallback proofs exist.
+- The 2 November 2026 read-only inventory listed 3.8 Flash tiered, 3 Flash
+  and 2.5 Pro on 13/13 active Google AI Pro connections. The original 3.7
+  Flash and 3.1 Pro IDs appeared on 0/13. The 3 November policy reconciliation
+  selects the three available IDs and revokes old model receipts. The owner
+  authorized all legitimately available Google AI Pro connections on 2 November,
+  subject to independent entitlement verification. No DP-scoped
+  `allowedConnections` key, authoritative quota or verified upstream execution
+  witness has yet been demonstrated. An allowlist/test fixture is **not** a
+  live two-model review or third audit; HOLD until subscription, quota and
+  no-fallback proofs exist.
 - The existing MiniPC public consumer is on v2. Bind these adapters to its
   separately authenticated DB/readback and withdrawal controls, and install
   through the candidate/verify/swap/rollback runbook after independent review.

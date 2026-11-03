@@ -336,12 +336,12 @@ class SubscriptionOperationsTests(unittest.TestCase):
         self.assertEqual((first.calls, second.calls), (0, 0))
         self.assertFalse(surface.visible)
 
-    def test_three_distinct_subscription_models_support_review_and_nightly_audit(self):
+    def test_three_models_review_and_audit(self):
         from dichiarazioni_pubbliche.autonomous_publication import APPROVED_REVIEW_MODELS
 
         primary_model = "antigravity/gemini-3.8-flash-tiered"
-        second_model = "antigravity/gemini-3.7-flash"
-        audit_model = "antigravity/gemini-3.1-pro"
+        second_model = "antigravity/gemini-3-flash"
+        audit_model = "antigravity/gemini-2.5-pro"
         self.assertEqual(
             APPROVED_REVIEW_MODELS, frozenset({primary_model, second_model, audit_model})
         )
@@ -368,19 +368,20 @@ class SubscriptionOperationsTests(unittest.TestCase):
         self.assertEqual(auditor.calls, 1)
         self.assertEqual(surface.current_evidence_sha256("finding:413"), fingerprint)
 
-    def test_model_aliases_and_other_providers_hold_before_any_provider_calls(self):
+    def test_invalid_models_hold_before_provider_calls(self):
         for unapproved in (
             "antigravity/gemini-3.8-flash-low",
             "antigravity/gemini-3.8-flash-medium",
             "antigravity/gemini-3.8-flash-high",
-            "antigravity/gemini-3-flash",
-            "openrouter/gemini-3.7-flash",
-            "kilocode/google/gemini-3.1-pro",
-            "antigravity/gemini-3.7-flash-preview",
-            " ANTIGRAVITY/GEMINI-3.7-FLASH ",
-            "antigravity/gemini-3.7-flash ",
-            "ANTIGRAVITY/GEMINI-3.1-PRO",
-            "\tantigravity/gemini-3.1-pro",
+            "antigravity/gemini-3.7-flash",
+            "antigravity/gemini-3.1-pro",
+            "openrouter/gemini-3-flash",
+            "kilocode/google/gemini-2.5-pro",
+            "antigravity/gemini-3-flash-preview",
+            " ANTIGRAVITY/GEMINI-3-FLASH ",
+            "antigravity/gemini-3-flash ",
+            "ANTIGRAVITY/GEMINI-2.5-PRO",
+            "\tantigravity/gemini-2.5-pro",
         ):
             with self.subTest(unapproved=unapproved):
                 first = Reviewer("agent:first", "antigravity/gemini-3.8-flash-tiered")
@@ -397,8 +398,8 @@ class SubscriptionOperationsTests(unittest.TestCase):
     def test_third_audit_model_alias_withdraws_without_calling_provider(self):
         capture = Capture()
         first = Reviewer("agent:first", "antigravity/gemini-3.8-flash-tiered")
-        second = Reviewer("agent:independent", "antigravity/gemini-3.7-flash")
-        auditor = Reviewer("agent:nightly", " ANTIGRAVITY/GEMINI-3.1-PRO ")
+        second = Reviewer("agent:independent", "antigravity/gemini-3-flash")
+        auditor = Reviewer("agent:nightly", " ANTIGRAVITY/GEMINI-2.5-PRO ")
         surface = Surface()
         ops = AutonomousOperations(
             capture=capture, challenge=Challenge(), first=first, second=second,

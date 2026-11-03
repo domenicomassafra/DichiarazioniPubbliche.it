@@ -16,17 +16,17 @@ from datetime import datetime
 from urllib.parse import urlsplit
 
 
-# v4 invalidates prior receipts when the owner-authorized model set changes.
-POLICY_VERSION = "autonomous-publication-413-v4"
-# Owner decision 31 October 2026: three distinct Gemini models, exclusively
+# v5 invalidates receipts issued under the unavailable 3.7/3.1 model set.
+POLICY_VERSION = "autonomous-publication-413-v5"
+# Current owner-authorized Pro connections expose three distinct Gemini models,
 # through existing Antigravity/OmniRoute subscriptions; no direct/paid fallback.
 # Model strings alone never prove actual upstream identity, subscription scope,
 # quota, or permission to publish. The trusted live gateway must attest those.
 SUBSCRIPTION_REVIEW_MODEL = "antigravity/gemini-3.8-flash-tiered"
 APPROVED_REVIEW_MODELS = frozenset({
     SUBSCRIPTION_REVIEW_MODEL,
-    "antigravity/gemini-3.7-flash",
-    "antigravity/gemini-3.1-pro",
+    "antigravity/gemini-3-flash",
+    "antigravity/gemini-2.5-pro",
 })
 
 

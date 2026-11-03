@@ -21,7 +21,7 @@ from tests.test_autonomous_publication import written_candidate
 
 
 PRIMARY = "antigravity/gemini-3.8-flash-tiered"
-SECOND = "antigravity/gemini-3.7-flash"
+SECOND = "antigravity/gemini-3-flash"
 
 
 class PersistedReviewReaderTests(unittest.TestCase):
