@@ -336,7 +336,7 @@ class SubscriptionOperationsTests(unittest.TestCase):
         self.assertEqual((first.calls, second.calls), (0, 0))
         self.assertFalse(surface.visible)
 
-    def test_three_distinct_subscription_models_support_review_and_nightly_audit(self):
+    def test_three_models_review_and_audit(self):
         from dichiarazioni_pubbliche.autonomous_publication import APPROVED_REVIEW_MODELS
 
         primary_model = "antigravity/gemini-3.8-flash-tiered"
@@ -368,7 +368,7 @@ class SubscriptionOperationsTests(unittest.TestCase):
         self.assertEqual(auditor.calls, 1)
         self.assertEqual(surface.current_evidence_sha256("finding:413"), fingerprint)
 
-    def test_model_aliases_and_other_providers_hold_before_any_provider_calls(self):
+    def test_invalid_models_hold_before_provider_calls(self):
         for unapproved in (
             "antigravity/gemini-3.8-flash-low",
             "antigravity/gemini-3.8-flash-medium",
