@@ -58,34 +58,31 @@ class ProviderOutageClientTests(unittest.TestCase):
                 self.assertEqual(result, 2)
                 self.assertEqual(intercepted_argv, [], "unsafe psql argv was constructed/executed")
 
-    def test_shell_wrapper_requires_explicit_nonblank_url_before_mock_psql(self):
-        # Run the real wrapper with psql replaced by a recording stub in PATH.
+    def test_native_module_requires_explicit_nonblank_url_before_mock_psql(self):
+        # Exercise Python's module CLI directly; the old shell launcher is redundant.
         with tempfile.TemporaryDirectory() as tmp:
             fakebin = Path(tmp)
             psql_log = fakebin / "psql-argv.log"
-            for name, script in (
-                ("python3", '#!/bin/sh\nexec "$DRILL_TEST_PYTHON" "$@"\n'),
-                ("psql", '#!/bin/sh\nprintf "%s\\n" "$@" >> "$DRILL_PSQL_ARGV_LOG"\nexit 77\n'),
-            ):
-                tool = fakebin / name
-                tool.write_text(script)
-                tool.chmod(tool.stat().st_mode | stat.S_IXUSR)
+            psql = fakebin / "psql"
+            psql.write_text('#!/bin/sh\nprintf "%s\\n" "$@" >> "$DRILL_PSQL_ARGV_LOG"\nexit 77\n')
+            psql.chmod(psql.stat().st_mode | stat.S_IXUSR)
             env = os.environ.copy()
             env.update({
                 "PATH": str(fakebin) + os.pathsep + env.get("PATH", ""),
-                "DRILL_TEST_PYTHON": sys.executable,
+                "PYTHONPATH": str(ROOT / "poc"),
                 "DRILL_PSQL_ARGV_LOG": str(psql_log),
                 "DICHIARAZIONI_PUBBLICHE_DATABASE_URL": "postgresql:///env-db",
             })
-            for args in (("--database-url", ""), ("--database-url", " \t "), ()):
+            for args in (("--database-url", ""), ("--database-url", " \t"), ()):
                 with self.subTest(database_args=args):
                     proc = subprocess.run(
-                        ["sh", str(ROOT / "deploy" / "ops" / "provider_outage_drill.sh"),
-                         *args],
+                        [sys.executable, "-m",
+                         "dichiarazioni_pubbliche.ops.provider_outage_drill",
+                         *args, "--registry", str(ROOT / "config" / "source-registry.v1.json")],
                         env=env, capture_output=True, text=True, timeout=15, check=False,
                     )
                     self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
-                    self.assertFalse(psql_log.exists(), "shell wrapper invoked mock psql")
+                    self.assertFalse(psql_log.exists(), "native CLI invoked mock psql")
 
     def test_explicit_valid_url_wins_even_with_database_environment(self):
         with (
@@ -112,11 +109,6 @@ class ProviderOutageClientTests(unittest.TestCase):
                 self.assertEqual(blocked.exception.code, 2)
                 runner.assert_not_called()
 
-    def test_shell_driver_uses_real_worker_drill_module(self):
-        script = (ROOT / "deploy" / "ops" / "provider_outage_drill.sh").read_text()
-        self.assertIn("dichiarazioni_pubbliche.ops.provider_outage_drill", script)
-        self.assertIn("--database-url", script)
-        self.assertNotIn("switch provider", script.lower())
 
 
 if __name__ == "__main__":

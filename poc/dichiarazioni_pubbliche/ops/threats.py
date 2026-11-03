@@ -661,7 +661,7 @@ THREATS: tuple[Threat, ...] = (
         invariant="Provider failure is an explicit blocked state.",
         evidence=(
             "poc/dichiarazioni_pubbliche/worker_handlers_claim_evidence.py; "
-            "deploy/ops/provider_outage_drill.sh; tests/test_ops_provider_outage.py"
+            "tests/test_ops_provider_outage.py"
         ),
     ),
     Threat(

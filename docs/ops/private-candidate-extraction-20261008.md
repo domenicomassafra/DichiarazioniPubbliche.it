@@ -11,9 +11,9 @@ tools/extract_research_candidates.py provides read-only preflight by default.
 Its manifest binds 1–16 existing Passage IDs and hashes to persisted Content,
 exact Capture IDs, canonical URLs, source families and rights-record IDs in
 one Research Collection. The manifest SHA-256 is returned; source bodies,
-prompts and credentials are not returned. The historical
-tools/extract_passage_candidates.py command delegates to the same guarded
-path. Unbound --passage-id no longer invokes a provider.
+prompts and credentials are not returned. The former tools/extract_passage_candidates.py alias was retired: use
+python3 tools/extract_research_candidates.py directly. Its manifest and
+rights preflight are unchanged. Unbound --passage-id is not supported.
 
 Every Passage must pass before a model can see text:
 
