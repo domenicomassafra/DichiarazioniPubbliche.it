@@ -68,8 +68,20 @@ The reader also carries the persisted private passage SHA-256 to the producer:
 the independently reconstructed canonical span must have that exact hash.
 If approved corpus wording and immutable source wording differ, the candidate
 is omitted rather than silently replaced during projection.
-Production wiring for the independent authorities, registered model-scoped
-credentials, nightly auditor and release pin remains pending.
+`senato_v3_binding.bind_senato_public_v3(...)` now composes the existing
+Capture, PostgreSQL candidate, private authority/challenge and persisted
+two-model-review readers into one `SenatoPublicV3Source`. It requires the
+independently authenticated `read_current_candidate`,
+`verify_provider_execution`, `verify_authority_review`, and
+`processing_family_approved` callbacks. Missing callbacks fail at construction;
+missing or stale attestations fail during projection. A local journal entry or
+an approved database status alone never makes a Statement public.
+
+The production caller must still supply those *actual* external authorities,
+registered model-scoped credentials, verified Senato Capture/body/rights state
+and release pin. The nightly auditor and public consumer are not activated by
+the composition function. No production consumer calls it yet, so the live
+site remains on v2 until #413 and #98 complete their independent gates.
 Call `build_public_projection(adapter, include_public_statements=True)`
 only in a private verification context; the existing producer calls every
 proof reader and silently omits an ineligible Statement. An empty bundle
@@ -91,4 +103,6 @@ is **HOLD**, not an eligible public release.
 
 Tests: `tests.test_dp468_senato_public_v3_source` checks real AKN XML parsing,
 private Capture readback, source mutations, absent authorities and statement
-omission without fake rights or reviews. No test issues a publication pin.
+omission without fake rights or reviews. `tests.test_dp468_senato_v3_binding`
+checks the actual composition and refuses synthetic authority by omission.
+No test issues a publication pin.
