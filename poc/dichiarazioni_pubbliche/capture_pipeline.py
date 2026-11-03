@@ -534,11 +534,7 @@ class CaptureBodyStore:
 
     @classmethod
     def open_existing_readonly(cls, root: Path) -> "CaptureBodyStore":
-        """Use an existing operator storage root without mkdir/chmod writes.
-
-        A private Candidate preflight must never create a plausible empty
-        body store or mutate its permissions as a side effect of inspection.
-        """
+        """Inspect an existing body root without creating or changing it."""
         candidate = Path(root).expanduser()
         try:
             if candidate.is_symlink() or not candidate.is_dir():
@@ -576,13 +572,15 @@ class CaptureBodyStore:
             os.chmod(target.parent, 0o700)
         except OSError:
             pass
-        if target.exists():
+        def verified_existing() -> BodyStoreReceipt:
             if target.is_symlink() or not target.is_file():
                 raise CapturePipelineError("BODY_STORE_TARGET_INVALID")
             existing = target.read_bytes()
             if hashlib.sha256(existing).hexdigest() != content_sha256:
                 raise CapturePipelineError("BODY_STORE_EXISTING_HASH_MISMATCH")
             return BodyStoreReceipt("EXISTING", body_ref, content_sha256, len(existing))
+        if target.exists():
+            return verified_existing()
         fd, tmp_name = tempfile.mkstemp(prefix=".capture-", dir=str(target.parent))
         tmp = Path(tmp_name)
         try:
@@ -591,11 +589,11 @@ class CaptureBodyStore:
                 handle.write(body)
                 handle.flush()
                 os.fsync(handle.fileno())
-            os.replace(tmp, target)
+            # An existing capture must never be overwritten.
             try:
-                os.chmod(target, 0o600)
-            except OSError:
-                pass
+                os.link(tmp, target)
+            except FileExistsError:
+                return verified_existing()
         finally:
             if tmp.exists():
                 tmp.unlink()
