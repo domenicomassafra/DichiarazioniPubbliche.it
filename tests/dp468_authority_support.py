@@ -24,8 +24,8 @@ from tests.test_dp413_persisted_review_reader import PersistedReviewReaderTests
 
 
 PRIMARY_MODEL = "antigravity/gemini-3.8-flash-tiered"
-SECOND_MODEL = "antigravity/gemini-3.7-flash"
-THIRD_MODEL = "antigravity/gemini-3.1-pro"
+SECOND_MODEL = "antigravity/gemini-3-flash"
+THIRD_MODEL = "antigravity/gemini-2.5-pro"
 
 
 class MemoryPostgres:

@@ -17,12 +17,12 @@ class ThirdModelReceiptIdentityTests(unittest.TestCase):
         class WrongReceiptModel(Reviewer):
             def review(self, item, evidence_sha256):
                 signed = super().review(item, evidence_sha256)
-                return replace(signed, model_id=" ANTIGRAVITY/GEMINI-3.1-PRO ")
+                return replace(signed, model_id=" ANTIGRAVITY/GEMINI-2.5-PRO ")
 
         capture = Capture()
         first = Reviewer("agent:first", "antigravity/gemini-3.8-flash-tiered")
-        second = Reviewer("agent:independent", "antigravity/gemini-3.7-flash")
-        third = WrongReceiptModel("agent:nightly", "antigravity/gemini-3.1-pro")
+        second = Reviewer("agent:independent", "antigravity/gemini-3-flash")
+        third = WrongReceiptModel("agent:nightly", "antigravity/gemini-2.5-pro")
         surface = Surface()
         operations = AutonomousOperations(
             capture=capture, challenge=Challenge(), first=first, second=second,
