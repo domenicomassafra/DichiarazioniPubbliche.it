@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
@@ -11,6 +13,7 @@ from unittest.mock import Mock
 from dichiarazioni_pubbliche.autonomous_runner_v3 import SQLiteRunJournal
 from dichiarazioni_pubbliche.public_projection import build_public_projection
 from dichiarazioni_pubbliche.senato_v3_binding import bind_senato_public_v3
+from tests.test_autonomous_publication import written_candidate
 from tests.test_dp468_senato_public_v3_source import setup
 
 
@@ -78,3 +81,58 @@ class SenatoV3BindingTests(TestCase):
             with self.subTest(missing=missing):
                 with self.assertRaisesRegex(ValueError, "DP468_TRUSTED_AUTHORITY_REQUIRED"):
                     self.bind(**{missing: None})
+
+    def test_current_model_receipts_are_accepted_only_while_provider_witness_confirms(self):
+        from tests.test_dp413_persisted_review_reader import (
+            PRIMARY, SECOND, PersistedReviewReaderTests,
+        )
+        provider = PersistedReviewReaderTests(methodName="runTest")
+        provider.setUp()
+        self.addCleanup(provider.doCleanups)
+        canonical = setup()[2]
+        record = self.approved
+        provider.current = replace(
+            written_candidate(),
+            record_id=record["statement_id"],
+            record_version_id=record["version_id"],
+            source_version=self.pins.xml_sha256,
+            source_url=self.pins.source_raw_url,
+            source_kind="WRITTEN",
+            snapshot_url=self.pins.source_raw_url,
+            snapshot_sha256=self.pins.xml_sha256,
+            source_text_sha256=self.pins.canonical_text_sha256,
+            captured_at=datetime.now(timezone.utc).isoformat(),
+            segment_start=record["start_char"],
+            segment_end=record["end_char"],
+            quote=record["quote"],
+            transcript_segment=record["quote"],
+            alignment_confidence=None,
+            speaker_id=record["person_id"],
+            public_role_source_url="https://www.senato.it/leg/19/assemblea",
+            public_context_source_url="https://www.senato.it/leg/19/assemblea",
+            person_is_minor=False,
+            sensitive_third_party_data=False,
+            privacy_cleared=True,
+            rights_cleared=True,
+            source_length_chars=len(canonical),
+            contains_editorial_judgment=False,
+        )
+        source = self.bind(
+            journal=provider.journal,
+            read_current_candidate=provider.read_candidate,
+            verify_provider_execution=provider.provider_witness,
+            primary_agent_id="agent:primary", primary_model_id=PRIMARY,
+            independent_agent_id="agent:independent", independent_model_id=SECOND,
+        )
+        statement_id, version_id = record["statement_id"], record["version_id"]
+        self.assertIsNone(source.autonomous_publication_evidence(statement_id, version_id))
+        provider.complete()  # Test fixture: simulated gateway completions and separate witness.
+        proof = source.autonomous_publication_evidence(statement_id, version_id)
+        self.assertIsNotNone(proof)
+        self.assertEqual(proof.candidate, provider.current)
+        # Provider proof alone cannot grant the independently reviewed rights.
+        self.assertEqual(build_public_projection(
+            source, generated_at="2026-11-03T11:00:00Z", include_public_statements=True,
+        )["statements"], [])
+        provider.gateway_events.clear()
+        self.assertIsNone(source.autonomous_publication_evidence(statement_id, version_id))
