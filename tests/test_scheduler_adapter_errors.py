@@ -23,6 +23,7 @@ class AdapterErrorReceiptTests(unittest.TestCase):
                 ("ACCESS_RESTRICTED", "BLOCKED"),
                 ("TIMEOUT", "FAILED"),
                 ("MISSING_ID", "BLOCKED"),
+                ("SOURCE_NOT_FOUND", "FAILED"),
             ):
                 with self.subTest(category=category):
                     store = FakeStore()

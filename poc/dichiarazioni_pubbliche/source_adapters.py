@@ -771,15 +771,10 @@ def discover_source_result(
         return DiscoveryResult((), "BLOCKED" if exc.blocked else "FAILED", exc.category)
     except urllib.error.HTTPError as exc:
         if exc.code in {401, 403}:
-            category = "ACCESS_RESTRICTED"
-            status = "BLOCKED"
-        elif exc.code == 429 or exc.code >= 500:
-            category = "TRANSIENT"
-            status = "FAILED"
-        else:
-            category = "TRANSIENT"
-            status = "FAILED"
-        return DiscoveryResult((), status, category)
+            return DiscoveryResult((), "BLOCKED", "ACCESS_RESTRICTED")
+        if exc.code in {404, 410}:
+            return DiscoveryResult((), "FAILED", "SOURCE_NOT_FOUND")
+        return DiscoveryResult((), "FAILED", "TRANSIENT")
     except ValueError:
         return DiscoveryResult((), "FAILED", "MALFORMED_RESPONSE")
     except TimeoutError:

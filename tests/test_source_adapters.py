@@ -2,6 +2,7 @@ import json
 import sys
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 from unittest.mock import patch
 
@@ -224,6 +225,39 @@ class SourceAdapterContractTests(unittest.TestCase):
         result = discover_source_result(source)
         self.assertEqual(result.status, "BLOCKED")
         self.assertEqual(result.error_category, "ACCESS_RESTRICTED")
+
+    def test_http_source_failures_keep_actionable_categories(self):
+        source = {
+            "id": "youtube-pulp-podcast",
+            "kind": "youtube_channel",
+            "discovery_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCY99TnBJ8xyat2lpeN_hcEA",
+        }
+        for code, status, category in (
+            (401, "BLOCKED", "ACCESS_RESTRICTED"),
+            (403, "BLOCKED", "ACCESS_RESTRICTED"),
+            (404, "FAILED", "SOURCE_NOT_FOUND"),
+            (410, "FAILED", "SOURCE_NOT_FOUND"),
+            (429, "FAILED", "TRANSIENT"),
+            (503, "FAILED", "TRANSIENT"),
+        ):
+            with self.subTest(http_code=code):
+                def fetcher(url):
+                    error = urllib.error.HTTPError(url, code, "sensitive detail", None, None)
+                    error.close()
+                    raise error
+
+                result = discover_source_result(source, fetcher=fetcher)
+                self.assertEqual((result.status, result.error_category), (status, category))
+                with self.assertRaises(SourceAdapterError) as error:
+                    discover_source(source, fetcher=fetcher)
+                self.assertEqual(error.exception.category, category)
+                self.assertNotIn("sensitive detail", str(error.exception))
+
+        def timeout_fetcher(_url):
+            raise TimeoutError("sensitive detail")
+
+        timed_out = discover_source_result(source, fetcher=timeout_fetcher)
+        self.assertEqual((timed_out.status, timed_out.error_category), ("FAILED", "TRANSIENT"))
 
     def test_cross_post_identity_and_job_id_are_deterministic(self):
         source = {
