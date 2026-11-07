@@ -2,6 +2,9 @@
 
 **Status: PRIVATE HOLD.** This packet records an authentic, actually persisted MiniPC source and a real DP-413B policy/runner acceptance. It does **not** authorize public reproduction, imply fully verified GDPR compliance, pretend to independently verify acoustic words, or claim genuine Studio playback of a held segment. Related: #413, #97 (inventory only), #425 (DP-419 software already merged), #461 (separate Italian WAV gold), #464 (v3 runner).
 
+Fresh-evidence private-rights renewal after the 2 November expiry:
+[8 November 2026 runbook](dp468-current-private-rights-20261108.md).
+
 ## Exact authentic source and provenance
 
 Official EU AVS recording: https://audiovisual.ec.europa.eu/en/media/video/I-293056 — **I-293056**, 16 September 2026, *EP Plenary Session State of the European Union debate 2026 — #SOTEU2026 Statement by Ursula von der LEYEN, EC President*. Producer **European Parliament**, individual rights credit **© European Union, 2026**, Strasbourg EP/Louise-Weiss; public office-holder role corroborated by https://ec.europa.eu/commission/presscorner/detail/ov/SPEECH_26_1868. These prove attribution/role, not every spoken word.
