@@ -150,7 +150,7 @@ class SQLiteRunJournal:
                 db.rollback()
                 raise
 
-    def events(self, record_id: str) -> tuple[RunReceipt, ...]:
+    def _chain(self) -> tuple[tuple[str, RunReceipt], ...]:
         with closing(self._connect()) as db:
             rows = db.execute("""
                 SELECT record_id, event_json, previous_sha256, event_sha256
@@ -162,9 +162,17 @@ class SQLiteRunJournal:
             if prev != previous or hashlib.sha256((prev + payload).encode()).hexdigest() != digest:
                 raise ValueError("DP413B_EVENT_LEDGER_INTEGRITY_FAILURE")
             previous = digest
-            if stored_id == record_id:
-                result.append(self._deserialize(payload))
+            result.append((stored_id, self._deserialize(payload)))
         return tuple(result)
+
+    def events(self, record_id: str) -> tuple[RunReceipt, ...]:
+        return tuple(
+            event for stored_id, event in self._chain() if stored_id == record_id
+        )
+
+    def all_events(self) -> tuple[RunReceipt, ...]:
+        """Whole-corpus history in append order, needed for daily/nightly sampling."""
+        return tuple(event for _, event in self._chain())
 
     def append_review(self, receipt: dict[str, object]) -> None:
         """Persist actual gateway identity before a model verdict can be used."""
