@@ -23,6 +23,8 @@ def main(argv: Iterable[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Authenticated correction HOLD + edge readback listener.")
     parser.add_argument("--projection-path", type=Path, required=True)
     parser.add_argument("--static-dir", type=Path, required=True)
+    parser.add_argument("--v3-projection-path", type=Path)
+    parser.add_argument("--v3-current-fingerprint-path", type=Path)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=18090)
     parser.add_argument("--account-client-id", required=True)
@@ -39,6 +41,11 @@ def main(argv: Iterable[str] | None = None) -> int:
         parser.error("the registered canonical HTTPS account origin is required")
     if not args.static_dir.is_dir() or not args.projection_path.is_file():
         parser.error("the actual public static release and projection must exist")
+    if bool(args.v3_projection_path) != bool(args.v3_current_fingerprint_path):
+        parser.error("v3 requires both the approved projection and independent current fingerprint")
+    if args.v3_projection_path and not (args.v3_projection_path.is_file() and
+                                        args.v3_current_fingerprint_path.is_file()):
+        parser.error("the current approved v3 release controls must exist")
     private_paths = (
         args.account_client_secret_file, args.account_db,
         args.correction_cloudflare_token_file,
@@ -88,6 +95,9 @@ def main(argv: Iterable[str] | None = None) -> int:
         account_private_secret_path=str(args.account_client_secret_file),
         correction_ledger=ledger, correction_enqueue=enqueue, correction_purge=purge,
         correction_reserve=lambda actor: quota.reserve(actor, int(time.time())),
+        statement_projection_path=(str(args.v3_projection_path) if args.v3_projection_path else None),
+        statement_current_fingerprint_path=(str(args.v3_current_fingerprint_path)
+                                            if args.v3_current_fingerprint_path else None),
     )
     print(f"Correction HOLD HTTP on http://{args.host}:{server.server_port}/intake/corrections")
     try:

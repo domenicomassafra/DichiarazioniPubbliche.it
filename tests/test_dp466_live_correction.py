@@ -3,6 +3,8 @@
 import http.client
 import hashlib
 import json
+import contextlib
+import io
 import sys
 import tempfile
 import threading
@@ -16,8 +18,10 @@ sys.path.insert(0, str(ROOT / "poc"))
 from dichiarazioni_pubbliche.challenge_persistence import ChallengeHoldDisposition  # noqa: E402
 from dichiarazioni_pubbliche.openapi import fictional_dossier  # noqa: E402
 from dichiarazioni_pubbliche.live_correction_http import build_live_correction_server  # noqa: E402
+from dichiarazioni_pubbliche.live_correction_cli import main as correction_main  # noqa: E402
 from dichiarazioni_pubbliche.policy.challenge_workflow import ChallengeKind  # noqa: E402
 from tests.test_public_api import published_bundle, write_bundle  # noqa: E402
+from tests.test_dp437_public_opinion_api import ReviewedSyntheticOpinions  # noqa: E402
 
 
 class FakeLedger:
@@ -230,6 +234,63 @@ class LiveCorrectionHttpTests(unittest.TestCase):
         projection = Path(self.temp.name) / "projection.json"
         write_bundle(projection, published_bundle([]))
         self.assertEqual(self.request("GET", "/")[0], 503)
+
+    def test_opted_in_v3_read_and_correction_hold_share_one_listener(self):
+        root = Path(self.temp.name)
+        v3 = ReviewedSyntheticOpinions().build()
+        candidate = root / "approved-v3.json"
+        current = root / "current-v3-sha256"
+        candidate.write_text(json.dumps(v3), encoding="utf-8")
+        current.write_text(v3["dataset_sha256"] + "\n", encoding="ascii")
+        handler = self.server.RequestHandlerClass
+        private = build_live_correction_server(
+            str(root / "projection.json"), host="127.0.0.1", port=0,
+            static_dir=str(root / "static"), account_service=handler.account_service,
+            correction_ledger=self.ledger,
+            correction_enqueue=lambda *_: True,
+            correction_purge=lambda *_: True,
+            correction_reserve=lambda *_: True,
+            statement_projection_path=candidate,
+            statement_current_fingerprint_path=current,
+        )
+        thread = threading.Thread(target=private.serve_forever, daemon=True)
+        thread.start()
+        original_port = self.port
+        self.port = private.server_port
+        try:
+            self.assertEqual(self.request("GET", "/api/v3/statements")[0], 200)
+            self.assertEqual(self.request("HEAD", "/api/v3/opinions")[0], 200)
+            self.assertEqual(self.request(
+                "POST", "/intake/corrections",
+                {"finding_id": self.finding_id, "reason": "Richiedo una correzione"},
+                self.auth_headers(),
+            )[0], 202)
+            self.assertEqual(self.request("GET", "/api/v3/statements")[0], 503)
+            self.assertEqual(self.request("GET", "/api/v1/index.json")[0], 503)
+        finally:
+            self.port = original_port
+            private.shutdown()
+            private.server_close()
+            thread.join(timeout=5)
+
+    def test_v3_cli_requires_both_release_controls(self):
+        root = Path(self.temp.name)
+        arguments = [
+            "--projection-path", str(root / "projection.json"),
+            "--static-dir", str(root / "static"),
+            "--account-client-id", "test-client",
+            "--account-client-secret-file", str(root / "private-secret"),
+            "--account-db", str(root / "private-db"),
+            "--account-site-origin", "https://dichiarazionipubbliche.it",
+            "--correction-cloudflare-zone", "0" * 32,
+            "--correction-cloudflare-token-file", str(root / "private-token"),
+            "--v3-projection-path", str(root / "approved-v3.json"),
+        ]
+        with contextlib.redirect_stderr(io.StringIO()) as output:
+            with self.assertRaises(SystemExit) as error:
+                correction_main(arguments)
+        self.assertEqual(error.exception.code, 2)
+        self.assertIn("both the approved projection", output.getvalue())
 
 
 if __name__ == "__main__":

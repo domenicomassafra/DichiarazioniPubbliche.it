@@ -63,6 +63,17 @@ assets, command-line arguments, logs or issues. Fail closed unless the token
 can purge the *actual* public zone and public readback reaches the live
 consumer. Do not enable against an unreviewed demo projection.
 
+The same listener also accepts an independently approved v3 Statement release
+when both `--v3-projection-path /private/approved-v3.json` and
+`--v3-current-fingerprint-path /private/current-v3-sha256` are supplied.
+Both files must exist outside the public static root. With no v3 flags, the
+endpoints remain 404; with a stale or missing authority, they fail closed.
+An active correction HOLD fences v2 HTML/API and v3 API together. The existing
+`POST /intake/corrections` still identifies a v2 Finding by `finding_id`;
+direct submission for a v3-only Statement is not implemented by this opt-in.
+Do not activate a public v3 release until that correction flow and its real
+consumer read-back are accepted under #98.
+
 Cloudflare primary references: [Purge API](https://developers.cloudflare.com/api/resources/cache/methods/purge/), [Purge everything](https://developers.cloudflare.com/cache/how-to/purge-cache/purge-everything/).
 The zone purge clears cached assets across the entire site; expect elevated
 origin traffic. Three readback requests from one vantage point do not prove
