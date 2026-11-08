@@ -15,6 +15,7 @@ from .live_correction_http import build_live_correction_server
 from .public_account import (
     AccountService, AccountStore, GoogleOidcProvider, read_secret_file,
 )
+from .public_statement_challenge import PublicStatementChallengeStore
 from .queue_runtime import QueueRuntimeStore
 from .review_admin import enqueue_reanalysis_trigger
 
@@ -75,6 +76,9 @@ def main(argv: Iterable[str] | None = None) -> int:
 
     ledger = PrivateChallengeLedgerStore()
     queue = QueueRuntimeStore()
+    statement_challenges = (
+        PublicStatementChallengeStore(store=queue) if args.v3_projection_path else None
+    )
     quota = SqliteCorrectionQuota(args.account_db)
 
     def enqueue(finding_id: str, request_id: str) -> bool:
@@ -98,6 +102,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         statement_projection_path=(str(args.v3_projection_path) if args.v3_projection_path else None),
         statement_current_fingerprint_path=(str(args.v3_current_fingerprint_path)
                                             if args.v3_current_fingerprint_path else None),
+        statement_challenge_store=statement_challenges,
     )
     print(f"Correction HOLD HTTP on http://{args.host}:{server.server_port}/intake/corrections")
     try:

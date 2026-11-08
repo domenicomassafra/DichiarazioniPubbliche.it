@@ -68,6 +68,48 @@ class PublicStatementChallengeStore:
             raise ValueError("DP468_CHALLENGE_STORE_REQUIRED")
         self.store = store
 
+    def _request_by_intake_ref(self, intake_ref: str) -> dict[str, object] | None:
+        raw = self.store.run(
+            """
+            SELECT COALESCE(json_agg(row_to_json(request_row))::text, '[]')
+            FROM (
+                SELECT request_id, statement_id, version_id, intake_ref,
+                       requester_ref_sha256, reason_sha256, created_at, integrity_sha256
+                FROM public_statement_challenge_request
+                WHERE intake_ref = :'intake_ref'
+                ORDER BY created_at
+                LIMIT 2
+            ) request_row;
+            """,
+            intake_ref=intake_ref,
+        )
+        rows = json.loads(raw)
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise ValueError("DP468_CHALLENGE_REPLAY_INVALID")
+        if len(rows) > 1:
+            raise ValueError("DP468_CHALLENGE_INTAKE_AMBIGUOUS")
+        return rows[0] if rows else None
+
+    def _request_by_id(self, request_id: str) -> dict[str, object] | None:
+        raw = self.store.run(
+            """
+            SELECT COALESCE(row_to_json(request_row)::text, '')
+            FROM (
+                SELECT request_id, statement_id, version_id, intake_ref,
+                       requester_ref_sha256, reason_sha256, created_at, integrity_sha256
+                FROM public_statement_challenge_request
+                WHERE request_id = :'request_id'
+            ) request_row;
+            """,
+            request_id=request_id,
+        )
+        if not raw:
+            return None
+        row = json.loads(raw)
+        if not isinstance(row, dict):
+            raise ValueError("DP468_CHALLENGE_REPLAY_INVALID")
+        return row
+
     def open_request(
         self, *, statement_id: str, version_id: str, intake_ref: str,
         requester_ref_sha256: str, reason_sha256: str, created_at: str,
@@ -80,6 +122,27 @@ class PublicStatementChallengeStore:
         reason_hash = _sha(reason_sha256, "DP468_CHALLENGE_REQUEST_INVALID")
         timestamp = _iso_datetime(created_at, "DP468_CHALLENGE_REQUEST_INVALID")
         actor = _text(actor_ref, "DP468_CHALLENGE_REQUEST_INVALID")
+        existing = self._request_by_intake_ref(intake)
+        if existing is not None:
+            if (existing.get("statement_id") != statement
+                    or existing.get("version_id") != version
+                    or existing.get("requester_ref_sha256") != requester_hash
+                    or existing.get("reason_sha256") != reason_hash):
+                raise ValueError("DP468_CHALLENGE_INTAKE_CONFLICT")
+            request_id = str(existing.get("request_id", ""))
+            events = self._events(request_id)
+            if not _valid_challenge_chain(existing, events):
+                raise ValueError("DP468_CHALLENGE_CHAIN_INVALID")
+            if not events:
+                self.append_event(
+                    request_id=request_id, status="OPEN",
+                    reason_code="CHALLENGE_RECEIVED", actor_ref=actor,
+                    occurred_at=str(existing["created_at"]),
+                )
+            elif (events[0].get("status") != "OPEN"
+                    or events[0].get("actor_ref") != actor):
+                raise ValueError("DP468_CHALLENGE_INTAKE_CONFLICT")
+            return request_id
         material = {
             "statement_id": statement, "version_id": version, "intake_ref": intake,
             "requester_ref_sha256": requester_hash, "reason_sha256": reason_hash,
@@ -109,6 +172,44 @@ class PublicStatementChallengeStore:
             actor_ref=actor, occurred_at=timestamp,
         )
         return request_id
+
+    def replay_request(self, request_id: str) -> dict[str, object] | None:
+        request = self._request_by_id(_text(request_id, "DP468_CHALLENGE_REPLAY_INVALID"))
+        if request is None:
+            return None
+        events = self._events(request_id)
+        if not _valid_challenge_chain(request, events) or not events:
+            raise ValueError("DP468_CHALLENGE_CHAIN_INVALID")
+        return {
+            "request": request,
+            "events": events,
+            "current_state": events[-1]["status"],
+        }
+
+    def challenged_statements(self) -> list[tuple[str, str]]:
+        raw = self.store.run(
+            """
+            SELECT COALESCE(json_agg(row_to_json(target_row))::text, '[]')
+            FROM (
+                SELECT DISTINCT statement_id, version_id
+                FROM public_statement_challenge_request
+                ORDER BY statement_id, version_id
+                LIMIT 10001
+            ) target_row;
+            """
+        )
+        rows = json.loads(raw)
+        if not isinstance(rows, list) or len(rows) > 10000:
+            raise ValueError("DP468_CHALLENGE_INVENTORY_INVALID")
+        result: list[tuple[str, str]] = []
+        for row in rows:
+            if (not isinstance(row, dict)
+                    or not isinstance(row.get("statement_id"), str)
+                    or not isinstance(row.get("version_id"), str)
+                    or not row["statement_id"] or not row["version_id"]):
+                raise ValueError("DP468_CHALLENGE_INVENTORY_INVALID")
+            result.append((row["statement_id"], row["version_id"]))
+        return result
 
     def _events(self, request_id: str) -> list[dict[str, object]]:
         raw = self.store.run(

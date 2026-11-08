@@ -49,6 +49,58 @@ class PublicStatementChallengeTests(unittest.TestCase):
                 actor_ref="reviewer:one", occurred_at=(self.now + timedelta(minutes=4)).isoformat(),
             )
 
+    def test_same_intake_ref_replays_one_private_request_and_inventory(self):
+        request = self.open()
+        replayed = self.store.open_request(
+            statement_id="statement:senato:1",
+            version_id="version:senato:1",
+            intake_ref="intake:public-correction:1",
+            requester_ref_sha256="a" * 64,
+            reason_sha256="b" * 64,
+            created_at=(self.now + timedelta(minutes=5)).isoformat(),
+            actor_ref="intake:public",
+        )
+        self.assertEqual(replayed, request)
+        self.assertEqual(len(self.db.challenge_requests), 1)
+        self.assertEqual(len(self.db.challenge_events), 1)
+        receipt = self.store.replay_request(request)
+        self.assertEqual(receipt["current_state"], "OPEN")
+        self.assertEqual(
+            self.store.challenged_statements(),
+            [("statement:senato:1", "version:senato:1")],
+        )
+
+    def test_same_intake_ref_cannot_be_resumed_by_another_principal(self):
+        self.open()
+        with self.assertRaisesRegex(ValueError, "DP468_CHALLENGE_INTAKE_CONFLICT"):
+            self.store.open_request(
+                statement_id="statement:senato:1",
+                version_id="version:senato:1",
+                intake_ref="intake:public-correction:1",
+                requester_ref_sha256="c" * 64,
+                reason_sha256="b" * 64,
+                created_at=(self.now + timedelta(minutes=1)).isoformat(),
+                actor_ref="intake:other",
+            )
+        self.assertEqual(len(self.db.challenge_requests), 1)
+
+    def test_retry_repairs_request_inserted_before_root_event(self):
+        request = self.open()
+        self.db.challenge_events.clear()
+        replayed = self.store.open_request(
+            statement_id="statement:senato:1",
+            version_id="version:senato:1",
+            intake_ref="intake:public-correction:1",
+            requester_ref_sha256="a" * 64,
+            reason_sha256="b" * 64,
+            created_at=(self.now + timedelta(minutes=5)).isoformat(),
+            actor_ref="intake:public",
+        )
+        self.assertEqual(replayed, request)
+        self.assertEqual(len(self.db.challenge_requests), 1)
+        self.assertEqual(len(self.db.challenge_events), 1)
+        self.assertEqual(self.store.replay_request(request)["current_state"], "OPEN")
+
     def test_correction_and_retraction_keep_the_old_version_held(self):
         request = self.open()
         self.store.append_event(
@@ -75,6 +127,8 @@ class PublicStatementChallengeTests(unittest.TestCase):
             )
         self.db.challenge_events[0]["reason_code"] = "TAMPERED"
         self.assertIsNone(self.store.current_hold("statement:senato:1", "version:senato:1"))
+        with self.assertRaisesRegex(ValueError, "DP468_CHALLENGE_CHAIN_INVALID"):
+            self.store.replay_request(request)
 
 
 

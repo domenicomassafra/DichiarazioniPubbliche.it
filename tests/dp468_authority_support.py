@@ -100,6 +100,25 @@ class MemoryPostgres:
             self.challenge_events.append(row)
             return values["event_id"]
 
+        if ("FROM public_statement_challenge_request" in sql
+                and "WHERE intake_ref" in sql):
+            rows = [
+                row for row in self.challenge_requests.values()
+                if row["intake_ref"] == values["intake_ref"]
+            ]
+            rows.sort(key=lambda row: row["created_at"])
+            return json.dumps(rows[:2], ensure_ascii=False)
+
+        if "SELECT DISTINCT statement_id, version_id" in sql:
+            pairs = sorted({
+                (row["statement_id"], row["version_id"])
+                for row in self.challenge_requests.values()
+            })
+            return json.dumps([
+                {"statement_id": statement_id, "version_id": version_id}
+                for statement_id, version_id in pairs[:10001]
+            ], ensure_ascii=False)
+
         if "FROM public_statement_challenge_request r" in sql:
             rows = []
             for request in self.challenge_requests.values():

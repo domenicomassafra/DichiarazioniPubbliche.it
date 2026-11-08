@@ -1,14 +1,17 @@
 # DP-413D / #466 — Live correction HOLD (technical activation)
 
 The opt-in `/intake/corrections` HTTP adapter binds a verified, same-origin OIDC
-session and CSRF token to an append-only private DP-303 challenge. It creates a
-`PRIVATE_RECEIVED` challenge that immediately yields `HOLD`, queues the existing
-`REGISTER_REANALYSIS` job, purges the Cloudflare zone and confirms **three public
-readbacks** (`/`, `/api/v1/index.json`, and the finding resource) have HTTP 503
-with `Cache-Control: no-store`. Only then does it return HTTP 202 with a stable
-request ID. The submitter may read `/intake/corrections/<request-id>` with the
-same authenticated account; another account receives 404. Requests, reasons and
-OIDC subject hashes remain private. The standalone, unindexed
+session and CSRF token to an append-only private challenge. A v2 Finding request
+creates a DP-303 `PRIVATE_RECEIVED` challenge and queues the existing
+`REGISTER_REANALYSIS` job. A v3 Statement request creates a DP-468
+`public_statement_challenge_request` and its `OPEN` event. Both paths put the
+affected public record in `HOLD`, purge the Cloudflare zone and confirm
+`Cache-Control: no-store` readbacks before returning HTTP 202 with a stable
+request ID. The v2 path checks `/`, `/api/v1/index.json` and the Finding
+resource; the v3 path additionally checks `/api/v3/statements` and the exact
+Statement resource. The submitter may read `/intake/corrections/<request-id>`
+with the same authenticated account; another account receives 404. Requests,
+reasons and OIDC subject hashes remain private. The standalone, unindexed
 `/segnalazioni/` form remains reachable while the published correction
 register at `/correzioni/` is fenced with the rest of the projection.
 
@@ -16,21 +19,29 @@ Each authenticated account is limited to two attempts per minute, and the
 entire listener to four per minute. `SqliteCorrectionQuota` atomically reserves
 these counters in the existing private account SQLite `throttle` table across
 listener processes; missing storage fails closed. An identical retry from the
-original account reuses the same durable challenge and attempts queue/purge
-completion again after a partial failure. It does not create a second request;
-another account or changed reason cannot resume it.
+original account reuses the same durable challenge. The v2 path retries its
+queue/purge handoff; the v3 path replays the existing ledger row and repeats
+the purge. Neither path creates a second request; another account or changed
+reason cannot resume it. The v3 intake derives an opaque `intake_ref` from the
+Statement ID, version and reason hash. The private reason and raw OIDC subject
+are never persisted.
 
 This is a site-wide emergency fence: all current public projection/HTML reads
-return 503 when any challenge on the public release is active or its ledger is
-unavailable. This trades availability for immediate non-disclosure and has a
-large production blast radius. A corrected release and reviewed DP-303 state
-transition are required before this fence can clear; the reader cannot resolve
-or publish a correction. The queue uses the existing automatic reanalysis
-worker, with source type `PUBLIC_CORRECTION_CHALLENGE` and trigger `CORRECTION`.
-It cannot claim a corrected public version without the subsequent review and
-release gates. If any queue/purge/readback step fails, the HOLD remains active
-and the submitter receives HTTP 503; no success is inferred from a purge API
-response alone.
+return 503 when a challenged version is still in the current release or its
+ledger is unavailable. A v3 challenge against an old version remains held
+after a correction/retraction; once a newly pinned release omits that old
+version, the site can serve the replacement version while the submitter's
+original request remains visibly in HOLD. A rejection/withdrawal clears the
+challenge only after its append-only event chain validates. The v2 queue uses
+the existing automatic reanalysis worker, with source type
+`PUBLIC_CORRECTION_CHALLENGE` and trigger `CORRECTION`. A Statement-only v3
+record has no required Claim/Finding, so the v3 intake records the durable
+challenge and HOLD without fabricating a claim-based queue job. The #413
+autonomous Statement runner must consume that challenge and provide the
+independent source-bound review before a replacement version can be published.
+If any queue/purge/readback step fails, the HOLD remains active and the
+submitter receives HTTP 503; no success is inferred from a purge API response
+alone.
 
 The persistent runner added by #464 does not by itself resolve these
 public challenges. Its production review depends on distinct actual model
@@ -63,16 +74,23 @@ assets, command-line arguments, logs or issues. Fail closed unless the token
 can purge the *actual* public zone and public readback reaches the live
 consumer. Do not enable against an unreviewed demo projection.
 
-The same listener also accepts an independently approved v3 Statement release
-when both `--v3-projection-path /private/approved-v3.json` and
-`--v3-current-fingerprint-path /private/current-v3-sha256` are supplied.
-Both files must exist outside the public static root. With no v3 flags, the
-endpoints remain 404; with a stale or missing authority, they fail closed.
-An active correction HOLD fences v2 HTML/API and v3 API together. The existing
-`POST /intake/corrections` still identifies a v2 Finding by `finding_id`;
-direct submission for a v3-only Statement is not implemented by this opt-in.
-Do not activate a public v3 release until that correction flow and its real
-consumer read-back are accepted under #98.
+The same listener accepts an independently approved v3 Statement release when
+both `--v3-projection-path /private/approved-v3.json` and
+`--v3-current-fingerprint-path /private/current-v3-sha256` are supplied. Both
+files must exist outside the public static root, and the listener connects the
+existing `PublicStatementChallengeStore` to the same PostgreSQL authority.
+With no v3 flags, the endpoints remain 404; with a stale or missing authority,
+they fail closed. A v3 POST uses exactly `statement_id`, `version_id` and
+`reason`; the listener checks the exact version through the pinned `/api/v3`
+reader before opening the private challenge. The detail page links to the
+pre-filled Statement form. The same-account status endpoint returns the
+request's current HOLD state without exposing its reason.
+
+The v3 intake does not claim the #413 autonomous review is installed or
+available. Until that runner consumes the challenge and records an accepted
+decision, the challenged version stays held. Do not pin a replacement v3
+release until its rights/privacy and independent review gates pass and the
+MiniPC consumer readback is accepted under #98.
 
 Cloudflare primary references: [Purge API](https://developers.cloudflare.com/api/resources/cache/methods/purge/), [Purge everything](https://developers.cloudflare.com/cache/how-to/purge-cache/purge-everything/).
 The zone purge clears cached assets across the entire site; expect elevated

@@ -13,18 +13,20 @@ import json
 import re
 import threading
 import time
+from datetime import datetime, timezone
 from http import HTTPStatus
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 from .challenge_persistence import ChallengeHoldDisposition
 from .challenge_hold_inventory import challenged_findings
 from .policy.challenge_workflow import ChallengeKind, ChallengeRole, ChallengeState
 from .public_account import SESSION_COOKIE
-from .public_api import PublicApiError, PublicApiRequestHandler, load_index
+from .public_api import PublicApiError, PublicApiRequestHandler, dispatch, load_index
 
 MAX_CORRECTION_BYTES = 8192
 _FINDING_ID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 _REQUEST_ID = re.compile(r"^challenge-request:[0-9a-f]{64}$")
+_STATEMENT_REQUEST_ID = re.compile(r"^public-statement-challenge-request:[0-9a-f]{64}$")
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 
 
@@ -34,6 +36,7 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
     correction_purge = None
     correction_lock = None
     correction_reserve = None
+    statement_challenge_store = None
 
     def _correction_response(self, status: int, payload: dict[str, object]) -> None:
         self.close_connection = True
@@ -86,9 +89,61 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
                 hold = type(self).correction_ledger.current_hold_for_finding(finding_id)
                 if hold.disposition is not ChallengeHoldDisposition.CLEAR:
                     return False
+            statement_path = type(self).statement_projection_path
+            fingerprint_path = type(self).statement_current_fingerprint_path
+            statement_store = type(self).statement_challenge_store
+            if statement_path is not None or fingerprint_path is not None:
+                if not statement_path or not fingerprint_path or statement_store is None:
+                    return False
+                response = dispatch(
+                    "GET", "/api/v3/statements",
+                    statement_projection_path=statement_path,
+                    statement_current_fingerprint_path=fingerprint_path,
+                    accept="application/json",
+                )
+                if response.status != 200:
+                    return False
+                payload = json.loads(response.body)
+                rows = payload.get("data") if isinstance(payload, dict) else None
+                if not isinstance(rows, list):
+                    return False
+                published_versions: set[tuple[str, str]] = set()
+                for row in rows:
+                    if (not isinstance(row, dict)
+                            or not isinstance(row.get("statement_id"), str)
+                            or not _FINDING_ID.fullmatch(row["statement_id"])
+                            or not isinstance(row.get("version_id"), str)
+                            or not _FINDING_ID.fullmatch(row["version_id"])):
+                        return False
+                    published_versions.add((row["statement_id"], row["version_id"]))
+                for target in statement_store.challenged_statements():
+                    if (not isinstance(target, (tuple, list)) or len(target) != 2
+                            or not all(isinstance(value, str) for value in target)):
+                        return False
+                    statement_id, version_id = target
+                    if (statement_id, version_id) in published_versions:
+                        if statement_store.current_hold(statement_id, version_id) is not False:
+                            return False
             return True
         except Exception:
             return False
+
+    def _current_statement(self, statement_id: str) -> dict[str, object] | None:
+        response = dispatch(
+            "GET", "/api/v3/statements/" + quote(statement_id, safe=""),
+            statement_projection_path=type(self).statement_projection_path,
+            statement_current_fingerprint_path=type(self).statement_current_fingerprint_path,
+            accept="application/json",
+        )
+        if response.status == 404:
+            return None
+        if response.status != 200:
+            raise RuntimeError("STATEMENT_V3_RELEASE_UNAVAILABLE")
+        payload = json.loads(response.body)
+        data = payload.get("data") if isinstance(payload, dict) else None
+        if not isinstance(data, dict) or data.get("statement_id") != statement_id:
+            raise RuntimeError("STATEMENT_V3_RECORD_INVALID")
+        return data
 
     def _unavailable(self) -> None:
         self._correction_response(503, {"error": "PUBLIC_PROJECTION_UNAVAILABLE"})
@@ -107,6 +162,34 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
         actor = self._session_actor(modifying=False)
         if actor is None:
             return self._correction_response(401, {"error": "AUTHENTICATION_REQUIRED"})
+        if _STATEMENT_REQUEST_ID.fullmatch(request_id):
+            statement_store = type(self).statement_challenge_store
+            if statement_store is None:
+                return self._unavailable()
+            try:
+                replay = statement_store.replay_request(request_id)
+                if not isinstance(replay, dict):
+                    return self._correction_response(404, {"error": "NOT_FOUND"})
+                request = replay.get("request")
+                requester_hash = request.get("requester_ref_sha256") if isinstance(request, dict) else None
+                expected_hash = hashlib.sha256(actor.encode()).hexdigest()
+                if (not isinstance(requester_hash, str)
+                        or not hmac.compare_digest(requester_hash, expected_hash)):
+                    return self._correction_response(404, {"error": "NOT_FOUND"})
+                statement_id = request.get("statement_id")
+                version_id = request.get("version_id")
+                if not isinstance(statement_id, str) or not isinstance(version_id, str):
+                    return self._unavailable()
+                hold = statement_store.current_hold(statement_id, version_id)
+                if hold is None:
+                    return self._unavailable()
+                return self._correction_response(200, {
+                    "request_id": request_id,
+                    "state": "HOLD" if hold else "RESOLVED",
+                    "review_state": str(replay.get("current_state", "UNKNOWN")),
+                })
+            except Exception:
+                return self._unavailable()
         if not _REQUEST_ID.fullmatch(request_id):
             return self._correction_response(404, {"error": "NOT_FOUND"})
         try:
@@ -158,14 +241,26 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
             payload = json.loads(self.rfile.read(int(normalized_length)))
         except (UnicodeError, ValueError):
             return self._correction_response(400, {"error": "INVALID_JSON"})
-        if not isinstance(payload, dict) or set(payload) != {"finding_id", "reason"}:
+        if not isinstance(payload, dict) or set(payload) not in (
+            {"finding_id", "reason"},
+            {"statement_id", "version_id", "reason"},
+        ):
             return self._correction_response(400, {"error": "INVALID_REQUEST"})
-        finding, reason = payload["finding_id"], payload["reason"]
-        if (not isinstance(finding, str) or not _FINDING_ID.fullmatch(finding)
-                or not isinstance(reason, str) or not 3 <= len(reason.strip()) <= 4000
+        reason = payload["reason"]
+        if (not isinstance(reason, str) or not 3 <= len(reason.strip()) <= 4000
                 or _CONTROL.search(reason)):
             return self._correction_response(400, {"error": "INVALID_REQUEST"})
         reason = reason.strip()
+        if set(payload) == {"statement_id", "version_id", "reason"}:
+            statement_id, version_id = payload["statement_id"], payload["version_id"]
+            if (not isinstance(statement_id, str) or not _FINDING_ID.fullmatch(statement_id)
+                    or not isinstance(version_id, str) or not _FINDING_ID.fullmatch(version_id)):
+                return self._correction_response(400, {"error": "INVALID_REQUEST"})
+            with type(self).correction_lock:
+                return self._submit_statement_correction(actor, statement_id, version_id, reason)
+        finding = payload["finding_id"]
+        if not isinstance(finding, str) or not _FINDING_ID.fullmatch(finding):
+            return self._correction_response(400, {"error": "INVALID_REQUEST"})
         ledger = type(self).correction_ledger
         with type(self).correction_lock:
             try:
@@ -218,6 +313,56 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
             except Exception:
                 return self._unavailable()
 
+    def _submit_statement_correction(
+        self, actor: str, statement_id: str, version_id: str, reason: str,
+    ) -> None:
+        statement_store = type(self).statement_challenge_store
+        if (statement_store is None or not type(self).statement_projection_path
+                or not type(self).statement_current_fingerprint_path):
+            return self._unavailable()
+        try:
+            current = self._current_statement(statement_id)
+            if current is None or current.get("version_id") != version_id:
+                return self._correction_response(404, {"error": "NOT_FOUND"})
+            if type(self).correction_reserve(actor) is not True:
+                return self._correction_response(429, {"error": "CORRECTION_RATE_LIMITED"})
+            reason_hash = hashlib.sha256(reason.encode("utf-8")).hexdigest()
+            intake_material = json.dumps({
+                "statement_id": statement_id,
+                "version_id": version_id,
+                "reason_sha256": reason_hash,
+            }, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            intake_ref = "intake:public-statement-correction:" + hashlib.sha256(
+                intake_material
+            ).hexdigest()
+            request_id = statement_store.open_request(
+                statement_id=statement_id,
+                version_id=version_id,
+                intake_ref=intake_ref,
+                requester_ref_sha256=hashlib.sha256(actor.encode("utf-8")).hexdigest(),
+                reason_sha256=reason_hash,
+                created_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                actor_ref=actor,
+            )
+            hold = statement_store.current_hold(statement_id, version_id)
+            if hold is None:
+                return self._unavailable()
+            if hold is not True:
+                return self._correction_response(409, {"error": "CORRECTION_ALREADY_RESOLVED"})
+            if type(self).correction_purge("statement-v3:" + statement_id) is not True:
+                return self._unavailable()
+            return self._correction_response(202, {
+                "request_id": request_id,
+                "state": "HOLD",
+                "message": "Segnalazione registrata; la versione resta sospesa in attesa della verifica.",
+            })
+        except ValueError as exc:
+            if str(exc) == "DP468_CHALLENGE_INTAKE_CONFLICT":
+                return self._correction_response(409, {"error": "ALREADY_UNDER_REVIEW"})
+            return self._unavailable()
+        except Exception:
+            return self._unavailable()
+
 
 def build_live_correction_server(
     projection_path: str,
@@ -233,10 +378,26 @@ def build_live_correction_server(
     account_private_secret_path: str | None = None,
     statement_projection_path: str | None = None,
     statement_current_fingerprint_path: str | None = None,
+    statement_challenge_store: object | None = None,
 ):
     """Pin the existing HTTP/static server before opting into correction intake."""
     if any(item is None for item in (account_service, correction_ledger, correction_enqueue, correction_purge, correction_reserve)):
         raise ValueError("CORRECTION_AUTH_LEDGER_QUEUE_PURGE_QUOTA_REQUIRED")
+    v3_configured = (
+        statement_projection_path is not None
+        or statement_current_fingerprint_path is not None
+    )
+    if v3_configured and (
+        not statement_projection_path or not statement_current_fingerprint_path
+        or statement_challenge_store is None
+        or not callable(getattr(statement_challenge_store, "challenged_statements", None))
+        or not callable(getattr(statement_challenge_store, "current_hold", None))
+        or not callable(getattr(statement_challenge_store, "open_request", None))
+        or not callable(getattr(statement_challenge_store, "replay_request", None))
+    ):
+        raise ValueError("STATEMENT_CORRECTION_RELEASE_AND_LEDGER_REQUIRED")
+    if statement_challenge_store is not None and not v3_configured:
+        raise ValueError("STATEMENT_CORRECTION_V3_RELEASE_REQUIRED")
     from .public_api import build_server
 
     server = build_server(
@@ -259,6 +420,7 @@ def build_live_correction_server(
         "correction_enqueue": correction_enqueue,
         "correction_purge": correction_purge,
         "correction_reserve": correction_reserve,
+        "statement_challenge_store": statement_challenge_store,
         "correction_lock": threading.RLock(),
     })
     server.RequestHandlerClass = type(
