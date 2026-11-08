@@ -14,14 +14,13 @@ import shutil
 import tempfile
 import threading
 from pathlib import Path
-from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 if __package__:
     from .dp481_static_contract import check_static_contract
+    from .dp481_http_readback import http_readback as _http
 else:
     from dp481_static_contract import check_static_contract
+    from dp481_http_readback import http_readback as _http
 
 
 HEX = re.compile(r"[a-f0-9]{64}\Z")
@@ -241,43 +240,6 @@ def activate(root: Path, release_id: str, *, expected: str | None) -> dict:
                 "publication_authorized": manifest["publication_authorized"]}
 
 
-def _http(origin: str, path: str, *, expected_hash: str | None = None) -> bytes:
-    address = urlsplit(origin)
-    if address.scheme != "http" or address.hostname not in ("127.0.0.1", "localhost"):
-        fail("ORIGIN_NOT_LOOPBACK")
-    if address.path not in ("", "/") or address.query or address.fragment or address.username:
-        fail("ORIGIN_INVALID")
-    request = Request(origin.rstrip("/") + quote(path, safe="/"),
-                      headers={"Accept-Encoding": "identity", "Cache-Control": "no-cache"})
-    class NoRedirect(HTTPRedirectHandler):
-        def redirect_request(self, req, fp, code, msg, headers, newurl):
-            return None
-    try:
-        with build_opener(NoRedirect).open(request, timeout=10) as result:
-            if result.status != 200 or result.headers.get("Content-Encoding", "identity") != "identity":
-                fail("HTTP_MISMATCH")
-            sha = hashlib.sha256()
-            size = 0
-            chunks = []
-            while (chunk := result.read(1024 * 1024)):
-                sha.update(chunk)
-                size += len(chunk)
-                if size > 100 * 1024 * 1024:
-                    fail("HTTP_OVERSIZED")
-                if expected_hash is None:
-                    chunks.append(chunk)
-            if expected_hash is not None:
-                if not hmac.compare_digest(sha.hexdigest(), expected_hash):
-                    fail("HTTP_MISMATCH")
-                return b""
-            return b"".join(chunks)
-    except HTTPError as exc:
-        exc.close()
-        raise ValueError("DP481_HTTP_MISMATCH") from exc
-    except (URLError, OSError) as exc:
-        raise ValueError("DP481_HTTP_MISMATCH") from exc
-
-
 def rehearse(source: Path, static: Path, projection: Path, *, git_sha: str,
              rights_epoch_ref: str) -> dict:
     """Rehearse DRAFT on private loopback."""
@@ -388,6 +350,9 @@ def verify(root: Path, *, origin: str | None = None) -> dict:
         nt = manifest["assets"].get("projection/index.nt")
         if nt:
             _http(origin, "/index.nt", expected_hash=nt)
+        # A DRAFT release must not accidentally expose a configured v3 adapter.
+        for route in ("/api/v3/statements", "/api/v3/opinions"):
+            _http(origin, route, expected_status=404)
     if pointer(root) != ident:
         fail("POINTER_MISMATCH")
     validated(root, ident)
