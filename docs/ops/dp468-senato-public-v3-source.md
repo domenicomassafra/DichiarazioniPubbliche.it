@@ -106,3 +106,30 @@ private Capture readback, source mutations, absent authorities and statement
 omission without fake rights or reviews. `tests.test_dp468_senato_v3_binding`
 checks the actual composition and refuses synthetic authority by omission.
 No test issues a publication pin.
+
+## First-batch source coverage readback (8 November 2026)
+
+The pinned original Senate XML was fetched again from the exact immutable raw
+URL above and passed through the existing `import_senato_akoma_stenographic`
+parser with its Git blob SHA-1 check. The returned SHA-256 remained
+`1cb2b5fc3cbc96701e52f06c34c3ae3cd494eb622aa3f124fb1a93a223e27476`:
+121 source-linked speech turns, five unresolved speaker turns, and **35 distinct
+official `TLCPerson` URI candidates**. The source carries a CC BY 4.0 notice;
+the separate [Senato legal notice](https://www.senato.it/guida-al-sito/avviso-legale)
+also requires correct attribution, source integrity, public-interest use and
+respect for third-party rights. This is source coverage, not legal clearance.
+
+The native `tools/dp331_senato_private_speech_readback.py` ran on the real
+MiniPC Capture/PostgreSQL store in four read-only groups of three ordinals:
+`0,3,5`; `6,7,8`; `13,16,31`; `33,41,42`. All twelve source speaker references
+resolved to **twelve distinct official Person URIs** with the exact current
+Capture hash; the private-use rights record was `CLEARED` through
+`2026-11-23T21:53:43.934666+00:00`. Every returned observation had
+`decision=HOLD`, `attribution_approved=false`, `publication_authorized=false`.
+No public quote, Person resolution, fact, inconsistency or topic was approved.
+
+The public 10/10/10/10 batch still requires independent identity and quotation
+review, source-specific `EXCERPT_PUBLIC` authority, all six GDPR processing
+decisions, genuine upstream model receipts from #413 and the deployed v3
+consumer/correction/rollback proof from #98. Neither a count of speaker URIs
+nor a private rights record satisfies those requirements.
