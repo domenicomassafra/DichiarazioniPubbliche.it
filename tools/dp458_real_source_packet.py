@@ -5,6 +5,8 @@ from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/"poc"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from tools.dp458_current_private_terms import current_private_rights_evidence
 from dichiarazioni_pubbliche.capture_authorization import private_capture_rights_guard
 from dichiarazioni_pubbliche.capture_pipeline import CaptureBodyStore, CaptureEnrichmentPolicy, CapturePipelineStore, ParseResult, capture_content
 from dichiarazioni_pubbliche.corpus_repository import INSERT_STATEMENT_CANDIDATE_SQL_V1
@@ -26,6 +28,8 @@ VARIANT="variant:dp458:I-293056:int-vtt"; SEGMENT="transcript:dp458:I-293056:cue
 CANONICAL="canonical:dp458:I-293056:cue12"; PASSAGE="passage:dp458:I-293056:cue12"; CANDIDATE="statement:dp458:I-293056:cue12"
 FAMILY="EU_AVS_OFFICIAL_SPEECH"; POLICY="dp458-eu-avs-private-media-20261026-v1"; VERSION="dp458-original-source-v2"
 USES=("DISCOVER_METADATA","FETCH","STORE_BODY","ASR_MEDIA","PLAYBACK","PARSE_TEXT","RESEARCH_CAPTURE_PRIVATE")
+ATTRIBUTION=("CC_BY_4_ATTRIBUTION","NO_PUBLIC_MEDIA","PUBLIC_QUOTE_REVIEW_REQUIRED")
+TERMS="https://audiovisual.ec.europa.eu/en/conditions-of-use"
 def vtt_timestamp_ms(stamp):
     """Parse original hour:minute:second.millisecond cue without losing minutes."""
     import re
@@ -64,19 +68,41 @@ def identities(db):
        WHERE c.id=:'id' AND p.id=:'person';""",id=CONTENT,person=PERSON)
     require(obj and obj["url"]==URL and obj["sha"]==ORIGINAL_SHA and obj["duration"]==DURATION
             and obj["source"]==PAGE and obj["person"]=="Ursula von der Leyen","IDENTITY_CONFLICT")
-def rights(db,apply):
+def rights(db,apply,*,refresh_private=False):
     registry=PrivateRightsRegistryStore(database_url=db.database_url)
     subject=RightsSubject(FAMILY,"URL",URL,content_id=CONTENT); current=registry.read_current(subject)
+    if refresh_private:
+        require(current is not None and current.rights_status == "CLEARED"
+                and current.version_state == "CURRENT"
+                and current.policy_version == POLICY
+                and set(current.permitted_uses) == set(USES)
+                and set(current.attribution_requirements) == set(ATTRIBUTION),
+                "RIGHTS_REFRESH_BASE_CHANGED")
+        now=datetime.now(timezone.utc)
+        require(current.expires_at is not None
+                and datetime.fromisoformat(current.expires_at).astimezone(timezone.utc) <= now,
+                "RIGHTS_REFRESH_NOT_DUE")
+        evidence_sha=current_private_rights_evidence(PAGE, TERMS, QUOTE)
+        current=registry.record_rights(
+            subject=subject,policy_version=POLICY,rights_status="CLEARED",
+            rights_receipt_ref="eu-avs:I-293056:current-private:"+evidence_sha,
+            permitted_uses=USES,
+            attribution_requirements=ATTRIBUTION,
+            reviewed_at=now.isoformat(),expires_at=(now+timedelta(days=7)).isoformat(),
+            reviewer_ref="agent:dp468-current-official-private-use-review",
+            supersedes_record_id=current.id)
     if current is None and apply:
         now=datetime.now(timezone.utc)
+        evidence_sha=current_private_rights_evidence(PAGE, TERMS, QUOTE)
         current=registry.record_rights(subject=subject,policy_version=POLICY,rights_status="CLEARED",
-            rights_receipt_ref="eu-avs:I-293056:terms-20261026:"+TERMS_SHA,permitted_uses=USES,
-            attribution_requirements=("CC_BY_4_ATTRIBUTION","NO_PUBLIC_MEDIA","PUBLIC_QUOTE_REVIEW_REQUIRED"),
+            rights_receipt_ref="eu-avs:I-293056:current-private:"+evidence_sha,permitted_uses=USES,
+            attribution_requirements=ATTRIBUTION,
             reviewed_at=now.isoformat(),expires_at=(now+timedelta(days=7)).isoformat(),
             reviewer_ref="agent:dp458-primary-source-rights-review")
     require(current is not None,"RIGHTS_MISSING")
     require(current.rights_status=="CLEARED" and current.version_state=="CURRENT"
-            and current.policy_version==POLICY and set(current.permitted_uses)==set(USES),"RIGHTS_CHANGED")
+            and current.policy_version==POLICY and set(current.permitted_uses)==set(USES)
+            and set(current.attribution_requirements)==set(ATTRIBUTION),"RIGHTS_CHANGED")
     for use in (item for item in USES if item != "RESEARCH_CAPTURE_PRIVATE"):
         x=evaluate_source_use(current,subject=subject,rights_record_id=current.id,
                               policy_version=POLICY,use=use,now=datetime.now(timezone.utc))
@@ -227,11 +253,17 @@ def verify(db,root):
         independent_alignment="HOLD",publication_authorized=False)
 def main():
     p=argparse.ArgumentParser(description=__doc__); p.add_argument("--apply",action="store_true"); p.add_argument("--correct-timing",action="store_true")
+    p.add_argument("--refresh-private-rights",action="store_true",
+                   help="Supersede expired private-only rights after a fresh official-source check")
     p.add_argument("--root",type=Path,default=Path("~/.local/share/dichiarazioni-pubbliche/dp458").expanduser())
     a=p.parse_args(); dsn=os.environ.get("DICHIARAZIONI_PUBBLICHE_DATABASE_URL")
     if not dsn: p.error("DICHIARAZIONI_PUBBLICHE_DATABASE_URL missing")
     try:
+        require(not (a.refresh_private_rights and (a.apply or a.correct_timing)),
+                "RIGHTS_REFRESH_REQUIRES_STANDALONE")
         db=CapturePipelineStore(database_url=dsn)
+        if a.refresh_private_rights:
+            rights(db,False,refresh_private=True)
         if a.apply:
             a.root.mkdir(mode=0o700,parents=True,exist_ok=True)
             require(not a.root.is_symlink() and a.root.stat().st_mode & 0o077==0,"UNSAFE_ROOT")

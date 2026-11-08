@@ -2,11 +2,133 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
+from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
+from dichiarazioni_pubbliche.rights_registry import (
+    PrivateRightsRecord, RightsSubject, rights_subject_fingerprint,
+)
 from tools import dp458_real_source_packet as packet
+from tools import dp458_current_private_terms as current_terms
 
 
 class DP458RealSourcePacketTests(unittest.TestCase):
+    @staticmethod
+    def expired_private_rights():
+        subject = RightsSubject(packet.FAMILY, "URL", packet.URL,
+                                content_id=packet.CONTENT)
+        return PrivateRightsRecord(
+            id="private-rights:expired",
+            subject_fingerprint=rights_subject_fingerprint(subject),
+            source_family=packet.FAMILY, locator_kind="URL",
+            locator_value=packet.URL, content_id=packet.CONTENT,
+            evidence_id=None, transcript_segment_id=None,
+            canonical_segment_id=None, passage_id=None,
+            rights_status="CLEARED", rights_receipt_ref="receipt:old",
+            permitted_uses=tuple(sorted(packet.USES)),
+            attribution_requirements=packet.ATTRIBUTION,
+            reviewed_at="2026-10-26T12:00:00+00:00",
+            expires_at="2026-11-02T12:00:00+00:00",
+            reviewer_ref="agent:old", policy_version=packet.POLICY,
+            record_visibility="PRIVATE", supersedes_id=None,
+            version_state="CURRENT",
+        )
+
+    @staticmethod
+    def official_page(url, *, valid=True, **_kwargs):
+        if url == packet.PAGE:
+            body = f"I-293056 European Parliament {packet.QUOTE}".encode()
+        else:
+            body = (
+                "Creative Commons Attribution 4.0 International License; "
+                "identifiable private individuals; third parties; "
+                "Any reuse must not distort"
+            ).encode() if valid else b"Unknown terms"
+        return SimpleNamespace(
+            status_code=200, final_url=url, media_type="text/html", body=body,
+        )
+
+    def test_expired_private_rights_refresh_supersedes_current_without_public_use(self):
+        old = self.expired_private_rights()
+        now = datetime.now(timezone.utc)
+        store = Mock()
+        store.read_current.return_value = old
+        store.record_rights.return_value = replace(
+            old, id="private-rights:renewed",
+            reviewed_at=now.isoformat(),
+            expires_at=(now + timedelta(days=7)).isoformat(),
+            supersedes_id=old.id,
+        )
+        with patch.object(packet, "PrivateRightsRegistryStore", return_value=store):
+            with patch.object(current_terms, "fetch_bytes", side_effect=self.official_page) as fetch:
+                _, _, saved = packet.rights(
+                    SimpleNamespace(database_url="test"), False, refresh_private=True,
+                )
+        self.assertEqual(saved.id, "private-rights:renewed")
+        self.assertEqual(fetch.call_count, 2)
+        kwargs = store.record_rights.call_args.kwargs
+        self.assertEqual(kwargs["supersedes_record_id"], old.id)
+        self.assertEqual(set(kwargs["permitted_uses"]), set(packet.USES))
+        self.assertNotIn("EXCERPT_PUBLIC", kwargs["permitted_uses"])
+        self.assertEqual(kwargs["rights_status"], "CLEARED")
+        self.assertEqual(set(kwargs["attribution_requirements"]), set(packet.ATTRIBUTION))
+        self.assertTrue(kwargs["rights_receipt_ref"].startswith(
+            "eu-avs:I-293056:current-private:"
+        ))
+
+    def test_refresh_rejects_changed_private_attribution_before_official_fetch_or_write(self):
+        for obligations in (
+            ("NO_PUBLIC_MEDIA", "PUBLIC_QUOTE_REVIEW_REQUIRED"),
+            ("CC_BY_4_ATTRIBUTION", "PUBLIC_QUOTE_REVIEW_REQUIRED"),
+            ("CC_BY_4_ATTRIBUTION", "NO_PUBLIC_MEDIA"),
+            (*packet.ATTRIBUTION, "PUBLIC_MEDIA_ALLOWED"),
+        ):
+            with self.subTest(obligations=obligations):
+                store = Mock()
+                store.read_current.return_value = replace(
+                    self.expired_private_rights(), attribution_requirements=obligations,
+                )
+                with patch.object(packet, "PrivateRightsRegistryStore", return_value=store):
+                    with patch.object(current_terms, "fetch_bytes") as fetch:
+                        with self.assertRaisesRegex(RuntimeError, "RIGHTS_REFRESH_BASE_CHANGED"):
+                            packet.rights(SimpleNamespace(database_url="test"), False,
+                                          refresh_private=True)
+                fetch.assert_not_called()
+                store.record_rights.assert_not_called()
+
+    def test_refresh_rejects_official_terms_drift_before_registry_write(self):
+        store = Mock()
+        store.read_current.return_value = self.expired_private_rights()
+        with patch.object(packet, "PrivateRightsRegistryStore", return_value=store):
+            with patch.object(current_terms, "fetch_bytes", side_effect=lambda url, **kw:
+                              self.official_page(url, valid=False)):
+                with self.assertRaisesRegex(RuntimeError, "RIGHTS_OFFICIAL_EVIDENCE_CHANGED"):
+                    packet.rights(
+                        SimpleNamespace(database_url="test"), False, refresh_private=True,
+                    )
+        store.record_rights.assert_not_called()
+
+    def test_first_private_grant_also_checks_current_official_source(self):
+        now = datetime.now(timezone.utc)
+        new = replace(
+            self.expired_private_rights(), id="private-rights:first",
+            reviewed_at=now.isoformat(),
+            expires_at=(now + timedelta(days=7)).isoformat(),
+        )
+        store = Mock()
+        store.read_current.return_value = None
+        store.record_rights.return_value = new
+        with patch.object(packet, "PrivateRightsRegistryStore", return_value=store):
+            with patch.object(current_terms, "fetch_bytes", side_effect=self.official_page):
+                packet.rights(SimpleNamespace(database_url="test"), True)
+        self.assertTrue(store.record_rights.called)
+        self.assertIn("current-private:",
+                      store.record_rights.call_args.kwargs["rights_receipt_ref"])
+        self.assertNotIn("EXCERPT_PUBLIC",
+                         store.record_rights.call_args.kwargs["permitted_uses"])
+
     def test_cue_12_preserves_hours_minutes_seconds(self):
         self.assertEqual(packet.vtt_timestamp_ms("00:01:14.669"), 74669)
         self.assertEqual(packet.vtt_timestamp_ms("00:01:18.940"), 78940)
