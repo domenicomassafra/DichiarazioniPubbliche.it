@@ -171,3 +171,49 @@ wording, current Capture and distinct #413 execution reviews before issuing
 any version-bound `EXCERPT_PUBLIC` authority. This evidence is a preparatory
 source review; it issues no grant, changes no ledger record and cannot unlock
 the consumer on its own.
+
+## One-candidate independent rights assessment (8 November 2026)
+
+On Studio, a separate read-only Codex GPT-6.1 Sol assessment examined the
+existing **HELD** candidate attributed to Gisella Naturale, concerning the
+sentence *«l'animale è stato definito essere senziente»* in the [pinned AKN
+record of sitting 310, 29 May 2025](https://github.com/SenatoDellaRepubblica/AkomaNtosoBulkData/blob/bfac144eb5c54820971bc1020fece11aae56ec90/Leg19/Atto00055187/resaula/01457617-ra.akn.xml).
+This is a source-specific research assessment on Studio `main` at
+`c0e33d4414cb0212484cd22451785d808385bf2d`, **not** an authenticated
+release-authority review, approved speaker identity, or product-model execution
+witness. The passage's current Capture offsets, two independent attribution
+signals and current public grant have not been demonstrated by this review.
+
+- **Applicable rights scope:** The [commit-pinned AKN README](https://github.com/SenatoDellaRepubblica/AkomaNtosoBulkData/blob/bfac144eb5c54820971bc1020fece11aae56ec90/README.MD)
+  credits the Senato's Servizio dell'Informatica and states CC BY 4.0.
+  [CC BY 4.0, sections 2–3](https://creativecommons.org/licenses/by/4.0/legalcode.it)
+  grants reuse of rights held by the licensor; it does not supply third-party
+  rights or personality/privacy clearance. The separate [Senato site legal
+  notice](https://www.senato.it/guida-al-sito/avviso-legale) is recorded with its
+  SHA-256 above, but its live page blocked the independent reviewer, so this
+  assessment does not claim a fresh retrieval of its terms. The repository
+  grant and the site notice must be reconciled for the *exact* passage: a
+  third-party reservation is neither proof of permission nor an automatic ban.
+- **Attribution if eventually approved:** Gisella Naturale is the proposed
+  *speaker*; the Senato is the source/publisher of the stenographic record.
+  Cite both roles, sitting 310, 29 May 2025, the exact pinned document link,
+  CC BY 4.0 and a verbatim quote with sufficient context. Do not turn this
+  sentence into a verified factual claim, a motive, or an accusation.
+- **Privacy and independent review:** The candidate concerns parliamentary
+  activity; the quoted sentence itself does not appear to identify a third
+  party or disclose sensitive information. That observation does not decide
+  necessity, Article 6 balancing, source-person rights or retention. All six
+  required processing families remain `BLOCKED` in
+  `docs/policy/privacy-processing-decisions-v1.json`. The existing
+  `licence_excerpt_decision_v1` may permit **private** quotation only; a public
+  `EXCERPT_PUBLIC` authority still needs its own current, revocable decision.
+  Product review also requires separately authenticated upstream execution
+  receipts, rather than the fact that a Codex reviewer ran on this document.
+
+**Disposition for this candidate: `PRIVATE_HOLD / NO-GO`.** Next verifiable
+steps are current Capture/wording/offset readback; two independently sourced,
+non-biometric identity signals; a dated, source-and-passage-bound rights
+decision with revocation and attribution; actual per-family GDPR necessity,
+notice, access, retention and independent-review receipts; then the genuine
+three distinct model executions (#413) and public v3 release/correction
+readback (#98). None was minted by the read-only assessment.
