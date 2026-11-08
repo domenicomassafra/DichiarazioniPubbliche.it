@@ -217,8 +217,9 @@ Person archive. No gate compared the **cross-language** pair, so a governed
 release could ship four identical dataset fingerprints while one surface
 served different words, source version or locator.
 
-New `web/scripts/check-dp436-cross-consumer-verbatim-parity.mjs` builds one
-synthetic governed release and flattens four independent surfaces — static
+New `web/scripts/check-dp436-cross-consumer-verbatim-parity.mjs` (surface
+readers in `web/scripts/lib/verbatim-parity.mjs`, CI step in the `web` job)
+builds one synthetic governed release and flattens four independent surfaces — static
 search index (TypeScript), API v3 wire record, JSON-LD and N-Triples
 (Python serializers) — to the same field set, then refuses any disagreement
 on statement/version IDs, person and content identity, source title/URL/
