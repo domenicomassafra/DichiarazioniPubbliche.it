@@ -133,3 +133,41 @@ review, source-specific `EXCERPT_PUBLIC` authority, all six GDPR processing
 decisions, genuine upstream model receipts from #413 and the deployed v3
 consumer/correction/rollback proof from #98. Neither a count of speaker URIs
 nor a private rights record satisfies those requirements.
+
+## Official licence-scope reconciliation (8 November 2026)
+
+Three live, official publication notices were fetched independently on Studio
+on 8 November 2026. The immutable [README at the exact AKN commit](https://github.com/SenatoDellaRepubblica/AkomaNtosoBulkData/blob/bfac144eb5c54820971bc1020fece11aae56ec90/README.MD)
+states **CC BY 4.0** for that repository. The Senato's [open-data FAQ](https://dati.senato.it/sito/faq?testo_generico=16)
+instead identifies **CC BY 3.0** for the general data portal; this is a
+different licensing scope, not evidence that the pinned AKN repository has
+silently changed licences. The Senato's [site legal notice](https://www.senato.it/guida-al-sito/avviso-legale)
+conditions reuse on public-interest information, correct source attribution
+and content integrity. It expressly reserves third-party/personality rights
+and disallows modifications and derivative works without specific written
+authorization. For a public quotation, the exact applicable content and
+terms must be independently reconciled; neither a general FAQ nor a bare
+CC BY badge overrides these conditions.
+
+Byte hashes of the three HTTPS bodies, as read on that date (SHA-256):
+
+| Official material | SHA-256 |
+| --- | --- |
+| Pinned AKN README `bfac144e` | `cd01c53874c63df20d18ea151b3e5528af329dbc64ee573be4d480368f5a34dc` |
+| Senato site legal notice | `1ffd4233850eed86879ae01c973cd17d19f157338d48bd7b1c8ca8f222e88b89` |
+| Senato open-data FAQ | `256c47893dc660d015ab213517be2b8f67e34a00852103b289d740128e39fc95` |
+
+To reproduce, use `curl -fLsS --max-time 18 '<URL>' | shasum -a 256`
+with each exact URL above; a changed hash requires a fresh review rather than
+blindly trusting this dated snapshot. These hashes prove fetched body bytes,
+not the applicability of a public licence to an individual passage.
+
+**Disposition: PRIVATE_HOLD / NO-GO.** The independent rights reviewer must
+identify the exact source/segment, original source link, author and third-party
+rights, applicable licence version and attribution, publication purpose,
+verbatim/no-derivatives constraints, renewal/revocation path and current
+receipt. Separately confirm the six lawful processing decisions, identity,
+wording, current Capture and distinct #413 execution reviews before issuing
+any version-bound `EXCERPT_PUBLIC` authority. This evidence is a preparatory
+source review; it issues no grant, changes no ledger record and cannot unlock
+the consumer on its own.
