@@ -183,6 +183,13 @@ This is a source-specific research assessment on Studio `main` at
 release-authority review, approved speaker identity, or product-model execution
 witness. The passage's current Capture offsets, two independent attribution
 signals and current public grant have not been demonstrated by this review.
+An additional read-only Studio fetch through
+`import_senato_akoma_stenographic` confirmed the pinned XML SHA-256
+`1cb2b5fc3cbc96701e52f06c34c3ae3cd494eb622aa3f124fb1a93a223e27476`:
+the literal sentence occurs in speech ordinal **5**, with source speaker URI
+`http://dati.senato.it/osr/Persona/32673`. This verifies the original wording
+and its source-level speaker reference, not an independently approved identity
+or a current private Capture/publication receipt.
 
 - **Applicable rights scope:** The [commit-pinned AKN README](https://github.com/SenatoDellaRepubblica/AkomaNtosoBulkData/blob/bfac144eb5c54820971bc1020fece11aae56ec90/README.MD)
   credits the Senato's Servizio dell'Informatica and states CC BY 4.0.
