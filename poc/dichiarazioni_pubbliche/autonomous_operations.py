@@ -1,10 +1,7 @@
-"""DP #413: orchestrate independent review and protective public readback.
+"""DP #413: independent review, authenticated execution and public withdrawal.
 
-The adapters are *authority boundaries*: a production integration must verify
-immutable capture bytes, model-execution identities, rights, durable receipts,
-and every externally served surface. This module never infers that a claimed
-receipt authenticates its own issuer or that a successful local readback fences
-CDN/static caches. Incomplete authority is a HOLD, not publication authority.
+Adapters must verify capture, rights and externally served readback; incomplete
+authority forces HOLD and never authenticates its own receipt.
 """
 
 from __future__ import annotations
@@ -205,8 +202,7 @@ class AutonomousOperations:
         failures = tuple(code for code in preliminary.reason_codes if code != "INDEPENDENT_REVIEW")
         if failures:
             return self._hold(record_id, binding, failures, at)
-        # The approved subscription currently offers only one model identity.
-        # Reject impossible review pairs before spending any provider quota.
+        # Reject impossible model pairs before consuming provider quota.
         if not independent_review_models_authorized(
             getattr(self.first, "model_id", None), getattr(self.second, "model_id", None),
         ):
@@ -243,6 +239,8 @@ class AutonomousOperations:
             return self._hold(record_id, binding, ("STALE_ORIGINAL",), at)
         if self._read_challenge(record_id) is not False:
             return self._hold(record_id, binding, ("CHALLENGE_HOLD",), at)
+        if not original_executions_witnessed(first, second, self.verify_provider_execution):
+            return self._hold(record_id, binding, ("REVIEW_EXECUTION_UNVERIFIED",), at)
         try:
             return self._record(record_id, "PUBLISH", binding, (), at)
         except Exception:
@@ -296,6 +294,9 @@ class AutonomousOperations:
             and original_executions_witnessed(
                 packet.primary, packet.independent, self.verify_provider_execution,
             )
+            and _matches(self._read_capture(record_id), binding)
+            and self._read_challenge(record_id) is False
+            and self._publicly_current(record_id, binding)
         )
         third = None
         if original_witnesses_ok:

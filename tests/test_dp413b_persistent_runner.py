@@ -106,6 +106,26 @@ class PersistentRunnerTests(unittest.TestCase):
         self.assertFalse(self.surface.visible)
         self.assertEqual((self.first.calls, self.second.calls), (2, 2))
 
+    def test_revoked_cached_witness_withdraws_before_retrying_providers(self):
+        runner = self.make_runner()
+        self.assertEqual(runner.run("finding:413", now=NOW).disposition, "PUBLISH")
+        runner.operations.verify_provider_execution = lambda _review: False
+        observed = []
+        original_review = self.first.review
+
+        def observe_visibility(item, binding):
+            observed.append(self.surface.current_evidence_sha256(item.record_id))
+            return original_review(item, binding)
+
+        self.first.review = observe_visibility
+        result = runner.run("finding:413", now=NOW)
+        self.assertEqual(result.disposition, "HOLD")
+        self.assertEqual(observed, [None])
+        self.assertFalse(self.surface.visible)
+        self.assertIn("CACHED_PUBLIC_AUTHORITY_LOST", (
+            code for event in runner.journal.events("finding:413") for code in event.reason_codes
+        ))
+
     def test_evidence_change_invalidates_approval_and_retries(self):
         original = self.make_runner().run("finding:413", now=NOW)
         self.capture.item = replace(

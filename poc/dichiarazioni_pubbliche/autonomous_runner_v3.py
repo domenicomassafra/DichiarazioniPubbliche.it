@@ -337,6 +337,11 @@ class PersistentRunner:
                                 record_id, receipt.evidence_sha256,
                             ))):
                     return receipt
+            if prior is not None and prior[1].disposition == "PUBLISH":
+                self.operations._hold(
+                    record_id, prior[1].evidence_sha256,
+                    ("CACHED_PUBLIC_AUTHORITY_LOST",), now,
+                )
             receipt = self.operations.evaluate_and_apply(record_id, now=now)
             self.journal.complete(key, receipt)
             return receipt
