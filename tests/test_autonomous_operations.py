@@ -264,6 +264,29 @@ class AutonomousOperationsTests(unittest.TestCase):
         self.assertEqual(auditor.calls, 1)
         self.assertFalse(surface.visible)
 
+    def test_nightly_audit_skips_third_provider_when_original_witness_invalid(self):
+        for invalid in ("primary", "independent", "reused_request_id"):
+            with self.subTest(invalid=invalid):
+                ops, capture, _, first, second, surface, _ = harness()
+                self.assertEqual(ops.evaluate_and_apply("finding:413", now=NOW).disposition, "PUBLISH")
+                packet = AutonomousProofPacket(capture.item, first.last_review, second.last_review)
+                if invalid == "reused_request_id":
+                    packet = replace(packet, independent=replace(
+                        packet.independent,
+                        provider_request_id=packet.primary.provider_request_id,
+                    ))
+                else:
+                    witness = ops.verify_provider_execution
+                    revoked_agent = first.agent_id if invalid == "primary" else second.agent_id
+                    ops.verify_provider_execution = lambda review: (
+                        review.agent_id != revoked_agent and witness(review)
+                    )
+                auditor = Reviewer("agent:nightly", "other:model-3")
+                result = ops.audit_and_apply(packet, auditor, now=NOW)
+                self.assertEqual(result.disposition, "AUDIT_HOLD")
+                self.assertEqual(auditor.calls, 0)
+                self.assertFalse(surface.visible)
+
     def test_nightly_auditor_cannot_reuse_an_original_model(self):
         ops, capture, _, _, _, surface, _ = harness()
         ops.evaluate_and_apply("finding:413", now=NOW)

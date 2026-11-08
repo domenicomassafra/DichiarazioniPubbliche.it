@@ -26,7 +26,9 @@ from dichiarazioni_pubbliche.autonomous_publication import (
     independent_review_models_authorized,
     review_model_authorized,
 )
-from dichiarazioni_pubbliche.autonomous_execution_witness import review_execution_witnessed
+from dichiarazioni_pubbliche.autonomous_execution_witness import (
+    original_executions_witnessed, review_execution_witnessed,
+)
 
 
 class PublicationSafetyError(RuntimeError):
@@ -216,11 +218,7 @@ class AutonomousOperations:
             return self._hold(record_id, binding, ("INDEPENDENT_REVIEW_UNAVAILABLE",), at)
         if not (_review_identity_ok(first, self.first) and _review_identity_ok(second, self.second)):
             return self._hold(record_id, binding, ("REVIEW_EXECUTION_IDENTITY_MISMATCH",), at)
-        if (
-            first.provider_request_id == second.provider_request_id
-            or not review_execution_witnessed(first, self.verify_provider_execution)
-            or not review_execution_witnessed(second, self.verify_provider_execution)
-        ):
+        if not original_executions_witnessed(first, second, self.verify_provider_execution):
             return self._hold(record_id, binding, ("REVIEW_EXECUTION_UNVERIFIED",), at)
         try:
             decision: AutonomousDecision = evaluate_autonomous_publication(item, first, second)
@@ -293,17 +291,24 @@ class AutonomousOperations:
             and auditor.model_id not in model_ids
             and auditor.agent_id.strip().casefold() not in actor_ids
         )
+        original_witnesses_ok = (
+            unchanged and independent
+            and original_executions_witnessed(
+                packet.primary, packet.independent, self.verify_provider_execution,
+            )
+        )
         third = None
-        if unchanged and independent:
+        if original_witnesses_ok:
             try:
                 third = auditor.review(item, binding)
             except Exception:
                 pass
         if (
-            not unchanged or not independent
+            not original_witnesses_ok
             or not _review_identity_ok(third, auditor)
-            or not review_execution_witnessed(packet.primary, self.verify_provider_execution)
-            or not review_execution_witnessed(packet.independent, self.verify_provider_execution)
+            or not original_executions_witnessed(
+                packet.primary, packet.independent, self.verify_provider_execution,
+            )
             or not review_execution_witnessed(third, self.verify_provider_execution)
             or len({
                 packet.primary.provider_request_id,

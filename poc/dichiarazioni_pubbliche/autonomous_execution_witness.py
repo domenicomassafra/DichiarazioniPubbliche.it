@@ -42,4 +42,19 @@ def review_execution_witnessed(
         return False
 
 
-__all__ = ["review_execution_witnessed"]
+def original_executions_witnessed(
+    first: AgentReview | None,
+    second: AgentReview | None,
+    verify_provider_execution: Callable[[AgentReview], bool] | None,
+) -> bool:
+    """Check that both original reviews have separate, authenticated executions."""
+    return (
+        isinstance(first, AgentReview)
+        and isinstance(second, AgentReview)
+        and first.provider_request_id != second.provider_request_id
+        and review_execution_witnessed(first, verify_provider_execution)
+        and review_execution_witnessed(second, verify_provider_execution)
+    )
+
+
+__all__ = ["original_executions_witnessed", "review_execution_witnessed"]
