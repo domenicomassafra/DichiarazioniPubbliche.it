@@ -251,6 +251,10 @@ jobs:
         working-directory: web
         run: node --experimental-strip-types scripts/check-statement-v3-api.mjs
 
+      - name: DP436 cross-consumer verbatim parity (index/API/JSON-LD/N-Triples)
+        working-directory: web
+        run: node --experimental-strip-types scripts/check-dp436-cross-consumer-verbatim-parity.mjs
+
       - name: DP438 first-class Person public route/index/sitemap and withdrawal
         working-directory: web
         run: node --experimental-strip-types scripts/check-dp438-public-consumer-v3.mjs

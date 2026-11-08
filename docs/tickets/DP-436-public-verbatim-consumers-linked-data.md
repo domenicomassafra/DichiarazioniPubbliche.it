@@ -207,3 +207,47 @@ The coherent eight-file correction is preserved on remote branch
 until linked Codex automatic-review personal/repository settings are actually
 verified OFF or owner expressly approves possible review cost
 (`PR_HELD_AUTOREVIEW_BILLING_GUARD`). Original AC-436.1–.4 remain OPEN.
+
+## 2026-11-08 — Cross-consumer parity gate: index ↔ API ↔ JSON-LD ↔ N-Triples
+
+The two existing seams stopped short of each other: the Python parity module
+compares API/JSON-LD/N-Triples with one another, and
+`publicV3CrossReaderRelease.ts` compares the static search index with the
+Person archive. No gate compared the **cross-language** pair, so a governed
+release could ship four identical dataset fingerprints while one surface
+served different words, source version or locator.
+
+New `web/scripts/check-dp436-cross-consumer-verbatim-parity.mjs` (surface
+readers in `web/scripts/lib/verbatim-parity.mjs`, CI step in the `web` job)
+builds one synthetic governed release and flattens four independent surfaces — static
+search index (TypeScript), API v3 wire record, JSON-LD and N-Triples
+(Python serializers) — to the same field set, then refuses any disagreement
+on statement/version IDs, person and content identity, source title/URL/
+version/hash/kind, original text, language, quote SHA-256, locator and
+Finding. The N-Triples reader is re-implemented in the gate (own literal
+escaping) so the comparison checks the serializer instead of echoing it.
+
+It also proves: byte-stable replay of every surface and of the index fingerprint;
+exact preservation of tabs, newlines and edge spaces inside an approved span;
+withdrawal of one Statement removes it from all four surfaces at once (record,
+version, route and quote bytes) while the rest stay in agreement; the previous
+release fails closed under the new pins; the pinned detail reader answers
+`404 RESOURCE_NOT_FOUND`; a spoofed quotation or source version on any single
+surface is refused; and no operational/private field rides along.
+
+One release-level limitation is now refused rather than tolerated: when two
+Statements share a `content_id` but carry different `source_url` values,
+N-Triples cannot state which URL a Statement came from. The gate fails such a
+release (`ambiguous schema:url`), and the synthetic fixture used for the
+positive path gives each source document its own content id, as the real
+`content_item` producer already does. The public schema still does not enforce
+that invariant upstream; that remains a separate, smaller follow-up.
+
+Verification on the MateBook worktree (no npm install needed; the gate only
+uses Node's native TypeScript stripping and the Python serializers):
+`node --experimental-strip-types web/scripts/check-dp436-cross-consumer-verbatim-parity.mjs`
+→ `PASS (4 surfaces × 3 statements, byte-stable replay, withdrawal 3→2)`;
+`check-v3-cross-reader-release.mjs` PASS; `tools/check_repository_contract.py`
+PASS; `git diff --check` clean. Fixtures only: no real source, no rights
+grant, no publication, no MiniPC deployment. **AC-436.2/.4 stay OPEN** until
+the same gate runs unchanged on an authentic `INCLUDED` release from #468/#98.
