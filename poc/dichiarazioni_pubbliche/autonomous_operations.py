@@ -1,10 +1,7 @@
-"""DP #413: orchestrate independent review and protective public readback.
+"""DP #413: independent review, authenticated execution and public withdrawal.
 
-The adapters are *authority boundaries*: a production integration must verify
-immutable capture bytes, model-execution identities, rights, durable receipts,
-and every externally served surface. This module never infers that a claimed
-receipt authenticates its own issuer or that a successful local readback fences
-CDN/static caches. Incomplete authority is a HOLD, not publication authority.
+Adapters must verify capture, rights and externally served readback; incomplete
+authority forces HOLD and never authenticates its own receipt.
 """
 
 from __future__ import annotations
@@ -13,7 +10,7 @@ import hashlib
 import math
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from typing import Protocol
+from typing import Callable, Protocol
 
 from dichiarazioni_pubbliche.autonomous_publication import (
     AgentReview,
@@ -25,6 +22,9 @@ from dichiarazioni_pubbliche.autonomous_publication import (
     evaluate_autonomous_publication,
     independent_review_models_authorized,
     review_model_authorized,
+)
+from dichiarazioni_pubbliche.autonomous_execution_witness import (
+    original_executions_witnessed, review_execution_witnessed,
 )
 
 
@@ -124,6 +124,7 @@ class AutonomousOperations:
         self, *, capture: CaptureAuthority, challenge: ChallengeAuthority,
         first: ReviewAuthority, second: ReviewAuthority,
         public_surface: PublicSurface, journal: EventJournal,
+        verify_provider_execution: Callable[[AgentReview], bool] | None = None,
     ) -> None:
         self.capture = capture
         self.challenge = challenge
@@ -131,6 +132,8 @@ class AutonomousOperations:
         self.second = second
         self.surface = public_surface
         self.journal = journal
+        # Require independent, authenticated gateway execution evidence.
+        self.verify_provider_execution = verify_provider_execution
 
     def _record(
         self, record_id: str, disposition: str, evidence_sha256: str | None,
@@ -199,8 +202,7 @@ class AutonomousOperations:
         failures = tuple(code for code in preliminary.reason_codes if code != "INDEPENDENT_REVIEW")
         if failures:
             return self._hold(record_id, binding, failures, at)
-        # The approved subscription currently offers only one model identity.
-        # Reject impossible review pairs before spending any provider quota.
+        # Reject impossible model pairs before consuming provider quota.
         if not independent_review_models_authorized(
             getattr(self.first, "model_id", None), getattr(self.second, "model_id", None),
         ):
@@ -212,6 +214,8 @@ class AutonomousOperations:
             return self._hold(record_id, binding, ("INDEPENDENT_REVIEW_UNAVAILABLE",), at)
         if not (_review_identity_ok(first, self.first) and _review_identity_ok(second, self.second)):
             return self._hold(record_id, binding, ("REVIEW_EXECUTION_IDENTITY_MISMATCH",), at)
+        if not original_executions_witnessed(first, second, self.verify_provider_execution):
+            return self._hold(record_id, binding, ("REVIEW_EXECUTION_UNVERIFIED",), at)
         try:
             decision: AutonomousDecision = evaluate_autonomous_publication(item, first, second)
         except (ValueError, TypeError, AttributeError):
@@ -235,6 +239,8 @@ class AutonomousOperations:
             return self._hold(record_id, binding, ("STALE_ORIGINAL",), at)
         if self._read_challenge(record_id) is not False:
             return self._hold(record_id, binding, ("CHALLENGE_HOLD",), at)
+        if not original_executions_witnessed(first, second, self.verify_provider_execution):
+            return self._hold(record_id, binding, ("REVIEW_EXECUTION_UNVERIFIED",), at)
         try:
             return self._record(record_id, "PUBLISH", binding, (), at)
         except Exception:
@@ -283,15 +289,33 @@ class AutonomousOperations:
             and auditor.model_id not in model_ids
             and auditor.agent_id.strip().casefold() not in actor_ids
         )
+        original_witnesses_ok = (
+            unchanged and independent
+            and original_executions_witnessed(
+                packet.primary, packet.independent, self.verify_provider_execution,
+            )
+            and _matches(self._read_capture(record_id), binding)
+            and self._read_challenge(record_id) is False
+            and self._publicly_current(record_id, binding)
+        )
         third = None
-        if unchanged and independent:
+        if original_witnesses_ok:
             try:
                 third = auditor.review(item, binding)
             except Exception:
                 pass
         if (
-            not unchanged or not independent
+            not original_witnesses_ok
             or not _review_identity_ok(third, auditor)
+            or not original_executions_witnessed(
+                packet.primary, packet.independent, self.verify_provider_execution,
+            )
+            or not review_execution_witnessed(third, self.verify_provider_execution)
+            or len({
+                packet.primary.provider_request_id,
+                packet.independent.provider_request_id,
+                third.provider_request_id,
+            }) != 3
             or third.evidence_sha256 != binding
             or third.checked_stages != CHECKS
             or third.accepted is not True

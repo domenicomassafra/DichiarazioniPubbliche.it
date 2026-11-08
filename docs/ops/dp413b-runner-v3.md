@@ -19,6 +19,26 @@ route/account/quota state; changing the revision triggers a HOLD retry after
 restored provider availability. The caller must schedule the run when source,
 challenge or provider admission inputs change.
 
+Before applying a public PUBLISH decision, `AutonomousOperations` also requires
+`verify_provider_execution(review)` for **each** model and for the independent
+nightly auditor. Each reviewed completion must carry a unique provider request
+ID, an allowed exact returned model, prompt digest and token usage; missing
+or rejected witness yields HOLD and immediate withdrawal. The verifier must
+read independent, authenticated OmniRoute request history and enforce the
+DP-scoped key, Pro account, remaining upstream quota, route and non-billed
+usage. An HTTP response or the same journal's checksum is not such a witness.
+The offline tests provide an explicit simulated witness; those passes do not
+authorize publication.
+
+The runner reuses a stored `PUBLISH` checkpoint only when its optional
+`current_verified_packet(record_id, version_id)` returns a freshly verified
+`AutonomousProofPacket` for the current candidate. Wire the existing
+`JournalReviewPacketReader` here, with an independently authenticated
+provider witness; unchanged source/hash/visibility alone cannot replay a
+publication. Without this reader the runner rechecks the decision and withdraws
+on missing witness. The checkpoint fingerprint includes the witness-policy
+version, so earlier unauthenticated PUBLISH results are not reused.
+
 ## Provider admission and identity
 
 `OmniRouteAgentReview(model_id=...)` makes one constrained completion for

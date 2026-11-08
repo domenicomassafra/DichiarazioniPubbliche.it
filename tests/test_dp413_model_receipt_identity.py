@@ -8,7 +8,7 @@ from dichiarazioni_pubbliche.autonomous_publication import (
     AutonomousProofPacket, candidate_fingerprint,
 )
 from tests.test_autonomous_operations import (
-    Capture, Challenge, Journal, NOW, Reviewer, Surface,
+    Capture, Challenge, Journal, NOW, Reviewer, Surface, fixture_execution_witness,
 )
 
 
@@ -27,6 +27,7 @@ class ThirdModelReceiptIdentityTests(unittest.TestCase):
         operations = AutonomousOperations(
             capture=capture, challenge=Challenge(), first=first, second=second,
             public_surface=surface, journal=Journal(),
+            verify_provider_execution=fixture_execution_witness,
         )
         self.assertEqual(
             operations.evaluate_and_apply("finding:413", now=NOW).disposition,

@@ -10,11 +10,13 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 
-from dichiarazioni_pubbliche.autonomous_publication import candidate_fingerprint
+from dichiarazioni_pubbliche.autonomous_publication import (
+    AutonomousProofPacket, candidate_fingerprint,
+)
 from dichiarazioni_pubbliche.autonomous_runner_v3 import SQLiteRunJournal, PersistentRunner
 from dichiarazioni_pubbliche.autonomous_operations import AutonomousOperations
 from tests.test_autonomous_operations import (
-    Capture, Challenge, Reviewer, Surface,
+    Capture, Challenge, Reviewer, Surface, fixture_execution_witness,
 )
 
 NOW = datetime(2026, 10, 26, tzinfo=timezone.utc)
@@ -42,8 +44,21 @@ class PersistentRunnerTests(unittest.TestCase):
         operations = AutonomousOperations(
             capture=self.capture, challenge=self.challenge, first=self.first,
             second=self.second, public_surface=self.surface, journal=journal,
+            verify_provider_execution=fixture_execution_witness,
         )
-        return PersistentRunner(operations, journal)
+        return PersistentRunner(
+            operations, journal, current_verified_packet=self.fixture_packet_reader,
+        )
+
+    def fixture_packet_reader(self, record_id, version_id):
+        """Test-only substitute for the authenticated persisted packet reader."""
+        item = self.capture.current(record_id)
+        if (
+            item is None or item.record_version_id != version_id
+            or self.first.last_review is None or self.second.last_review is None
+        ):
+            return None
+        return AutonomousProofPacket(item, self.first.last_review, self.second.last_review)
 
     def test_repeat_across_restart_keeps_one_publish_and_two_model_calls(self):
         first = self.make_runner().run("finding:413", now=NOW)
@@ -55,6 +70,61 @@ class PersistentRunnerTests(unittest.TestCase):
             [event.disposition for event in SQLiteRunJournal(self.db).events("finding:413")],
             ["INTENT", "PUBLISH"],
         )
+
+    def test_old_unwitnessed_publish_checkpoint_is_revalidated_and_withdrawn(self):
+        with patch.object(PersistentRunner, "EXECUTION_WITNESS_VERSION", "pre-witness"):
+            self.assertEqual(
+                self.make_runner().run("finding:413", now=NOW).disposition, "PUBLISH",
+            )
+        journal = SQLiteRunJournal(self.db)
+        untrusted = AutonomousOperations(
+            capture=self.capture, challenge=self.challenge,
+            first=self.first, second=self.second,
+            public_surface=self.surface, journal=journal,
+        )
+        result = PersistentRunner(untrusted, journal).run("finding:413", now=NOW)
+        self.assertEqual(result.disposition, "HOLD")
+        self.assertIn("REVIEW_EXECUTION_UNVERIFIED", result.reason_codes)
+        self.assertIsNone(self.surface.current_evidence_sha256("finding:413"))
+        self.assertEqual((self.first.calls, self.second.calls), (2, 2))
+
+    def test_current_publish_checkpoint_does_not_bypass_lost_provider_witness(self):
+        self.assertEqual(
+            self.make_runner().run("finding:413", now=NOW).disposition, "PUBLISH",
+        )
+        journal = SQLiteRunJournal(self.db)
+        operations = AutonomousOperations(
+            capture=self.capture, challenge=self.challenge,
+            first=self.first, second=self.second,
+            public_surface=self.surface, journal=journal,
+        )
+        result = PersistentRunner(
+            operations, journal, current_verified_packet=self.fixture_packet_reader,
+        ).run("finding:413", now=NOW)
+        self.assertEqual(result.disposition, "HOLD")
+        self.assertEqual(result.reason_codes, ("REVIEW_EXECUTION_UNVERIFIED",))
+        self.assertFalse(self.surface.visible)
+        self.assertEqual((self.first.calls, self.second.calls), (2, 2))
+
+    def test_revoked_cached_witness_withdraws_before_retrying_providers(self):
+        runner = self.make_runner()
+        self.assertEqual(runner.run("finding:413", now=NOW).disposition, "PUBLISH")
+        runner.operations.verify_provider_execution = lambda _review: False
+        observed = []
+        original_review = self.first.review
+
+        def observe_visibility(item, binding):
+            observed.append(self.surface.current_evidence_sha256(item.record_id))
+            return original_review(item, binding)
+
+        self.first.review = observe_visibility
+        result = runner.run("finding:413", now=NOW)
+        self.assertEqual(result.disposition, "HOLD")
+        self.assertEqual(observed, [None])
+        self.assertFalse(self.surface.visible)
+        self.assertIn("CACHED_PUBLIC_AUTHORITY_LOST", (
+            code for event in runner.journal.events("finding:413") for code in event.reason_codes
+        ))
 
     def test_evidence_change_invalidates_approval_and_retries(self):
         original = self.make_runner().run("finding:413", now=NOW)
@@ -140,6 +210,7 @@ class PersistentRunnerTests(unittest.TestCase):
         operations = AutonomousOperations(
             capture=self.capture, challenge=self.challenge, first=self.first,
             second=self.second, public_surface=self.surface, journal=journal,
+            verify_provider_execution=fixture_execution_witness,
         )
         operations.evaluate_and_apply("finding:413", now=NOW)
         recovered = PersistentRunner(operations, journal).run("finding:413", now=NOW)

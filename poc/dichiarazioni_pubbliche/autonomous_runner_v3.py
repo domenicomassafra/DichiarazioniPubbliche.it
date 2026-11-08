@@ -16,10 +16,16 @@ from contextlib import closing, contextmanager
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterator
+from typing import Callable, Iterator
 
-from dichiarazioni_pubbliche.autonomous_operations import AutonomousOperations, RunReceipt
-from dichiarazioni_pubbliche.autonomous_publication import candidate_fingerprint
+from dichiarazioni_pubbliche.autonomous_operations import (
+    AutonomousOperations, RunReceipt, _matches, _review_identity_ok,
+)
+from dichiarazioni_pubbliche.autonomous_execution_witness import review_execution_witnessed
+from dichiarazioni_pubbliche.autonomous_publication import (
+    AutonomousCandidate, AutonomousProofPacket, candidate_fingerprint,
+    evaluate_autonomous_publication,
+)
 
 
 def _json(value: object) -> str:
@@ -235,11 +241,58 @@ class SQLiteRunJournal:
 class PersistentRunner:
     """On each tick, retry only new evidence, changed challenge or lost visibility."""
 
-    def __init__(self, operations: AutonomousOperations, journal: SQLiteRunJournal):
+    # A prior PUBLISH checkpoint predating verified provider execution has no
+    # authority after the review-witness gate becomes mandatory.
+    EXECUTION_WITNESS_VERSION = "dp413-execution-witness-v1"
+
+    def __init__(
+        self, operations: AutonomousOperations, journal: SQLiteRunJournal, *,
+        current_verified_packet: Callable[[str, str], AutonomousProofPacket | None] | None = None,
+    ):
         if operations.journal is not journal:
             raise ValueError("DP413B_JOURNAL_AUTHORITY_MISMATCH")
         self.operations = operations
         self.journal = journal
+        # A separate authenticated packet reader must revalidate old PUBLISH
+        # decisions. The local checkpoint can never authenticate itself.
+        self.current_verified_packet = current_verified_packet
+
+    def _cached_publish_verified(self, record_id: str, evidence_sha256: str) -> bool:
+        if not callable(self.current_verified_packet):
+            return False
+        try:
+            candidate = self.operations.capture.current(record_id)
+            if (
+                not isinstance(candidate, AutonomousCandidate)
+                or candidate.record_id != record_id
+                or candidate_fingerprint(candidate) != evidence_sha256
+                or self.operations.challenge.current(record_id) is not False
+            ):
+                return False
+            packet = self.current_verified_packet(record_id, candidate.record_version_id)
+            if (
+                not isinstance(packet, AutonomousProofPacket)
+                or packet.candidate != candidate
+                or not _review_identity_ok(packet.primary, self.operations.first)
+                or not _review_identity_ok(packet.independent, self.operations.second)
+                or packet.primary.provider_request_id == packet.independent.provider_request_id
+                or not review_execution_witnessed(
+                    packet.primary, self.operations.verify_provider_execution,
+                )
+                or not review_execution_witnessed(
+                    packet.independent, self.operations.verify_provider_execution,
+                )
+                or not evaluate_autonomous_publication(
+                    candidate, packet.primary, packet.independent,
+                ).publishable
+            ):
+                return False
+            return (
+                _matches(self.operations.capture.current(record_id), evidence_sha256)
+                and self.operations.challenge.current(record_id) is False
+            )
+        except Exception:
+            return False
 
     def _input(self, record_id: str, provider_revision: str) -> str:
         try:
@@ -259,6 +312,7 @@ class PersistentRunner:
         return hashlib.sha256(_json({
             "record": record_id, "evidence": binding, "challenge": challenge_state,
             "reviewers": reviewers, "provider_revision": provider_revision,
+            "execution_witness_version": self.EXECUTION_WITNESS_VERSION,
         }).encode()).hexdigest()
 
     def run(self, record_id: str, *, now: datetime, provider_revision: str = "") -> RunReceipt:
@@ -278,8 +332,16 @@ class PersistentRunner:
                 if ((receipt.disposition == "HOLD" and visible is None)
                         or (receipt.disposition == "PUBLISH"
                             and receipt.evidence_sha256 is not None
-                            and visible == receipt.evidence_sha256)):
+                            and visible == receipt.evidence_sha256
+                            and self._cached_publish_verified(
+                                record_id, receipt.evidence_sha256,
+                            ))):
                     return receipt
+            if prior is not None and prior[1].disposition == "PUBLISH":
+                self.operations._hold(
+                    record_id, prior[1].evidence_sha256,
+                    ("CACHED_PUBLIC_AUTHORITY_LOST",), now,
+                )
             receipt = self.operations.evaluate_and_apply(record_id, now=now)
             self.journal.complete(key, receipt)
             return receipt
