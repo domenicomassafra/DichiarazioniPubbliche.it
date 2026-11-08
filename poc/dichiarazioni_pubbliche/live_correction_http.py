@@ -231,6 +231,8 @@ def build_live_correction_server(
     port: int = 0,
     static_dir: str | None = None,
     account_private_secret_path: str | None = None,
+    statement_projection_path: str | None = None,
+    statement_current_fingerprint_path: str | None = None,
 ):
     """Pin the existing HTTP/static server before opting into correction intake."""
     if any(item is None for item in (account_service, correction_ledger, correction_enqueue, correction_purge, correction_reserve)):
@@ -241,11 +243,16 @@ def build_live_correction_server(
         projection_path, account_service=account_service,
         account_private_secret_path=account_private_secret_path,
         host=host, port=port, static_dir=static_dir,
+        statement_projection_path=statement_projection_path,
+        statement_current_fingerprint_path=statement_current_fingerprint_path,
     )
     base = server.RequestHandlerClass
     attrs = {
         name: getattr(base, name)
-        for name in ("projection_path", "static_dir", "account_service", "account_private_secret_path")
+        for name in (
+            "projection_path", "static_dir", "account_service", "account_private_secret_path",
+            "statement_projection_path", "statement_current_fingerprint_path",
+        )
     }
     attrs.update({
         "correction_ledger": correction_ledger,
