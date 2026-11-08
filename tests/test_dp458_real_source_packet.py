@@ -28,7 +28,7 @@ class DP458RealSourcePacketTests(unittest.TestCase):
             canonical_segment_id=None, passage_id=None,
             rights_status="CLEARED", rights_receipt_ref="receipt:old",
             permitted_uses=tuple(sorted(packet.USES)),
-            attribution_requirements=("NO_PUBLIC_MEDIA", "PUBLIC_QUOTE_REVIEW_REQUIRED"),
+            attribution_requirements=packet.ATTRIBUTION,
             reviewed_at="2026-10-26T12:00:00+00:00",
             expires_at="2026-11-02T12:00:00+00:00",
             reviewer_ref="agent:old", policy_version=packet.POLICY,
@@ -73,9 +73,30 @@ class DP458RealSourcePacketTests(unittest.TestCase):
         self.assertEqual(set(kwargs["permitted_uses"]), set(packet.USES))
         self.assertNotIn("EXCERPT_PUBLIC", kwargs["permitted_uses"])
         self.assertEqual(kwargs["rights_status"], "CLEARED")
+        self.assertEqual(set(kwargs["attribution_requirements"]), set(packet.ATTRIBUTION))
         self.assertTrue(kwargs["rights_receipt_ref"].startswith(
             "eu-avs:I-293056:current-private:"
         ))
+
+    def test_refresh_rejects_changed_private_attribution_before_official_fetch_or_write(self):
+        for obligations in (
+            ("NO_PUBLIC_MEDIA", "PUBLIC_QUOTE_REVIEW_REQUIRED"),
+            ("CC_BY_4_ATTRIBUTION", "PUBLIC_QUOTE_REVIEW_REQUIRED"),
+            ("CC_BY_4_ATTRIBUTION", "NO_PUBLIC_MEDIA"),
+            (*packet.ATTRIBUTION, "PUBLIC_MEDIA_ALLOWED"),
+        ):
+            with self.subTest(obligations=obligations):
+                store = Mock()
+                store.read_current.return_value = replace(
+                    self.expired_private_rights(), attribution_requirements=obligations,
+                )
+                with patch.object(packet, "PrivateRightsRegistryStore", return_value=store):
+                    with patch.object(current_terms, "fetch_bytes") as fetch:
+                        with self.assertRaisesRegex(RuntimeError, "RIGHTS_REFRESH_BASE_CHANGED"):
+                            packet.rights(SimpleNamespace(database_url="test"), False,
+                                          refresh_private=True)
+                fetch.assert_not_called()
+                store.record_rights.assert_not_called()
 
     def test_refresh_rejects_official_terms_drift_before_registry_write(self):
         store = Mock()

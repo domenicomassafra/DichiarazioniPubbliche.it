@@ -28,6 +28,7 @@ VARIANT="variant:dp458:I-293056:int-vtt"; SEGMENT="transcript:dp458:I-293056:cue
 CANONICAL="canonical:dp458:I-293056:cue12"; PASSAGE="passage:dp458:I-293056:cue12"; CANDIDATE="statement:dp458:I-293056:cue12"
 FAMILY="EU_AVS_OFFICIAL_SPEECH"; POLICY="dp458-eu-avs-private-media-20261026-v1"; VERSION="dp458-original-source-v2"
 USES=("DISCOVER_METADATA","FETCH","STORE_BODY","ASR_MEDIA","PLAYBACK","PARSE_TEXT","RESEARCH_CAPTURE_PRIVATE")
+ATTRIBUTION=("CC_BY_4_ATTRIBUTION","NO_PUBLIC_MEDIA","PUBLIC_QUOTE_REVIEW_REQUIRED")
 TERMS="https://audiovisual.ec.europa.eu/en/conditions-of-use"
 def vtt_timestamp_ms(stamp):
     """Parse original hour:minute:second.millisecond cue without losing minutes."""
@@ -75,7 +76,7 @@ def rights(db,apply,*,refresh_private=False):
                 and current.version_state == "CURRENT"
                 and current.policy_version == POLICY
                 and set(current.permitted_uses) == set(USES)
-                and "EXCERPT_PUBLIC" not in current.permitted_uses,
+                and set(current.attribution_requirements) == set(ATTRIBUTION),
                 "RIGHTS_REFRESH_BASE_CHANGED")
         now=datetime.now(timezone.utc)
         require(current.expires_at is not None
@@ -86,7 +87,7 @@ def rights(db,apply,*,refresh_private=False):
             subject=subject,policy_version=POLICY,rights_status="CLEARED",
             rights_receipt_ref="eu-avs:I-293056:current-private:"+evidence_sha,
             permitted_uses=USES,
-            attribution_requirements=current.attribution_requirements,
+            attribution_requirements=ATTRIBUTION,
             reviewed_at=now.isoformat(),expires_at=(now+timedelta(days=7)).isoformat(),
             reviewer_ref="agent:dp468-current-official-private-use-review",
             supersedes_record_id=current.id)
@@ -95,12 +96,13 @@ def rights(db,apply,*,refresh_private=False):
         evidence_sha=current_private_rights_evidence(PAGE, TERMS, QUOTE)
         current=registry.record_rights(subject=subject,policy_version=POLICY,rights_status="CLEARED",
             rights_receipt_ref="eu-avs:I-293056:current-private:"+evidence_sha,permitted_uses=USES,
-            attribution_requirements=("CC_BY_4_ATTRIBUTION","NO_PUBLIC_MEDIA","PUBLIC_QUOTE_REVIEW_REQUIRED"),
+            attribution_requirements=ATTRIBUTION,
             reviewed_at=now.isoformat(),expires_at=(now+timedelta(days=7)).isoformat(),
             reviewer_ref="agent:dp458-primary-source-rights-review")
     require(current is not None,"RIGHTS_MISSING")
     require(current.rights_status=="CLEARED" and current.version_state=="CURRENT"
-            and current.policy_version==POLICY and set(current.permitted_uses)==set(USES),"RIGHTS_CHANGED")
+            and current.policy_version==POLICY and set(current.permitted_uses)==set(USES)
+            and set(current.attribution_requirements)==set(ATTRIBUTION),"RIGHTS_CHANGED")
     for use in (item for item in USES if item != "RESEARCH_CAPTURE_PRIVATE"):
         x=evaluate_source_use(current,subject=subject,rights_record_id=current.id,
                               policy_version=POLICY,use=use,now=datetime.now(timezone.utc))
