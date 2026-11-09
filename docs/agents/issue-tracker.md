@@ -62,3 +62,10 @@ work. Reuse the owner-managed Project/authentication; do not request duplicate
 logins, scopes or create a sync service. When available, the owner-wide guide
 is `~/.dstack/docs/operations/github-issues.md`; this project config does not
 change its public-source, privacy, legal or runtime gates.
+
+## Ticket rules (owner reset, 9 Nov 2026)
+- Only the fleet coordinator opens new issues. A worker that finds follow-up work writes ONE comment on its own ticket; the coordinator decides whether it becomes a ticket.
+- Ticket body <= 1,500 characters: goal and acceptance; ONE executable consumer check with expected output; affected hosts and supported install command; Ship/Show/Ask; blocking edges; single owner. History goes in comments, never in the body.
+- Close a ticket when its acceptance is met, not when it is perfect.
+- Before asking for a review: run the repo's full required test command locally, self-review with `code-review` against the ticket acceptance, attach the evidence. Reviewers review only the delta since the previous verdict and list all findings in one pass. After 2 rounds the coordinator decides.
+- Post comments with REST (`gh api -X POST repos/<owner>/<repo>/issues/<n>/comments -f body=...`); GraphQL hits the secondary limit.
