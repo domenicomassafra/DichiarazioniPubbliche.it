@@ -109,6 +109,23 @@ class MemoryPostgres:
             rows.sort(key=lambda row: row["created_at"])
             return json.dumps(rows[:2], ensure_ascii=False)
 
+        if "JOIN release_targets t USING (statement_id, version_id)" in sql:
+            published = {
+                (row["statement_id"], row["version_id"])
+                for row in json.loads(values["published"])
+            }
+            rows = []
+            for request in self.challenge_requests.values():
+                if (request["statement_id"], request["version_id"]) not in published:
+                    continue
+                events = sorted(
+                    (row for row in self.challenge_events
+                     if row["request_id"] == request["request_id"]),
+                    key=lambda row: row["event_sequence"],
+                )
+                rows.append({**request, "events": events})
+            return json.dumps(rows, ensure_ascii=False)
+
         if "SELECT DISTINCT statement_id, version_id" in sql:
             pairs = sorted({
                 (row["statement_id"], row["version_id"])

@@ -133,12 +133,10 @@ class StatementV3CorrectionIntakeTests(unittest.TestCase):
             )
             self.assertEqual(status, 200)
             self.assertEqual(old_state["state"], "HOLD")
-            inventory = statement_store.challenged_statements
-            statement_store.challenged_statements = lambda: (_ for _ in ()).throw(
-                RuntimeError("ledger unavailable")
-            )
+            inventory = statement_store.public_release_clear
+            statement_store.public_release_clear = lambda *args, **kwargs: None
             self.assertEqual(self.request("GET", "/")[0], 503)
-            statement_store.challenged_statements = inventory
+            statement_store.public_release_clear = inventory
             self.assertEqual(self.request("GET", "/")[0], 200)
         finally:
             self.port = original_port

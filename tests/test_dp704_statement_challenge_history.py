@@ -54,19 +54,18 @@ class PublicStatementChallengeHistoryTests(unittest.TestCase):
         self.assertEqual(store.challenged_statements(limit=10)[0],
                          ("statement:1", "statement-version:1"))
         self.assertEqual(len(store.challenged_statements(limit=10)), 10)
-        # Historical, already cleared targets are paginated, never dropped: a
-        # small page size cannot turn the ledger's age into a public outage.
+        # Only current release targets enter the atomic SQL read.
         history = frozenset(
             ("statement:history:%d" % index, "statement-version:history:%d" % index)
             for index in range(1, 26))
-        self.assertTrue(store.public_release_clear(history, page_size=7))
+        self.assertTrue(store.public_release_clear(history))
         # An open challenge still fences the version it names, at any page size.
         self.assertFalse(store.public_release_clear(
-            frozenset({("statement:1", "statement-version:1")}), page_size=100))
+            frozenset({("statement:1", "statement-version:1")})))
         # A corrected release that no longer serves the challenged version is
         # clear even while the challenge itself stays open.
         self.assertTrue(store.public_release_clear(
-            frozenset({("statement:1", "statement-version:1-corrected")}), page_size=100))
+            frozenset({("statement:1", "statement-version:1-corrected")})))
 
     def test_a_second_cleared_challenge_requires_a_newer_release(self):
         db, store = self.ledger()
@@ -90,6 +89,30 @@ class PublicStatementChallengeHistoryTests(unittest.TestCase):
         new_release = (start + timedelta(minutes=3)).isoformat()
         self.assertTrue(store.public_release_clear(
             frozenset({target}), may_serve_cleared=intake._served_after_challenge(new_release)))
+
+    def test_public_fence_reads_only_published_targets_in_one_db_snapshot(self):
+        db, store = self.ledger()
+        start = datetime.now(timezone.utc).replace(microsecond=0)
+        open_challenge(store, db, 1, statement_id="statement:z",
+                       version_id="version:1", created_at=start.isoformat())
+        open_challenge(store, db, 2, statement_id="statement:a",
+                       version_id="version:1", created_at=start.isoformat())
+        operations = []
+        original = db.run
+
+        def counted(sql, **values):
+            operations.append(sql)
+            return original(sql, **values)
+
+        db.run = counted
+        self.assertFalse(store.public_release_clear(
+            frozenset({("statement:a", "version:1")})))
+        self.assertEqual(len(operations), 1)
+        self.assertIn("jsonb_to_recordset", operations[0])
+        operations.clear()
+        self.assertTrue(store.public_release_clear(
+            frozenset({("statement:not-published", "version:1")})))
+        self.assertEqual(len(operations), 1)
 
 
 if __name__ == "__main__":

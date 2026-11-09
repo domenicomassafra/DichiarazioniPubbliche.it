@@ -15,7 +15,7 @@ import re
 from datetime import datetime, timezone
 from urllib.parse import quote
 
-from .public_api import dispatch, error_response
+from .public_api import PublicApiError, dispatch, error_response
 from .public_api import _unavailable as _unavailable_error
 from .public_v3_http import (
     _current_release, pinned_release, response_for_pinned_release,
@@ -24,7 +24,6 @@ from .public_v3_http import (
 _ID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 _STORE_READERS = (
     "current_hold", "open_request", "replay_request", "public_release_clear",
-    "challenged_at",
 )
 
 
@@ -58,8 +57,9 @@ def _release_time(value: object) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
-def _unavailable_response():
-    return error_response(_unavailable_error(), request_id="statement-correction-fence")
+def _unavailable_response(method: str):
+    return error_response(
+        _unavailable_error(), request_id="statement-correction-fence", method=method)
 
 
 def _published_versions(rows: object) -> frozenset[tuple[str, str]] | None:
@@ -117,11 +117,13 @@ class StatementCorrectionIntake:
                 published, may_serve_cleared=cb)
             if (published is None or clear is not True
                     or _current_release(authority) != release):
-                return _unavailable_response()
+                return _unavailable_response(method)
+        except PublicApiError as exc:
+            return error_response(exc, request_id="statement-correction-fence", method=method)
         except Exception:
             # An unreadable release, an unreadable ledger or a moved pointer all
             # fail closed: the public surface never guesses.
-            return _unavailable_response()
+            return _unavailable_response(method)
         return response
 
     def _served_after_challenge(self, released_at: object):
@@ -134,31 +136,41 @@ class StatementCorrectionIntake:
         try:
             release_time = _release_time(released_at)
         except ValueError:
-            return lambda target: False
+            return lambda target, opened: False
 
-        def servable(target: tuple[str, str]) -> bool:
-            opened = self.store.challenged_at(target[0], target[1])
+        def servable(target: tuple[str, str], opened: str) -> bool:
             return isinstance(opened, str) and opened != "" and release_time > _release_time(opened)
 
         return servable
 
-    def published_version_clear(self) -> bool:
-        """True when no challenged version of the current release is still open."""
+    def published_release_pin(self) -> str | None:
+        """Fingerprint of a release proven clear, or None on any uncertainty."""
         try:
-            listing = self._read("GET", "/api/v3/statements")
+            _, authority, release, bundle = pinned_release(
+                self.projection_path, self.current_fingerprint_path)
+            listing = response_for_pinned_release(
+                "GET", "/api/v3/statements", bundle=bundle, release=release)
         except Exception:
-            return False
+            return None
         if listing.status != 200:
-            return False
+            return None
         try:
             published = _release_published_versions(listing.body)
             released_at = _release_generated_at(listing.body)
         except Exception:
-            return False
+            return None
         if published is None:
-            return False
-        return self.store.public_release_clear(
-            published, may_serve_cleared=self._served_after_challenge(released_at)) is True
+            return None
+        if (self.store.public_release_clear(
+                published, may_serve_cleared=self._served_after_challenge(released_at)) is not True):
+            return None
+        try:
+            return release if _current_release(authority) == release else None
+        except Exception:
+            return None
+
+    def published_version_clear(self) -> bool:
+        return self.published_release_pin() is not None
 
     def current_statement(self, statement_id: str) -> dict[str, object] | None:
         response = self._read("GET", "/api/v3/statements/" + quote(statement_id, safe=""))

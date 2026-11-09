@@ -28,6 +28,13 @@ _FINDING_ID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 _REQUEST_ID = re.compile(r"^challenge-request:[0-9a-f]{64}$")
 _STATEMENT_REQUEST_ID = re.compile(r"^public-statement-challenge-request:[0-9a-f]{64}$")
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
+_PUBLIC_CONTACT_ROUTES = {
+    "/segnalazioni", "/segnalazioni/", "/privacy", "/privacy/",
+    "/accedi", "/accedi/",
+}
+
+class _ReleaseBlocked(Exception):
+    """The correction fence changed before the public response headers."""
 
 
 class LiveCorrectionRequestHandler(PublicApiRequestHandler):
@@ -89,18 +96,36 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
                 hold = type(self).correction_ledger.current_hold_for_finding(finding_id)
                 if hold.disposition is not ChallengeHoldDisposition.CLEAR:
                     return False
-            # A still challenged v3 version that is part of the current release
-            # fences every non-v3 public surface too. The check is bounded and
-            # paginated, so a long ledger cannot turn history into an outage.
+            # A challenge against a version in this release fences every
+            # non-v3 surface; the DB reads only that release's targets.
             intake = type(self).statement_correction_intake
             if intake is not None and not self._own_v3_surface():
-                if intake.published_version_clear() is not True:
+                pinned = intake.published_release_pin()
+                if pinned is None:
                     return False
+                self._v3_release_pin = pinned
             # The v3 Statement fence and body are one pinned release owned by
             # the intake (see _serve_public): it is never re-read here.
             return True
         except Exception:
             return False
+
+    def _public_release_safe_before_send(self) -> bool:
+        if (self._is_account_path()
+                or urlsplit(self.path).path in _PUBLIC_CONTACT_ROUTES):
+            return True
+        intake = type(self).statement_correction_intake
+        if intake is None or self._own_v3_surface():
+            return True
+        pinned = getattr(self, "_v3_release_pin", None)
+        return isinstance(pinned, str) and pinned != "" and intake.published_release_pin() == pinned
+
+    def send_response(self, code, message=None) -> None:
+        if (getattr(self, "_final_public_fence", False)
+                and code in (200, 204, 206, 304)
+                and not self._public_release_safe_before_send()):
+            raise _ReleaseBlocked()
+        super().send_response(code, message)
 
     def _own_v3_surface(self) -> bool:
         """True when this handler owns the v3 Statement surface for this request.
@@ -117,8 +142,7 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
 
     def _serve_public(self, method: str) -> None:
         path = urlsplit(self.path).path
-        contact_routes = {"/segnalazioni", "/segnalazioni/", "/privacy", "/privacy/", "/accedi", "/accedi/"}
-        if self._is_account_path() or path.startswith("/account/") or path in contact_routes:
+        if self._is_account_path() or path.startswith("/account/") or path in _PUBLIC_CONTACT_ROUTES:
             return super().do_GET() if method == "GET" else super().do_HEAD()
         with type(self).correction_lock:
             if not self._public_safe():
@@ -126,7 +150,13 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
             if self._own_v3_surface():
                 return self._write_response(
                     type(self).statement_correction_intake.public_response(method, self.path))
-            return super().do_GET() if method == "GET" else super().do_HEAD()
+            self._final_public_fence = True
+            try:
+                return super().do_GET() if method == "GET" else super().do_HEAD()
+            except _ReleaseBlocked:
+                return self._unavailable()
+            finally:
+                self._final_public_fence = False
 
     def _status(self, request_id: str) -> None:
         actor = self._session_actor(modifying=False)

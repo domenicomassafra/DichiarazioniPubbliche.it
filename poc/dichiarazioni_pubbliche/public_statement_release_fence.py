@@ -1,23 +1,15 @@
-"""#704: decide whether a v3 release may be served while a challenge is open.
+"""Release fence against a single PostgreSQL snapshot of published challenges.
 
-The challenge ledger is append-only and keeps every historical target, so the
-inventory is read as bounded, resumable pages. A release is clear only when
-none of the versions it serves carries an open challenge; history that the
-release no longer serves can never turn a public read into an outage.
+An append-only challenge history may grow indefinitely. Only requests for the
+versions in the current release are read; one SQL statement gives them one
+MVCC snapshot, including their complete integrity chains.
 """
 from __future__ import annotations
 
 import json
-from typing import Callable, Iterable
+from typing import Callable
 
-_INVENTORY_PAGE = 500
-_MAX_INVENTORY_PAGES = 100_000
-
-
-def _page_size(limit: object) -> int:
-    if type(limit) is not int or not 1 <= limit <= _INVENTORY_PAGE:
-        raise ValueError("DP468_CHALLENGE_INVENTORY_LIMIT_INVALID")
-    return limit
+from .public_statement_authority_common import _CHALLENGE_CLEAR_STATES
 
 
 def _valid_target(target: object) -> bool:
@@ -26,68 +18,66 @@ def _valid_target(target: object) -> bool:
 
 
 def public_release_clear(
-    store: object, published: object,
-    *, page_size: int = _INVENTORY_PAGE,
-    may_serve_cleared: Callable[[tuple[str, str]], bool] | None = None,
+    store: object, published: object, *,
+    validate_chain: Callable[[dict, list[dict]], bool],
+    may_serve_cleared: Callable[[tuple[str, str], str], bool] | None = None,
 ) -> bool | None:
-    """True when no challenged version of this exact release is still open.
-
-    Only targets that are part of the release under evaluation are opened for
-    their hold chain; the rest of the append-only history is skipped page by
-    page, so lifetime growth cannot block a public read.
-
-    A version whose chain is clear may still be unreservable here: when the
-    caller passes ``may_serve_cleared``, a challenged version of this release
-    must also be provably newer than the challenge that named it. Otherwise a
-    release that predates the challenge (a rotated or stale pointer) would be
-    served as if its version had been cleared.
-    """
+    """True only when all matching challenge chains clear the exact release."""
     if (not isinstance(published, frozenset)
             or any(not _valid_target(target) for target in published)):
         return None
     try:
-        after = None
-        for _ in range(_MAX_INVENTORY_PAGES):
-            # The page itself must be bounded: an oversized page would be
-            # rejected as corrupt instead of being paginated through.
-            limit = _page_size(page_size)  # bounded page, never the raw argument
-            page = store.challenged_statements(after=after, limit=limit)
-            served = [target for target in page if target in published]
-            for target in served:
-                if store.current_hold(*target) is not False:
-                    return False
-                if (may_serve_cleared is not None
-                        and may_serve_cleared(target) is not True):
-                    return False
-            if len(page) < limit:
-                return True
-            after = page[-1]
-        return None
+        # No keyset traversal: a newly inserted earlier target cannot be missed
+        # between queries. Unrelated historical challenges are never scanned.
+        raw = store.run(
+            """
+            WITH release_targets AS (
+                SELECT statement_id, version_id
+                FROM jsonb_to_recordset(:'published'::jsonb)
+                    AS target(statement_id text, version_id text)
+            )
+            SELECT COALESCE(json_agg(row_to_json(request_row))::text, '[]')
+            FROM (
+                SELECT r.request_id, r.statement_id, r.version_id, r.intake_ref,
+                       r.requester_ref_sha256, r.reason_sha256, r.created_at,
+                       r.integrity_sha256,
+                       COALESCE((
+                           SELECT json_agg(row_to_json(event_row))
+                           FROM (
+                               SELECT event_id, request_id, event_sequence,
+                                      previous_event_id, previous_integrity_sha256,
+                                      status, reason_code, actor_ref, occurred_at,
+                                      integrity_sha256
+                               FROM public_statement_challenge_event e
+                               WHERE e.request_id = r.request_id
+                               ORDER BY event_sequence
+                           ) event_row
+                       ), '[]'::json) AS events
+                FROM public_statement_challenge_request r
+                JOIN release_targets t USING (statement_id, version_id)
+                ORDER BY r.created_at, r.request_id
+            ) request_row;
+            """,
+            published=json.dumps([
+                {"statement_id": statement, "version_id": version}
+                for statement, version in sorted(published)
+            ], separators=(",", ":")),
+        )
+        requests = json.loads(raw)
+        if not isinstance(requests, list):
+            return None
+        for request in requests:
+            if not isinstance(request, dict):
+                return None
+            events = request.get("events")
+            if not isinstance(events, list) or not validate_chain(request, events):
+                return None
+            if not events or events[-1].get("status") not in _CHALLENGE_CLEAR_STATES:
+                return False
+            target = (request.get("statement_id"), request.get("version_id"))
+            if (may_serve_cleared is not None
+                    and may_serve_cleared(target, request.get("created_at")) is not True):
+                return False
+        return True
     except Exception:
         return None
-
-
-def challenge_opened_at(store: object, statement_id: str, version_id: str) -> str | None:
-    """Most recent challenge instant for an exact target, or None."""
-    raw = store.run(
-        """
-        SELECT COALESCE(row_to_json(opened_row)::text, '')
-        FROM (
-            SELECT MAX(r.created_at) AS opened_at
-            FROM public_statement_challenge_request r
-            WHERE r.statement_id = :'statement_id'
-              AND r.version_id = :'version_id'
-        ) opened_row;
-        """,
-        statement_id=statement_id, version_id=version_id,
-    )
-    if not raw:
-        return None
-    parsed = json.loads(raw)
-    # The aggregate may arrive wrapped in its JSON array or as one row.
-    if isinstance(parsed, list):
-        if len(parsed) != 1:
-            return None
-        parsed = parsed[0]
-    opened = parsed.get("opened_at") if isinstance(parsed, dict) else None
-    return opened if isinstance(opened, str) and opened else None

@@ -2,7 +2,7 @@
 from __future__ import annotations
 import json
 from typing import Mapping
-from .public_statement_release_fence import challenge_opened_at, public_release_clear
+from .public_statement_release_fence import public_release_clear
 from .public_statement_authority_common import (
     _CHALLENGE_STATES, _CHALLENGE_CLEAR_STATES, _CHALLENGE_TERMINAL_STATES,
     _CHALLENGE_TRANSITIONS, _SHA256, _digest, _text, _sha, _iso_datetime,
@@ -332,24 +332,13 @@ class PublicStatementChallengeStore:
         return event_id
 
     def public_release_clear(
-        self, published: frozenset[tuple[str, str]],
-        *, page_size: int = _INVENTORY_PAGE,
-        may_serve_cleared: "Callable[[tuple[str, str]], bool] | None" = None,
+        self, published: frozenset[tuple[str, str]], *,
+        may_serve_cleared: "Callable[[tuple[str, str], str], bool] | None" = None,
     ) -> bool | None:
-        """Bounded release fence; see public_statement_release_fence."""
+        """Verify all release-bound challenge chains in one database snapshot."""
         return public_release_clear(
-            self, published, page_size=page_size, may_serve_cleared=may_serve_cleared)
-
-    def challenged_at(self, statement_id: str, version_id: str) -> str | None:
-        """Most recent challenge instant for an exact target, or None."""
-        try:
-            return challenge_opened_at(
-                self.store,
-                _text(statement_id, "DP468_CHALLENGE_REPLAY_INVALID"),
-                _text(version_id, "DP468_CHALLENGE_REPLAY_INVALID"),
-            )
-        except Exception:
-            return None
+            self.store, published, validate_chain=_valid_challenge_chain,
+            may_serve_cleared=may_serve_cleared)
 
     def current_hold(self, statement_id: str, version_id: str) -> bool | None:
         try:

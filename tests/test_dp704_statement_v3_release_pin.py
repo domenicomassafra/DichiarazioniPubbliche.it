@@ -190,6 +190,59 @@ class StatementV3ReleasePinTests(unittest.TestCase):
         self.assertEqual(status, 503)
         self.assertEqual(body["error"]["code"], "PUBLIC_PROJECTION_UNAVAILABLE")
 
+    def test_html_rechecks_v3_release_after_initial_clearance(self):
+        root, candidate, current, corrected, held = self.fixtures()
+        store = PublicStatementChallengeStore(store=MemoryPostgres())
+        store.open_request(
+            statement_id="statement:1", version_id="statement-version:1",
+            intake_ref="intake:html-rotation", requester_ref_sha256="a" * 64,
+            reason_sha256="b" * 64,
+            created_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+            actor_ref="oidc:html-test",
+        )
+        server = self.serve(root, candidate, current, store, lambda *_: True)
+        old_port = self.port
+        self.port = server.server_port
+        self.addCleanup(setattr, self, "port", old_port)
+        original = intake_module.StatementCorrectionIntake.published_release_pin
+        observed = {"first": False}
+
+        def rotate_after_check(intake):
+            pinned = original(intake)
+            if pinned is not None and not observed["first"]:
+                observed["first"] = True
+                rotate(candidate, current, held)
+            return pinned
+
+        intake_module.StatementCorrectionIntake.published_release_pin = rotate_after_check
+        self.addCleanup(setattr, intake_module.StatementCorrectionIntake,
+                        "published_release_pin", original)
+        self.assertEqual(self.request("GET", "/")[0], 503)
+        self.assertTrue(observed["first"])
+        rotate(candidate, current, corrected)
+        observed["first"] = False
+        self.assertEqual(self.request("GET", "/api/v1/health")[0], 503)
+        rotate(candidate, current, corrected)
+        observed["first"] = False
+        self.assertEqual(self.request("HEAD", "/")[0], 503)
+
+    def test_v3_route_errors_keep_status_and_head_has_no_body(self):
+        root, candidate, current, corrected, held = self.fixtures()
+        store = PublicStatementChallengeStore(store=MemoryPostgres())
+        server = self.serve(root, candidate, current, store, lambda *_: True)
+        old_port = self.port
+        self.port = server.server_port
+        self.addCleanup(setattr, self, "port", old_port)
+        self.assertEqual(self.request("GET", "/api/v3/statements/statement:absent")[0], 404)
+        self.assertEqual(self.request("GET", "/api/v3/statements?unknown=1")[0], 400)
+        import http.client
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        self.addCleanup(connection.close)
+        connection.request("HEAD", "/api/v3/statements?unknown=1")
+        response = connection.getresponse()
+        self.assertEqual(response.status, 400)
+        self.assertEqual(response.read(), b"")
+
 
 if __name__ == "__main__":
     unittest.main()
