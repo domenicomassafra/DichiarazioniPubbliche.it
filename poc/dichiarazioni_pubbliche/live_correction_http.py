@@ -89,12 +89,28 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
                 hold = type(self).correction_ledger.current_hold_for_finding(finding_id)
                 if hold.disposition is not ChallengeHoldDisposition.CLEAR:
                     return False
+            # A still challenged v3 version that is part of the current release
+            # fences every non-v3 public surface too. The check is bounded and
+            # paginated, so a long ledger cannot turn history into an outage.
             intake = type(self).statement_correction_intake
-            if intake is not None and not intake.public_reads_allowed():
-                return False
+            if intake is not None and not self._own_v3_surface():
+                if intake.published_version_clear() is not True:
+                    return False
+            # The v3 Statement fence and body are one pinned release owned by
+            # the intake (see _serve_public): it is never re-read here.
             return True
         except Exception:
             return False
+
+    def _own_v3_surface(self) -> bool:
+        """True when this handler owns the v3 Statement surface for this request.
+
+        The inherited router serves /api/v3 before the correction fence, so the
+        fenced server must intercept it here or the fence never applies.
+        """
+        path = urlsplit(self.path).path
+        return (type(self).statement_correction_intake is not None
+                and (path == "/api/v3" or path.startswith("/api/v3/")))
 
     def _unavailable(self) -> None:
         self._correction_response(503, {"error": "PUBLIC_PROJECTION_UNAVAILABLE"})
@@ -107,6 +123,9 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
         with type(self).correction_lock:
             if not self._public_safe():
                 return self._unavailable()
+            if self._own_v3_surface():
+                return self._write_response(
+                    type(self).statement_correction_intake.public_response(method, self.path))
             return super().do_GET() if method == "GET" else super().do_HEAD()
 
     def _status(self, request_id: str) -> None:

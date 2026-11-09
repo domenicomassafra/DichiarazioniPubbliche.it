@@ -76,19 +76,33 @@ def _query(raw: str, allowed: set[str]) -> dict[str, str]:
     return dict(pairs)
 
 
-def serve_public_v3(
-    method: str, path: str, *, statement_projection_path: str | Path | None,
+def pinned_release(
+    statement_projection_path: str | Path | None,
     statement_current_fingerprint_path: str | Path | None,
-) -> ApiResponse:
-    if statement_projection_path is None and statement_current_fingerprint_path is None:
-        raise _not_found()
+) -> tuple[Path, Path, str, dict]:
+    """Read one authorized release: its fingerprint and its exact snapshot.
+
+    Callers that must fence on the release and then serve it hold this single
+    answer, so a concurrently rotated pointer can never turn a checked
+    snapshot into a different served one.
+    """
     if not statement_projection_path or not statement_current_fingerprint_path:
         raise _unavailable()
     source = Path(statement_projection_path).absolute()
     authority = Path(statement_current_fingerprint_path).absolute()
     if source == authority or source.resolve() == authority.resolve():
         raise _unavailable()
+    release = _current_release(authority)
+    bundle = _snapshot(source)
+    if _current_release(authority) != release:
+        raise _unavailable()
+    return source, authority, release, bundle
 
+
+def response_for_pinned_release(
+    method: str, path: str, *, bundle: dict, release: str,
+) -> ApiResponse:
+    """Serialize one already authorized and unchanged release snapshot."""
     url = urlsplit(path)
     if url.path == f"{V3_BASE}/statements":
         params = _query(url.query, set())
@@ -104,27 +118,40 @@ def serve_public_v3(
         operation = "detail"
     else:
         raise _not_found()
-    # Each request must see a currently authorized external release on both
-    # sides of validating/serializing the source, including HEAD responses.
-    before = _current_release(authority)
-    bundle = _snapshot(source)
+    if not isinstance(bundle, dict):
+        raise _unavailable()
     if operation == "list":
         payload = list_public_statements_v3(
-            bundle, allow_statement_v3=True, current_public_dataset_sha256=before)
+            bundle, allow_statement_v3=True, current_public_dataset_sha256=release)
     elif operation == "detail":
         payload = get_public_statement_v3(
             bundle, identifier, allow_statement_v3=True,
-            current_public_dataset_sha256=before)
+            current_public_dataset_sha256=release)
     else:
         payload = list_public_opinions_by_person_content_v3(
-            bundle, allow_statement_v3=True, current_public_dataset_sha256=before,
+            bundle, allow_statement_v3=True, current_public_dataset_sha256=release,
             **params)
     body = canonical_json_bytes(payload)
-    if _current_release(authority) != before:
-        raise _unavailable()
     return ApiResponse(
         200, b"" if method == "HEAD" else body, JSON_CONTENT_TYPE,
         {"Cache-Control": "no-store", "Surrogate-Control": "no-store",
          "X-Content-Type-Options": "nosniff", API_VERSION_HEADER: "v3"},
         content_length=len(body) if method == "HEAD" else None,
     )
+
+
+def serve_public_v3(
+    method: str, path: str, *, statement_projection_path: str | Path | None,
+    statement_current_fingerprint_path: str | Path | None,
+) -> ApiResponse:
+    if statement_projection_path is None and statement_current_fingerprint_path is None:
+        raise _not_found()
+    # Each request must see a currently authorized external release on both
+    # sides of validating/serializing the source, including HEAD responses.
+    _, authority, release, bundle = pinned_release(
+        statement_projection_path, statement_current_fingerprint_path)
+    response = response_for_pinned_release(
+        method, path, bundle=bundle, release=release)
+    if _current_release(authority) != release:
+        raise _unavailable()
+    return response

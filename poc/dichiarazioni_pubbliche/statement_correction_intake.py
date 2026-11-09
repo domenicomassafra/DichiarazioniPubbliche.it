@@ -15,14 +15,66 @@ import re
 from datetime import datetime, timezone
 from urllib.parse import quote
 
-from .public_api import dispatch
+from .public_api import dispatch, error_response
+from .public_api import _unavailable as _unavailable_error
+from .public_v3_http import (
+    _current_release, pinned_release, response_for_pinned_release,
+)
 
 _ID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
-_STORE_READERS = ("challenged_statements", "current_hold", "open_request", "replay_request")
+_STORE_READERS = (
+    "current_hold", "open_request", "replay_request", "public_release_clear",
+    "challenged_at",
+)
 
 
 def _unavailable() -> tuple[int, dict[str, object]]:
     return 503, {"error": "PUBLIC_PROJECTION_UNAVAILABLE"}
+
+
+def _release_body(body: object) -> dict | None:
+    payload = json.loads(body)
+    return payload if isinstance(payload, dict) else None
+
+
+def _release_published_versions(body: object) -> frozenset[tuple[str, str]] | None:
+    payload = _release_body(body)
+    return _published_versions(payload.get("data") if payload is not None else None)
+
+
+def _release_generated_at(body: object) -> object:
+    payload = _release_body(body)
+    meta = payload.get("meta") if payload is not None else None
+    return meta.get("generated_at") if isinstance(meta, dict) else None
+
+
+def _release_time(value: object) -> datetime:
+    if (not isinstance(value, str) or not value.strip()
+            or value.strip() != value or "T" not in value):
+        raise ValueError("STATEMENT_V3_RELEASE_TIME_INVALID")
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        raise ValueError("STATEMENT_V3_RELEASE_TIME_INVALID")
+    return parsed.astimezone(timezone.utc)
+
+
+def _unavailable_response():
+    return error_response(_unavailable_error(), request_id="statement-correction-fence")
+
+
+def _published_versions(rows: object) -> frozenset[tuple[str, str]] | None:
+    if not isinstance(rows, list):
+        return None
+    published: set[tuple[str, str]] = set()
+    for row in rows:
+        if (not isinstance(row, dict)
+                or not isinstance(row.get("statement_id"), str)
+                or not _ID.fullmatch(row["statement_id"])
+                or not isinstance(row.get("version_id"), str)
+                or not _ID.fullmatch(row["version_id"])):
+            return None
+        published.add((row["statement_id"], row["version_id"]))
+    return frozenset(published)
 
 
 class StatementCorrectionIntake:
@@ -36,44 +88,80 @@ class StatementCorrectionIntake:
         self.current_fingerprint_path = current_fingerprint_path
         self.store = store
 
-    def _read(self, path: str):
+    def _read(self, method: str, path: str):
         return dispatch(
-            "GET", path,
+            method, path,
             statement_projection_path=self.projection_path,
             statement_current_fingerprint_path=self.current_fingerprint_path,
             accept="application/json",
         )
 
-    def public_reads_allowed(self) -> bool:
-        """False while a challenged version is still part of the current release."""
-        response = self._read("/api/v3/statements")
-        if response.status != 200:
+    def public_response(self, method: str, path: str):
+        """Serve exactly the release this request fenced on.
+
+        The fence and the body must observe one snapshot: reading the pointer
+        again after the fence would let a rotation in between return a
+        challenged version the fence never checked.
+        """
+        try:
+            _, authority, release, bundle = pinned_release(
+                self.projection_path, self.current_fingerprint_path)
+            response = response_for_pinned_release(
+                method, path, bundle=bundle, release=release)
+            listing = response_for_pinned_release(
+                "GET", "/api/v3/statements", bundle=bundle, release=release)
+            published = _release_published_versions(listing.body)
+            released_at = _release_generated_at(listing.body)
+            cb = self._served_after_challenge(released_at)
+            clear = None if published is None else self.store.public_release_clear(
+                published, may_serve_cleared=cb)
+            if (published is None or clear is not True
+                    or _current_release(authority) != release):
+                return _unavailable_response()
+        except Exception:
+            # An unreadable release, an unreadable ledger or a moved pointer all
+            # fail closed: the public surface never guesses.
+            return _unavailable_response()
+        return response
+
+    def _served_after_challenge(self, released_at: object):
+        """A cleared version is servable only by a release newer than its challenge.
+
+        A release that predates the challenge cannot carry the clearance that
+        cleared it: serving it would republish the contested version under the
+        old fingerprint.
+        """
+        try:
+            release_time = _release_time(released_at)
+        except ValueError:
+            return lambda target: False
+
+        def servable(target: tuple[str, str]) -> bool:
+            opened = self.store.challenged_at(target[0], target[1])
+            return isinstance(opened, str) and opened != "" and release_time > _release_time(opened)
+
+        return servable
+
+    def published_version_clear(self) -> bool:
+        """True when no challenged version of the current release is still open."""
+        try:
+            listing = self._read("GET", "/api/v3/statements")
+        except Exception:
             return False
-        payload = json.loads(response.body)
-        rows = payload.get("data") if isinstance(payload, dict) else None
-        if not isinstance(rows, list):
+        if listing.status != 200:
             return False
-        published: set[tuple[str, str]] = set()
-        for row in rows:
-            if (not isinstance(row, dict)
-                    or not isinstance(row.get("statement_id"), str)
-                    or not _ID.fullmatch(row["statement_id"])
-                    or not isinstance(row.get("version_id"), str)
-                    or not _ID.fullmatch(row["version_id"])):
-                return False
-            published.add((row["statement_id"], row["version_id"]))
-        for target in self.store.challenged_statements():
-            if (not isinstance(target, (tuple, list)) or len(target) != 2
-                    or not all(isinstance(value, str) for value in target)):
-                return False
-            statement_id, version_id = target
-            if (statement_id, version_id) in published:
-                if self.store.current_hold(statement_id, version_id) is not False:
-                    return False
-        return True
+        try:
+            published = _release_published_versions(listing.body)
+            released_at = _release_generated_at(listing.body)
+        except Exception:
+            return False
+        if published is None:
+            return False
+        return self.store.public_release_clear(
+            published, may_serve_cleared=self._served_after_challenge(released_at)) is True
 
     def current_statement(self, statement_id: str) -> dict[str, object] | None:
-        response = self._read("/api/v3/statements/" + quote(statement_id, safe=""))
+        response = self._read("GET", "/api/v3/statements/" + quote(statement_id, safe=""))
         if response.status == 404:
             return None
         if response.status != 200:

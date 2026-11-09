@@ -114,10 +114,21 @@ class MemoryPostgres:
                 (row["statement_id"], row["version_id"])
                 for row in self.challenge_requests.values()
             })
+            after = (values["after_statement"], values["after_version"])
+            pairs = [pair for pair in pairs if pair > after][: int(values["limit"])]
             return json.dumps([
                 {"statement_id": statement_id, "version_id": version_id}
-                for statement_id, version_id in pairs[:10001]
+                for statement_id, version_id in pairs
             ], ensure_ascii=False)
+
+        if "SELECT MIN(r.created_at) AS opened_at" in sql:
+            moments = sorted(
+                row["created_at"] for row in self.challenge_requests.values()
+                if row["statement_id"] == values["statement_id"]
+                and row["version_id"] == values["version_id"]
+            )
+            return json.dumps([{"opened_at": moments[0] if moments else None}] if moments
+                              else [{"opened_at": None}])
 
         if "FROM public_statement_challenge_request r" in sql:
             rows = []

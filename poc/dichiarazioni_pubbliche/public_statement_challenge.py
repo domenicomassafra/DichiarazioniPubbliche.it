@@ -2,6 +2,7 @@
 from __future__ import annotations
 import json
 from typing import Mapping
+from .public_statement_release_fence import challenge_opened_at, public_release_clear
 from .public_statement_authority_common import (
     _CHALLENGE_STATES, _CHALLENGE_CLEAR_STATES, _CHALLENGE_TERMINAL_STATES,
     _CHALLENGE_TRANSITIONS, _SHA256, _digest, _text, _sha, _iso_datetime,
@@ -58,6 +59,16 @@ def _valid_challenge_chain(request: Mapping[str, object], events: list[dict[str,
         previous_hash = integrity
         previous_status = str(status)
     return True
+
+
+_INVENTORY_PAGE = 500
+_MAX_INVENTORY_PAGES = 100_000
+
+
+def _page_size(limit: object) -> int:
+    if type(limit) is not int or not 1 <= limit <= _INVENTORY_PAGE:
+        raise ValueError("DP468_CHALLENGE_INVENTORY_LIMIT_INVALID")
+    return limit
 
 
 class PublicStatementChallengeStore:
@@ -186,20 +197,37 @@ class PublicStatementChallengeStore:
             "current_state": events[-1]["status"],
         }
 
-    def challenged_statements(self) -> list[tuple[str, str]]:
+    def challenged_statements(
+        self, *, after: tuple[str, str] | None = None, limit: int = _INVENTORY_PAGE,
+    ) -> list[tuple[str, str]]:
+        """One bounded page of distinct challenged targets, ordered and resumable.
+
+        The ledger is append-only and keeps every historical target, so the
+        inventory is paginated: a long life must never turn all public reads
+        into a permanent outage through a single capped query.
+        """
+        size = _page_size(limit)
+        if after is not None and (
+            not isinstance(after, (tuple, list)) or len(after) != 2
+            or not all(isinstance(value, str) and value for value in after)
+        ):
+            raise ValueError("DP468_CHALLENGE_INVENTORY_CURSOR_INVALID")
+        statement, version = after if after is not None else ("", "")
         raw = self.store.run(
             """
             SELECT COALESCE(json_agg(row_to_json(target_row))::text, '[]')
             FROM (
                 SELECT DISTINCT statement_id, version_id
                 FROM public_statement_challenge_request
+                WHERE (statement_id, version_id) > (:'after_statement', :'after_version')
                 ORDER BY statement_id, version_id
-                LIMIT 10001
+                LIMIT :'limit'::integer
             ) target_row;
-            """
+            """,
+            after_statement=statement, after_version=version, limit=size,
         )
         rows = json.loads(raw)
-        if not isinstance(rows, list) or len(rows) > 10000:
+        if not isinstance(rows, list) or len(rows) > size:
             raise ValueError("DP468_CHALLENGE_INVENTORY_INVALID")
         result: list[tuple[str, str]] = []
         for row in rows:
@@ -302,6 +330,26 @@ class PublicStatementChallengeStore:
                 or not persisted or persisted[-1].get("event_id") != event_id):
             raise ValueError("DP468_CHALLENGE_EVENT_READBACK_FAILED")
         return event_id
+
+    def public_release_clear(
+        self, published: frozenset[tuple[str, str]],
+        *, page_size: int = _INVENTORY_PAGE,
+        may_serve_cleared: "Callable[[tuple[str, str]], bool] | None" = None,
+    ) -> bool | None:
+        """Bounded release fence; see public_statement_release_fence."""
+        return public_release_clear(
+            self, published, page_size=page_size, may_serve_cleared=may_serve_cleared)
+
+    def challenged_at(self, statement_id: str, version_id: str) -> str | None:
+        """Earliest recorded challenge instant for an exact target, or None."""
+        try:
+            return challenge_opened_at(
+                self.store,
+                _text(statement_id, "DP468_CHALLENGE_REPLAY_INVALID"),
+                _text(version_id, "DP468_CHALLENGE_REPLAY_INVALID"),
+            )
+        except Exception:
+            return None
 
     def current_hold(self, statement_id: str, version_id: str) -> bool | None:
         try:
