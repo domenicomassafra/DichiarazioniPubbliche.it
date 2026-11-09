@@ -68,12 +68,12 @@ def public_release_clear(
 
 
 def challenge_opened_at(store: object, statement_id: str, version_id: str) -> str | None:
-    """Earliest recorded challenge instant for an exact target, or None."""
+    """Most recent challenge instant for an exact target, or None."""
     raw = store.run(
         """
         SELECT COALESCE(row_to_json(opened_row)::text, '')
         FROM (
-            SELECT MIN(r.created_at) AS opened_at
+            SELECT MAX(r.created_at) AS opened_at
             FROM public_statement_challenge_request r
             WHERE r.statement_id = :'statement_id'
               AND r.version_id = :'version_id'

@@ -341,7 +341,7 @@ class PublicStatementChallengeStore:
             self, published, page_size=page_size, may_serve_cleared=may_serve_cleared)
 
     def challenged_at(self, statement_id: str, version_id: str) -> str | None:
-        """Earliest recorded challenge instant for an exact target, or None."""
+        """Most recent challenge instant for an exact target, or None."""
         try:
             return challenge_opened_at(
                 self.store,

@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / "poc"))
 sys.path.insert(0, str(ROOT / "tests"))
 
 from dichiarazioni_pubbliche.public_statement_authority import PublicStatementChallengeStore  # noqa: E402
+from dichiarazioni_pubbliche.statement_correction_intake import StatementCorrectionIntake  # noqa: E402
 from dp468_authority_support import MemoryPostgres  # noqa: E402
 
 
@@ -66,6 +67,29 @@ class PublicStatementChallengeHistoryTests(unittest.TestCase):
         # clear even while the challenge itself stays open.
         self.assertTrue(store.public_release_clear(
             frozenset({("statement:1", "statement-version:1-corrected")}), page_size=100))
+
+    def test_a_second_cleared_challenge_requires_a_newer_release(self):
+        db, store = self.ledger()
+        start = datetime.now(timezone.utc).replace(microsecond=0)
+        target = ("statement:repeat", "statement-version:repeat")
+        for index, opened_at in enumerate((start, start + timedelta(minutes=2))):
+            request_id, _ = open_challenge(
+                store, db, index, statement_id=target[0], version_id=target[1],
+                created_at=opened_at.isoformat(),
+            )
+            store.append_event(
+                request_id=request_id, status="REJECTED", reason_code="NO_CHANGE_REQUIRED",
+                actor_ref="reviewer:one",
+                occurred_at=(opened_at + timedelta(seconds=10)).isoformat(),
+            )
+        self.assertFalse(store.current_hold(*target))
+        intake = StatementCorrectionIntake("projection.json", "fingerprint", store)
+        first_release = (start + timedelta(minutes=1)).isoformat()
+        self.assertFalse(store.public_release_clear(
+            frozenset({target}), may_serve_cleared=intake._served_after_challenge(first_release)))
+        new_release = (start + timedelta(minutes=3)).isoformat()
+        self.assertTrue(store.public_release_clear(
+            frozenset({target}), may_serve_cleared=intake._served_after_challenge(new_release)))
 
 
 if __name__ == "__main__":
