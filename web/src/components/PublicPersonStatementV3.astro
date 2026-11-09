@@ -39,6 +39,7 @@ const { person, statement } = Astro.props;
       {statement.finding_id === null && (
         <p>Questa dichiarazione non ha un Finding fattuale pubblicato. Non viene attribuito alcun verdetto alla persona.</p>
       )}
+      <p><a href={"/segnalazioni/?statement_id=" + encodeURIComponent(statement.statement_id) + "&version_id=" + encodeURIComponent(statement.version_id)}>Segnala un errore o chiedi una rettifica</a></p>
       <p><a href="/metodo/">Leggi il metodo</a></p>
     </article>
   </main>

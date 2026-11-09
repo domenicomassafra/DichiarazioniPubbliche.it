@@ -66,6 +66,30 @@ class CorrectionPurgeTests(unittest.TestCase):
             self.assertFalse(purger("finding:123"))
         self.assertEqual(fetch.call_count, 1)
 
+    def test_statement_v3_purge_checks_list_and_exact_version_route(self):
+        from dichiarazioni_pubbliche.cloudflare_correction_purge import CloudflareCorrectionPurge
+
+        calls = []
+
+        def fetch(request, timeout):
+            calls.append(request.full_url)
+            if len(calls) == 1:
+                return FakeResponse(200, b'{"success":true,"errors":[],"result":{"id":"purge-v3"}}')
+            return FakeResponse(503, b'{"error":"PUBLIC_PROJECTION_UNAVAILABLE"}', {"Cache-Control": "no-store"})
+
+        with patch("urllib.request.urlopen", side_effect=fetch):
+            purger = CloudflareCorrectionPurge(
+                zone_id="a" * 32, token="fixture-token",
+                site_origin="https://dichiarazionipubbliche.it",
+            )
+            self.assertTrue(purger("statement-v3:statement:senato:1"))
+        self.assertEqual(len(calls), 5)
+        self.assertIn("https://dichiarazionipubbliche.it/api/v3/statements", calls)
+        self.assertIn(
+            "https://dichiarazionipubbliche.it/api/v3/statements/statement%3Asenato%3A1",
+            calls,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

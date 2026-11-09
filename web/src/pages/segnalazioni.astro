@@ -4,13 +4,18 @@ import UtilityDocument from "../components/UtilityDocument.astro";
 ---
 
 <BaseLayout title="Invia una segnalazione" description="Modulo privato per richiedere la rettifica di una scheda pubblica." canonicalPath="/segnalazioni/" privatePage>
-  <UtilityDocument eyebrow="Segnalazioni" title="Richiedi una rettifica" lede="Le segnalazioni sono private. Una richiesta confermata porta subito la verifica in HOLD e attiva una rianalisi automatica.">
+  <UtilityDocument eyebrow="Segnalazioni" title="Richiedi una rettifica" lede="Le segnalazioni sono private. Una richiesta confermata sospende la versione interessata in HOLD; la richiesta resta tracciata fino alla decisione.">
     <section class="dp-utility-section" aria-labelledby="richiedi-rettifica">
       <h2 id="richiedi-rettifica">Rettifica o problema di privacy</h2>
-      <p>Indica l'ID della verifica pubblicata e il motivo. Devi aver effettuato l'accesso con un account verificato. Non includere dati personali non necessari.</p>
+      <p>Indica l'ID della verifica pubblicata oppure apri questo modulo dal dettaglio della dichiarazione. Devi aver effettuato l'accesso con un account verificato. Non includere dati personali non necessari.</p>
       <form id="correction-request" method="post" action="/intake/corrections">
-        <p><label for="correction-finding">ID della verifica pubblicata</label></p>
-        <p><input id="correction-finding" name="finding_id" type="text" maxlength="128" required autocomplete="off" placeholder="finding:…" /></p>
+        <div id="correction-finding-group">
+          <p><label for="correction-finding">ID della verifica pubblicata</label></p>
+          <p><input id="correction-finding" name="finding_id" type="text" maxlength="128" required autocomplete="off" placeholder="finding:…" /></p>
+        </div>
+        <p id="correction-statement-target" hidden></p>
+        <input id="correction-statement" name="statement_id" type="hidden" />
+        <input id="correction-version" name="version_id" type="hidden" />
         <p><label for="correction-reason">Cosa va corretto e perché?</label></p>
         <p><textarea id="correction-reason" name="reason" minlength="3" maxlength="4000" required rows="5" placeholder="Indica la fonte originale o il problema di privacy."></textarea></p>
         <p><button type="submit">Invia la segnalazione</button></p>
@@ -26,11 +31,35 @@ import UtilityDocument from "../components/UtilityDocument.astro";
 <script is:inline>
   const form = document.querySelector("#correction-request");
   const result = document.querySelector("#correction-result");
+  const findingGroup = form?.querySelector("#correction-finding-group");
+  const findingInput = form?.querySelector("#correction-finding");
+  const statementTarget = form?.querySelector("#correction-statement-target");
+  const statementInput = form?.querySelector("#correction-statement");
+  const versionInput = form?.querySelector("#correction-version");
+  const params = new URLSearchParams(window.location.search);
+  const statementId = params.get("statement_id") || "";
+  const versionId = params.get("version_id") || "";
+  const statementMode = Boolean(statementId && versionId);
+  const invalidStatementLink = Boolean(statementId || versionId) && !statementMode;
+  if (statementMode && findingGroup && findingInput && statementTarget && statementInput && versionInput) {
+    statementInput.value = statementId;
+    versionInput.value = versionId;
+    findingInput.required = false;
+    findingGroup.hidden = true;
+    statementTarget.hidden = false;
+    statementTarget.textContent = "Dichiarazione " + statementId + " · versione " + versionId;
+  }
+  const submitButton = form?.querySelector("button[type=submit]");
+  if (invalidStatementLink) {
+    if (result) result.textContent = "Il collegamento alla dichiarazione è incompleto. Riapri il modulo dal dettaglio della dichiarazione.";
+    if (submitButton) submitButton.disabled = true;
+  }
   form?.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!result || !form) return;
+    if (invalidStatementLink) return;
     result.textContent = "Invio in corso…";
-    const button = form.querySelector("button[type=submit]");
+    const button = submitButton;
     if (button) button.disabled = true;
     try {
       const session = await fetch("/account/api/session", { credentials: "same-origin", cache: "no-store" });
@@ -40,9 +69,15 @@ import UtilityDocument from "../components/UtilityDocument.astro";
       }
       const identity = await session.json();
       if (typeof identity.csrf !== "string") throw new Error("SESSION_UNAVAILABLE");
-      const payload = {
-        finding_id: String(new FormData(form).get("finding_id") || "").trim(),
-        reason: String(new FormData(form).get("reason") || "").trim(),
+      const values = new FormData(form);
+      const reason = String(values.get("reason") || "").trim();
+      const payload = statementMode ? {
+        statement_id: String(values.get("statement_id") || "").trim(),
+        version_id: String(values.get("version_id") || "").trim(),
+        reason,
+      } : {
+        finding_id: String(values.get("finding_id") || "").trim(),
+        reason,
       };
       const response = await fetch("/intake/corrections", {
         method: "POST", credentials: "same-origin", cache: "no-store",
@@ -58,7 +93,7 @@ import UtilityDocument from "../components/UtilityDocument.astro";
         result.append(link);
       } else {
         result.textContent = response.status === 409
-          ? "Questa verifica è già sospesa in attesa della revisione."
+          ? "Questa scheda è già sospesa in attesa della revisione."
           : response.status === 429
             ? "Troppi invii in breve tempo. Riprova fra qualche minuto."
             : "Invio non confermato. Verifica l'accesso e riprova.";

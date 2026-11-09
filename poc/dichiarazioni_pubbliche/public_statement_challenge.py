@@ -2,6 +2,7 @@
 from __future__ import annotations
 import json
 from typing import Mapping
+from .public_statement_release_fence import public_release_clear
 from .public_statement_authority_common import (
     _CHALLENGE_STATES, _CHALLENGE_CLEAR_STATES, _CHALLENGE_TERMINAL_STATES,
     _CHALLENGE_TRANSITIONS, _SHA256, _digest, _text, _sha, _iso_datetime,
@@ -60,6 +61,16 @@ def _valid_challenge_chain(request: Mapping[str, object], events: list[dict[str,
     return True
 
 
+_INVENTORY_PAGE = 500
+_MAX_INVENTORY_PAGES = 100_000
+
+
+def _page_size(limit: object) -> int:
+    if type(limit) is not int or not 1 <= limit <= _INVENTORY_PAGE:
+        raise ValueError("DP468_CHALLENGE_INVENTORY_LIMIT_INVALID")
+    return limit
+
+
 class PublicStatementChallengeStore:
     """Private challenge ledger; unresolved or unreadable requests hold release."""
 
@@ -67,6 +78,48 @@ class PublicStatementChallengeStore:
         if not callable(getattr(store, "run", None)):
             raise ValueError("DP468_CHALLENGE_STORE_REQUIRED")
         self.store = store
+
+    def _request_by_intake_ref(self, intake_ref: str) -> dict[str, object] | None:
+        raw = self.store.run(
+            """
+            SELECT COALESCE(json_agg(row_to_json(request_row))::text, '[]')
+            FROM (
+                SELECT request_id, statement_id, version_id, intake_ref,
+                       requester_ref_sha256, reason_sha256, created_at, integrity_sha256
+                FROM public_statement_challenge_request
+                WHERE intake_ref = :'intake_ref'
+                ORDER BY created_at
+                LIMIT 2
+            ) request_row;
+            """,
+            intake_ref=intake_ref,
+        )
+        rows = json.loads(raw)
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise ValueError("DP468_CHALLENGE_REPLAY_INVALID")
+        if len(rows) > 1:
+            raise ValueError("DP468_CHALLENGE_INTAKE_AMBIGUOUS")
+        return rows[0] if rows else None
+
+    def _request_by_id(self, request_id: str) -> dict[str, object] | None:
+        raw = self.store.run(
+            """
+            SELECT COALESCE(row_to_json(request_row)::text, '')
+            FROM (
+                SELECT request_id, statement_id, version_id, intake_ref,
+                       requester_ref_sha256, reason_sha256, created_at, integrity_sha256
+                FROM public_statement_challenge_request
+                WHERE request_id = :'request_id'
+            ) request_row;
+            """,
+            request_id=request_id,
+        )
+        if not raw:
+            return None
+        row = json.loads(raw)
+        if not isinstance(row, dict):
+            raise ValueError("DP468_CHALLENGE_REPLAY_INVALID")
+        return row
 
     def open_request(
         self, *, statement_id: str, version_id: str, intake_ref: str,
@@ -80,6 +133,27 @@ class PublicStatementChallengeStore:
         reason_hash = _sha(reason_sha256, "DP468_CHALLENGE_REQUEST_INVALID")
         timestamp = _iso_datetime(created_at, "DP468_CHALLENGE_REQUEST_INVALID")
         actor = _text(actor_ref, "DP468_CHALLENGE_REQUEST_INVALID")
+        existing = self._request_by_intake_ref(intake)
+        if existing is not None:
+            if (existing.get("statement_id") != statement
+                    or existing.get("version_id") != version
+                    or existing.get("requester_ref_sha256") != requester_hash
+                    or existing.get("reason_sha256") != reason_hash):
+                raise ValueError("DP468_CHALLENGE_INTAKE_CONFLICT")
+            request_id = str(existing.get("request_id", ""))
+            events = self._events(request_id)
+            if not _valid_challenge_chain(existing, events):
+                raise ValueError("DP468_CHALLENGE_CHAIN_INVALID")
+            if not events:
+                self.append_event(
+                    request_id=request_id, status="OPEN",
+                    reason_code="CHALLENGE_RECEIVED", actor_ref=actor,
+                    occurred_at=str(existing["created_at"]),
+                )
+            elif (events[0].get("status") != "OPEN"
+                    or events[0].get("actor_ref") != actor):
+                raise ValueError("DP468_CHALLENGE_INTAKE_CONFLICT")
+            return request_id
         material = {
             "statement_id": statement, "version_id": version, "intake_ref": intake,
             "requester_ref_sha256": requester_hash, "reason_sha256": reason_hash,
@@ -109,6 +183,61 @@ class PublicStatementChallengeStore:
             actor_ref=actor, occurred_at=timestamp,
         )
         return request_id
+
+    def replay_request(self, request_id: str) -> dict[str, object] | None:
+        request = self._request_by_id(_text(request_id, "DP468_CHALLENGE_REPLAY_INVALID"))
+        if request is None:
+            return None
+        events = self._events(request_id)
+        if not _valid_challenge_chain(request, events) or not events:
+            raise ValueError("DP468_CHALLENGE_CHAIN_INVALID")
+        return {
+            "request": request,
+            "events": events,
+            "current_state": events[-1]["status"],
+        }
+
+    def challenged_statements(
+        self, *, after: tuple[str, str] | None = None, limit: int = _INVENTORY_PAGE,
+    ) -> list[tuple[str, str]]:
+        """One bounded page of distinct challenged targets, ordered and resumable.
+
+        The ledger is append-only and keeps every historical target, so the
+        inventory is paginated: a long life must never turn all public reads
+        into a permanent outage through a single capped query.
+        """
+        size = _page_size(limit)
+        if after is not None and (
+            not isinstance(after, (tuple, list)) or len(after) != 2
+            or not all(isinstance(value, str) and value for value in after)
+        ):
+            raise ValueError("DP468_CHALLENGE_INVENTORY_CURSOR_INVALID")
+        statement, version = after if after is not None else ("", "")
+        raw = self.store.run(
+            """
+            SELECT COALESCE(json_agg(row_to_json(target_row))::text, '[]')
+            FROM (
+                SELECT DISTINCT statement_id, version_id
+                FROM public_statement_challenge_request
+                WHERE (statement_id, version_id) > (:'after_statement', :'after_version')
+                ORDER BY statement_id, version_id
+                LIMIT :'limit'::integer
+            ) target_row;
+            """,
+            after_statement=statement, after_version=version, limit=size,
+        )
+        rows = json.loads(raw)
+        if not isinstance(rows, list) or len(rows) > size:
+            raise ValueError("DP468_CHALLENGE_INVENTORY_INVALID")
+        result: list[tuple[str, str]] = []
+        for row in rows:
+            if (not isinstance(row, dict)
+                    or not isinstance(row.get("statement_id"), str)
+                    or not isinstance(row.get("version_id"), str)
+                    or not row["statement_id"] or not row["version_id"]):
+                raise ValueError("DP468_CHALLENGE_INVENTORY_INVALID")
+            result.append((row["statement_id"], row["version_id"]))
+        return result
 
     def _events(self, request_id: str) -> list[dict[str, object]]:
         raw = self.store.run(
@@ -201,6 +330,15 @@ class PublicStatementChallengeStore:
                 or not persisted or persisted[-1].get("event_id") != event_id):
             raise ValueError("DP468_CHALLENGE_EVENT_READBACK_FAILED")
         return event_id
+
+    def public_release_clear(
+        self, published: frozenset[tuple[str, str]], *,
+        may_serve_cleared: "Callable[[tuple[str, str], str], bool] | None" = None,
+    ) -> bool | None:
+        """Verify all release-bound challenge chains in one database snapshot."""
+        return public_release_clear(
+            self.store, published, validate_chain=_valid_challenge_chain,
+            may_serve_cleared=may_serve_cleared)
 
     def current_hold(self, statement_id: str, version_id: str) -> bool | None:
         try:

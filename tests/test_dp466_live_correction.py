@@ -14,12 +14,15 @@ from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
+sys.path.insert(0, str(ROOT / "tests"))
 
 from dichiarazioni_pubbliche.challenge_persistence import ChallengeHoldDisposition  # noqa: E402
 from dichiarazioni_pubbliche.openapi import fictional_dossier  # noqa: E402
 from dichiarazioni_pubbliche.live_correction_http import build_live_correction_server  # noqa: E402
 from dichiarazioni_pubbliche.live_correction_cli import main as correction_main  # noqa: E402
 from dichiarazioni_pubbliche.policy.challenge_workflow import ChallengeKind  # noqa: E402
+from dichiarazioni_pubbliche.public_statement_authority import PublicStatementChallengeStore  # noqa: E402
+from dp468_authority_support import MemoryPostgres  # noqa: E402
 from tests.test_public_api import published_bundle, write_bundle  # noqa: E402
 from tests.test_dp437_public_opinion_api import ReviewedSyntheticOpinions  # noqa: E402
 
@@ -252,6 +255,7 @@ class LiveCorrectionHttpTests(unittest.TestCase):
             correction_reserve=lambda *_: True,
             statement_projection_path=candidate,
             statement_current_fingerprint_path=current,
+            statement_challenge_store=PublicStatementChallengeStore(store=MemoryPostgres()),
         )
         thread = threading.Thread(target=private.serve_forever, daemon=True)
         thread.start()

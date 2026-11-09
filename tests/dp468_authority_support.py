@@ -100,6 +100,53 @@ class MemoryPostgres:
             self.challenge_events.append(row)
             return values["event_id"]
 
+        if ("FROM public_statement_challenge_request" in sql
+                and "WHERE intake_ref" in sql):
+            rows = [
+                row for row in self.challenge_requests.values()
+                if row["intake_ref"] == values["intake_ref"]
+            ]
+            rows.sort(key=lambda row: row["created_at"])
+            return json.dumps(rows[:2], ensure_ascii=False)
+
+        if "JOIN release_targets t USING (statement_id, version_id)" in sql:
+            published = {
+                (row["statement_id"], row["version_id"])
+                for row in json.loads(values["published"])
+            }
+            rows = []
+            for request in self.challenge_requests.values():
+                if (request["statement_id"], request["version_id"]) not in published:
+                    continue
+                events = sorted(
+                    (row for row in self.challenge_events
+                     if row["request_id"] == request["request_id"]),
+                    key=lambda row: row["event_sequence"],
+                )
+                rows.append({**request, "events": events})
+            return json.dumps(rows, ensure_ascii=False)
+
+        if "SELECT DISTINCT statement_id, version_id" in sql:
+            pairs = sorted({
+                (row["statement_id"], row["version_id"])
+                for row in self.challenge_requests.values()
+            })
+            after = (values["after_statement"], values["after_version"])
+            pairs = [pair for pair in pairs if pair > after][: int(values["limit"])]
+            return json.dumps([
+                {"statement_id": statement_id, "version_id": version_id}
+                for statement_id, version_id in pairs
+            ], ensure_ascii=False)
+
+        if "SELECT MAX(r.created_at) AS opened_at" in sql:
+            moments = sorted(
+                row["created_at"] for row in self.challenge_requests.values()
+                if row["statement_id"] == values["statement_id"]
+                and row["version_id"] == values["version_id"]
+            )
+            return json.dumps([{"opened_at": moments[-1] if moments else None}] if moments
+                              else [{"opened_at": None}])
+
         if "FROM public_statement_challenge_request r" in sql:
             rows = []
             for request in self.challenge_requests.values():

@@ -21,11 +21,20 @@ from .challenge_hold_inventory import challenged_findings
 from .policy.challenge_workflow import ChallengeKind, ChallengeRole, ChallengeState
 from .public_account import SESSION_COOKIE
 from .public_api import PublicApiError, PublicApiRequestHandler, load_index
+from .statement_correction_intake import StatementCorrectionIntake
 
 MAX_CORRECTION_BYTES = 8192
 _FINDING_ID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 _REQUEST_ID = re.compile(r"^challenge-request:[0-9a-f]{64}$")
+_STATEMENT_REQUEST_ID = re.compile(r"^public-statement-challenge-request:[0-9a-f]{64}$")
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
+_PUBLIC_CONTACT_ROUTES = {
+    "/segnalazioni", "/segnalazioni/", "/privacy", "/privacy/",
+    "/accedi", "/accedi/",
+}
+
+class _ReleaseBlocked(Exception):
+    """The correction fence changed before the public response headers."""
 
 
 class LiveCorrectionRequestHandler(PublicApiRequestHandler):
@@ -34,6 +43,7 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
     correction_purge = None
     correction_lock = None
     correction_reserve = None
+    statement_correction_intake = None
 
     def _correction_response(self, status: int, payload: dict[str, object]) -> None:
         self.close_connection = True
@@ -86,27 +96,77 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
                 hold = type(self).correction_ledger.current_hold_for_finding(finding_id)
                 if hold.disposition is not ChallengeHoldDisposition.CLEAR:
                     return False
+            # A challenge against a version in this release fences every
+            # non-v3 surface; the DB reads only that release's targets.
+            intake = type(self).statement_correction_intake
+            if intake is not None and not self._own_v3_surface():
+                pinned = intake.published_release_pin()
+                if pinned is None:
+                    return False
+                self._v3_release_pin = pinned
+            # The v3 Statement fence and body are one pinned release owned by
+            # the intake (see _serve_public): it is never re-read here.
             return True
         except Exception:
             return False
+
+    def _public_release_safe_before_send(self) -> bool:
+        if (self._is_account_path()
+                or urlsplit(self.path).path in _PUBLIC_CONTACT_ROUTES):
+            return True
+        intake = type(self).statement_correction_intake
+        if intake is None or self._own_v3_surface():
+            return True
+        pinned = getattr(self, "_v3_release_pin", None)
+        return isinstance(pinned, str) and pinned != "" and intake.published_release_pin() == pinned
+
+    def send_response(self, code, message=None) -> None:
+        if (getattr(self, "_final_public_fence", False)
+                and code in (200, 204, 206, 304)
+                and not self._public_release_safe_before_send()):
+            raise _ReleaseBlocked()
+        super().send_response(code, message)
+
+    def _own_v3_surface(self) -> bool:
+        """True when this handler owns the v3 Statement surface for this request.
+
+        The inherited router serves /api/v3 before the correction fence, so the
+        fenced server must intercept it here or the fence never applies.
+        """
+        path = urlsplit(self.path).path
+        return (type(self).statement_correction_intake is not None
+                and (path == "/api/v3" or path.startswith("/api/v3/")))
 
     def _unavailable(self) -> None:
         self._correction_response(503, {"error": "PUBLIC_PROJECTION_UNAVAILABLE"})
 
     def _serve_public(self, method: str) -> None:
         path = urlsplit(self.path).path
-        contact_routes = {"/segnalazioni", "/segnalazioni/", "/privacy", "/privacy/", "/accedi", "/accedi/"}
-        if self._is_account_path() or path.startswith("/account/") or path in contact_routes:
+        if self._is_account_path() or path.startswith("/account/") or path in _PUBLIC_CONTACT_ROUTES:
             return super().do_GET() if method == "GET" else super().do_HEAD()
         with type(self).correction_lock:
             if not self._public_safe():
                 return self._unavailable()
-            return super().do_GET() if method == "GET" else super().do_HEAD()
+            if self._own_v3_surface():
+                return self._write_response(
+                    type(self).statement_correction_intake.public_response(method, self.path))
+            self._final_public_fence = True
+            try:
+                return super().do_GET() if method == "GET" else super().do_HEAD()
+            except _ReleaseBlocked:
+                return self._unavailable()
+            finally:
+                self._final_public_fence = False
 
     def _status(self, request_id: str) -> None:
         actor = self._session_actor(modifying=False)
         if actor is None:
             return self._correction_response(401, {"error": "AUTHENTICATION_REQUIRED"})
+        if _STATEMENT_REQUEST_ID.fullmatch(request_id):
+            intake = type(self).statement_correction_intake
+            if intake is None:
+                return self._unavailable()
+            return self._correction_response(*intake.status(actor, request_id))
         if not _REQUEST_ID.fullmatch(request_id):
             return self._correction_response(404, {"error": "NOT_FOUND"})
         try:
@@ -158,14 +218,26 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
             payload = json.loads(self.rfile.read(int(normalized_length)))
         except (UnicodeError, ValueError):
             return self._correction_response(400, {"error": "INVALID_JSON"})
-        if not isinstance(payload, dict) or set(payload) != {"finding_id", "reason"}:
+        if not isinstance(payload, dict) or set(payload) not in (
+            {"finding_id", "reason"},
+            {"statement_id", "version_id", "reason"},
+        ):
             return self._correction_response(400, {"error": "INVALID_REQUEST"})
-        finding, reason = payload["finding_id"], payload["reason"]
-        if (not isinstance(finding, str) or not _FINDING_ID.fullmatch(finding)
-                or not isinstance(reason, str) or not 3 <= len(reason.strip()) <= 4000
+        reason = payload["reason"]
+        if (not isinstance(reason, str) or not 3 <= len(reason.strip()) <= 4000
                 or _CONTROL.search(reason)):
             return self._correction_response(400, {"error": "INVALID_REQUEST"})
         reason = reason.strip()
+        if set(payload) == {"statement_id", "version_id", "reason"}:
+            statement_id, version_id = payload["statement_id"], payload["version_id"]
+            if (not isinstance(statement_id, str) or not _FINDING_ID.fullmatch(statement_id)
+                    or not isinstance(version_id, str) or not _FINDING_ID.fullmatch(version_id)):
+                return self._correction_response(400, {"error": "INVALID_REQUEST"})
+            with type(self).correction_lock:
+                return self._submit_statement_correction(actor, statement_id, version_id, reason)
+        finding = payload["finding_id"]
+        if not isinstance(finding, str) or not _FINDING_ID.fullmatch(finding):
+            return self._correction_response(400, {"error": "INVALID_REQUEST"})
         ledger = type(self).correction_ledger
         with type(self).correction_lock:
             try:
@@ -218,6 +290,17 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
             except Exception:
                 return self._unavailable()
 
+    def _submit_statement_correction(
+        self, actor: str, statement_id: str, version_id: str, reason: str,
+    ) -> None:
+        intake = type(self).statement_correction_intake
+        if intake is None or not type(self).statement_projection_path:
+            return self._unavailable()
+        return self._correction_response(*intake.open_hold(
+            actor, statement_id, version_id, reason,
+            reserve=type(self).correction_reserve, purge=type(self).correction_purge,
+        ))
+
 
 def build_live_correction_server(
     projection_path: str,
@@ -233,10 +316,23 @@ def build_live_correction_server(
     account_private_secret_path: str | None = None,
     statement_projection_path: str | None = None,
     statement_current_fingerprint_path: str | None = None,
+    statement_challenge_store: object | None = None,
 ):
     """Pin the existing HTTP/static server before opting into correction intake."""
     if any(item is None for item in (account_service, correction_ledger, correction_enqueue, correction_purge, correction_reserve)):
         raise ValueError("CORRECTION_AUTH_LEDGER_QUEUE_PURGE_QUOTA_REQUIRED")
+    v3_configured = (
+        statement_projection_path is not None
+        or statement_current_fingerprint_path is not None
+    )
+    if statement_challenge_store is not None and not v3_configured:
+        raise ValueError("STATEMENT_CORRECTION_V3_RELEASE_REQUIRED")
+    statement_correction_intake = (
+        StatementCorrectionIntake(
+            statement_projection_path, statement_current_fingerprint_path,
+            statement_challenge_store,
+        ) if v3_configured else None
+    )
     from .public_api import build_server
 
     server = build_server(
@@ -259,6 +355,7 @@ def build_live_correction_server(
         "correction_enqueue": correction_enqueue,
         "correction_purge": correction_purge,
         "correction_reserve": correction_reserve,
+        "statement_correction_intake": statement_correction_intake,
         "correction_lock": threading.RLock(),
     })
     server.RequestHandlerClass = type(

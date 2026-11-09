@@ -40,8 +40,12 @@ class CloudflareCorrectionPurge:
             finally:
                 response.close()
 
-    def __call__(self, finding_id: str) -> bool:
-        if not re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", finding_id):
+    def __call__(self, target_ref: str) -> bool:
+        if not isinstance(target_ref, str):
+            return False
+        statement_target = target_ref.startswith("statement-v3:")
+        target_id = target_ref.removeprefix("statement-v3:") if statement_target else target_ref
+        if not re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", target_id):
             return False
         endpoint = f"https://api.cloudflare.com/client/v4/zones/{self.zone_id}/purge_cache"
         request = urllib.request.Request(
@@ -56,7 +60,14 @@ class CloudflareCorrectionPurge:
             if (code != 200 or not isinstance(receipt, dict)
                     or receipt.get("success") is not True or receipt.get("errors") != []):
                 return False
-            paths = ("/", "/api/v1/index.json", "/api/v1/findings/" + quote(finding_id, safe=""))
+            if statement_target:
+                encoded_id = quote(target_id, safe="")
+                paths = (
+                    "/", "/api/v1/index.json", "/api/v3/statements",
+                    "/api/v3/statements/" + encoded_id,
+                )
+            else:
+                paths = ("/", "/api/v1/index.json", "/api/v1/findings/" + quote(target_id, safe=""))
             for path in paths:
                 probe = urllib.request.Request(
                     self.site_origin + path,
