@@ -86,6 +86,11 @@ reader before opening the private challenge. The detail page links to the
 pre-filled Statement form. The same-account status endpoint returns the
 request's current HOLD state without exposing its reason.
 
+The approved v3 pin also serves `/api/v3/statements.jsonld`
+(`application/ld+json`) and `/api/v3/statements.nt` (`application/n-triples`).
+Both serialize the same pinned release as `/api/v3/statements`, require the
+same correction clearance, and become unavailable on HOLD or pin rotation.
+
 The v3 intake does not claim the #413 autonomous review is installed or
 available. Until that runner consumes the challenge and records an accepted
 decision, the challenged version stays held. Do not pin a replacement v3

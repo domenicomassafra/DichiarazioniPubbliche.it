@@ -149,7 +149,8 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
                 return self._unavailable()
             if self._own_v3_surface():
                 return self._write_response(
-                    type(self).statement_correction_intake.public_response(method, self.path))
+                    type(self).statement_correction_intake.public_response(
+                        method, self.path, accept=self.headers.get("Accept")))
             self._final_public_fence = True
             try:
                 return super().do_GET() if method == "GET" else super().do_HEAD()
