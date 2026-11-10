@@ -2,6 +2,7 @@
 import { validateOriginalStatement, type PublicOriginalStatement } from "../lib/statementV3";
 import { validatePublicStatementV3Detail } from "../lib/statementV3Api";
 import { canonicalJson } from "../lib/searchIndex";
+import "../styles/detail-349.css";
 
 interface Props {
   statement?: PublicOriginalStatement;
@@ -64,9 +65,9 @@ const sourceSpan = statement.source_kind === "TIMED"
   : `Testo originale · caratteri ${statement.locator.start_char}–${statement.locator.end_char}`;
 ---
 
-<article class="dp-statement-body" data-contract="public-statement-v3-opt-in" data-dataset-sha256={api?.meta.dataset_sha256 ?? expectedDatasetSha256}>
-  <header class="record-header">
-    <div class="eyebrow">Parole originali dalla fonte</div>
+<article class="dp-statement-body detail-349-read detail-349-verbatim detail-349-original" data-contract="public-statement-v3-opt-in" data-dataset-sha256={api?.meta.dataset_sha256 ?? expectedDatasetSha256}>
+  <header class="record-header detail-349-hero">
+    <h2>Parole originali dalla fonte</h2>
     <blockquote class="prose" lang={statement.language} cite={statement.source_url}>
       <p>{statement.original_text}</p>
     </blockquote>

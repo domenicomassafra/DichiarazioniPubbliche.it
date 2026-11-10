@@ -4,6 +4,7 @@ import AtlasRoute from "./AtlasRoute.astro";
 import ClaimRow from "./ClaimRow.astro";
 import SearchField from "./SearchField.astro";
 import { claimTypeLabel, dossierSlug, formatDate, publicIdSlug, relationSlug } from "../lib/format";
+import "../styles/detail-349.css";
 import type { PublicDossier, PublicTopic } from "../lib/types";
 
 interface Props {
@@ -41,10 +42,10 @@ const rowDate = (dossier: PublicDossier) => dossier.source.published_at ?? dossi
   description={topic.scope_text ?? `Dossier pubblico verificabile sul tema ${topic.canonical_name}.`}
   canonicalPath={canonical}
 >
-  <header class="record-header topic-header">
+  <header class="record-header topic-header detail-349-hero">
     <div class="shell topic-header-grid">
       <div>
-        <div class="eyebrow">Tema</div>
+        <nav class="detail-349-crumbs" aria-label="Percorso"><a href="/esplora/">Archivio pubblico</a><span aria-hidden="true">/</span><span>Tema</span></nav>
         <h1 class="page-title">{topic.canonical_name}</h1>
         {topic.scope_text ? (
           <p class="lede">{topic.scope_text}</p>
@@ -65,7 +66,7 @@ const rowDate = (dossier: PublicDossier) => dossier.source.published_at ?? dossi
   </header>
 
   {ordered.length === 0 ? (
-    <div class="shell page-section-tight topic-empty">
+    <div class="shell page-section-tight topic-empty detail-349-read">
       <section class="dp-utility-empty">
         <div class="eyebrow">Archivio pubblico</div>
         <h2>Nessuna dichiarazione pubblica disponibile per questo Tema.</h2>
@@ -74,6 +75,7 @@ const rowDate = (dossier: PublicDossier) => dossier.source.published_at ?? dossi
       </section>
     </div>
   ) : (
+    <div class="detail-349-read detail-349-topic-wrap">
     <div class="shell topic-dossier">
       <section class="topic-primary" aria-labelledby="topic-statements-heading">
         <div class="record-filter-toolbar">
@@ -184,6 +186,7 @@ const rowDate = (dossier: PublicDossier) => dossier.source.published_at ?? dossi
           <p>Il nome e l’appartenenza delle dichiarazioni provengono dalla projection pubblica; questa pagina non genera o rinomina Topic.</p>
         </details>
       </aside>
+    </div>
     </div>
   )}
 

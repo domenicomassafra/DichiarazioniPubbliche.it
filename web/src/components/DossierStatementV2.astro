@@ -4,6 +4,7 @@ import Assessment from "./Assessment.astro";
 import AtlasRoute from "./AtlasRoute.astro";
 import SourceRow from "./SourceRow.astro";
 import { dossierSlug, formatDate, relationSlug } from "../lib/format";
+import "../styles/detail-349.css";
 import type { PublicDossier } from "../lib/types";
 
 interface Props { dossier: PublicDossier }
@@ -42,12 +43,21 @@ const attributionKinds = [...new Set(
 )];
 const translations = wording?.representations.filter((item) => item.wording_type === "TRANSLATION") ?? [];
 const canonicalPath = `/dichiarazioni/${slug}/`;
+const publicationStatus = dossier.finding.publication_status;
+const isRetracted = publicationStatus === "RETRACTED";
+const publicationNote = publicationStatus === "RETRACTED"
+  ? "Valutazione ritirata: l'esito e il razionale della versione precedente non costituiscono una verifica attuale."
+  : publicationStatus === "DISPUTED"
+    ? "Valutazione contestata: la contestazione resta distinta dall'esito pubblicato."
+    : publicationStatus === "CORRECTED"
+      ? "Valutazione corretta: consulta la cronologia pubblica delle versioni."
+      : null;
 const statementStructuredData = {
   "@context": "https://schema.org",
   "@type": "CreativeWork",
   identifier: dossier.finding_id,
   name: dossier.claim,
-  description: dossier.finding.rationale,
+  description: isRetracted ? publicationNote : dossier.finding.rationale,
   url: `https://dichiarazionipubbliche.it${canonicalPath}`,
   datePublished: dossier.finding.published_at,
   isBasedOn: dossier.source.url
@@ -56,15 +66,15 @@ const statementStructuredData = {
 
 <BaseLayout
   title={dossier.claim}
-  description={dossier.finding.rationale}
+  description={isRetracted ? publicationNote! : dossier.finding.rationale}
   canonicalPath={canonicalPath}
   structuredData={statementStructuredData}
 >
-  <header class="dp-statement-header">
+  <header class="dp-statement-header detail-349-hero detail-349-statement">
     <div class="shell">
-      <div class="eyebrow">Dichiarazione</div>
+      <nav class="detail-349-crumbs" aria-label="Percorso"><a href="/esplora/">Archivio pubblico</a><span aria-hidden="true">/</span><span>Dichiarazione verificata</span></nav>
+      <p class="dp-statement-wording-label">Formulazione normalizzata · parafrasi, non citazione testuale</p>
       <h1>{dossier.claim}</h1>
-      <p class="dp-statement-wording-label">Formulazione normalizzata · paraphrase</p>
       <div class="dp-statement-meta">
         <strong>{dossier.speaker.name}</strong>
         <span aria-hidden="true">·</span>
@@ -77,18 +87,12 @@ const statementStructuredData = {
       <AtlasRoute steps={[
         { label: "Parole e attribuzione", href: "#wording-heading" },
         { label: "Fonte originale", href: dossier.source.url },
-        { label: "Verifica e cronologia", href: "#finding-heading" },
+        { label: "Esito della verifica", href: "#finding-heading" },
       ]} />
 
       <section class="dp-provenance-disclosure" aria-labelledby="wording-heading">
-        <div class="eyebrow" id="wording-heading">Parole, attribuzione e fonte</div>
-        <h2>Questa formulazione non è una citazione verbatim.</h2>
-        <p>
-          Il titolo della dichiarazione è una <strong>parafrasi normalizzata</strong> usata per
-          rappresentare il claim verificato. La citazione diretta resta un oggetto distinto e
-          può essere mostrata soltanto quando il testo originale è ammesso dal contratto pubblico.
-          Questa pagina non ricostruisce né inventa quel testo quando non è presente nella projection.
-        </p>
+        <h2 id="wording-heading">Parole, attribuzione e fonte</h2>
+        <p><strong>Questa formulazione non è una citazione verbatim.</strong> È una parafrasi normalizzata del claim verificato: le parole originali possono essere mostrate solo quando ammesse nella proiezione pubblica, senza ricostruire testi non disponibili.</p>
         <dl>
           <div><dt>Tipo della formulazione</dt><dd>PARAPHRASE · non direct-quote eligible</dd></div>
           <div><dt>Occorrenza sorgente</dt><dd>{sourceWordingLabel}</dd></div>
@@ -98,6 +102,7 @@ const statementStructuredData = {
             <div><dt>Lingua sorgente</dt><dd>{wording.source_occurrence.language}</dd></div>
           )}
         </dl>
+        <p><a href={dossier.source.url} rel="noreferrer">Apri la fonte originale: {dossier.source.title}</a></p>
         {wording?.source_occurrence.wording_type === "REPORTED_QUOTE" && (
           <p><strong>Discorso riportato:</strong> la fonte attribuisce parole a una persona; questa rappresentazione non le promuove automaticamente a dichiarazione diretta della persona riportata.</p>
         )}
@@ -116,26 +121,29 @@ const statementStructuredData = {
       <section class="dp-finding-summary" aria-labelledby="finding-heading">
         <div>
           <div class="eyebrow" id="finding-heading">In breve</div>
-          <Assessment code={dossier.finding.assessment} />
+          {isRetracted ? <strong>Valutazione ritirata</strong> : <Assessment code={dossier.finding.assessment} />}
         </div>
-        <p>{dossier.finding.rationale}</p>
+        <p>{isRetracted ? publicationNote : dossier.finding.rationale}</p>
         <div class="dp-finding-summary__version">
           {dossier.finding.supersedes_id ? "Versione corretta" : "Versione pubblicata"}<br />
           {formatDate(dossier.finding.published_at)}
         </div>
       </section>
+      {publicationNote && <p class="detail-349-publication-note" role="note">{publicationNote}</p>}
     </div>
   </header>
 
-  <div class="shell dp-statement-body">
+  <div class="shell dp-statement-body detail-349-read detail-349-statement-body">
     <article class="prose">
-      <h2>Verifica</h2>
-      <p>{dossier.finding.rationale}</p>
+      <h2>Come leggere la verifica</h2>
+      <p>{isRetracted ? "Questa valutazione è stata ritirata. La pagina conserva la storia e i collegamenti della versione pubblica, senza riproporne l'esito come attuale." : "La valutazione qui pubblicata riguarda questa formulazione e le evidenze associate. Il collegamento alla fonte consente di ritrovare il contesto originale."}</p>
 
       <h2 id="fonti">Fonti ed evidenze</h2>
-      <div class="source-stack">
-        {dossier.evidence.map((evidence, index) => <SourceRow evidence={evidence} index={index + 1} />)}
-      </div>
+      {isRetracted ? <p>La valutazione è ritirata: le fonti della precedente versione non vengono presentate come sostegno a un esito attuale.</p> : (
+        <div class="source-stack">
+          {dossier.evidence.map((evidence, index) => <SourceRow evidence={evidence} index={index + 1} />)}
+        </div>
+      )}
 
       {relations.length > 0 && (
         <section class="dp-statement-relations" aria-labelledby="tracce-heading">

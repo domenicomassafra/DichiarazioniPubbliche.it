@@ -24,7 +24,7 @@ const dossier = (id, claim, speaker, source, publishedAt, assessment = "SUPPORTE
     published_at: publishedAt,
     segments: [],
   },
-  finding: { assessment, publication_status: "PUBLISHED", rationale: "Public rationale", published_at: publishedAt },
+  finding: { assessment, publication_status: "PUBLISH", rationale: "Public rationale", published_at: publishedAt },
   evidence: [],
   corrections: id === "finding:corretto" ? [{ id: "correction:1" }] : [],
   rights_of_reply: id === "finding:corretto" ? [{ id: "reply:1" }] : [],

@@ -3,17 +3,29 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import AtlasRoute from "./AtlasRoute.astro";
 import { formatDate } from "../lib/format";
+import "../styles/detail-349.css";
 import type { ApprovedPersonV3, ApprovedPersonV3Statement } from "../lib/publicPersonV3";
 
 interface Props { person: ApprovedPersonV3; statement: ApprovedPersonV3Statement }
 const { person, statement } = Astro.props;
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "CreativeWork",
+  identifier: statement.statement_id,
+  name: `Dichiarazione originale di ${person.display_name}`,
+  text: statement.original_text,
+  inLanguage: statement.language,
+  dateCreated: statement.statement_date,
+  isBasedOn: statement.source_url,
+  url: `https://dichiarazionipubbliche.it${statement.statement_route}`,
+};
 ---
 
-<BaseLayout title="Dichiarazione originale" description={`Dichiarazione originale attribuita a ${person.display_name} e collegata alla fonte pubblica.`} canonicalPath={statement.statement_route}>
-  <header class="record-header">
+<BaseLayout title="Dichiarazione originale" description={`Dichiarazione originale attribuita a ${person.display_name} e collegata alla fonte pubblica.`} canonicalPath={statement.statement_route} structuredData={structuredData}>
+  <header class="record-header detail-349-hero">
     <div class="shell">
-      <p class="eyebrow">Dichiarazione · parole originali</p>
-      <h1>{person.display_name}</h1>
+      <nav class="detail-349-crumbs" aria-label="Percorso"><a href="/esplora/">Archivio pubblico</a><span aria-hidden="true">/</span><span>Dichiarazione originale</span></nav>
+      <h1>Dichiarazione di {person.display_name}</h1>
       {person.disambiguator && <p>{person.disambiguator}</p>}
       <p><a href={person.route}>Archivio della persona</a></p>
       <AtlasRoute steps={[
@@ -23,12 +35,12 @@ const { person, statement } = Astro.props;
       ]} />
     </div>
   </header>
-  <main class="shell page-section-tight">
-    <article class="prose" id="atlas-statement-original">
+  <div class="shell page-section-tight detail-349-read">
+    <article class="prose detail-349-original" id="atlas-statement-original">
       <time datetime={statement.statement_date}>{formatDate(statement.statement_date)}</time>
       <blockquote lang={statement.language} cite={statement.source_url}><p>{statement.original_text}</p></blockquote>
-      <p><a href={statement.source_url} rel="noreferrer">Fonte originale: {statement.source_title}</a></p>
-      <p>Versione {statement.source_version}. {statement.source_kind === "TIMED"
+      <p class="detail-349-meta"><a href={statement.source_url} rel="noreferrer">Apri la fonte originale: {statement.source_title}</a></p>
+      <p>Fonte versione {statement.source_version}. {statement.source_kind === "TIMED"
         ? `Segmento ${statement.locator.segment_id}, ${statement.locator.start_ms}–${statement.locator.end_ms} ms`
         : `Caratteri ${statement.locator.start_char}–${statement.locator.end_char}`}</p>
       {statement.role_at_statement && (
@@ -39,8 +51,16 @@ const { person, statement } = Astro.props;
       {statement.finding_id === null && (
         <p>Questa dichiarazione non ha un Finding fattuale pubblicato. Non viene attribuito alcun verdetto alla persona.</p>
       )}
-      <p><a href={"/segnalazioni/?statement_id=" + encodeURIComponent(statement.statement_id) + "&version_id=" + encodeURIComponent(statement.version_id)}>Segnala un errore o chiedi una rettifica</a></p>
-      <p><a href="/metodo/">Leggi il metodo</a></p>
+      <section id="storia" aria-labelledby="original-history-heading">
+        <h2 id="original-history-heading">Versione e correzioni</h2>
+        <p>Versione pubblicata <code>{statement.version_id}</code>. La cronologia di eventuali rettifiche è consultabile tramite il registro pubblico.</p>
+        <p><a href={"/segnalazioni/?statement_id=" + encodeURIComponent(statement.statement_id) + "&version_id=" + encodeURIComponent(statement.version_id)}>Segnala un errore o chiedi una rettifica</a> · <a href="/correzioni/">Registro delle correzioni</a></p>
+      </section>
+      <section aria-labelledby="original-method-heading">
+        <h2 id="original-method-heading">Come leggere questa dichiarazione</h2>
+        <p>Il testo originale e il suo locator sono presentati separatamente da eventuali riassunti o valutazioni fattuali.</p>
+        <p><a href="/metodo/">Leggi il metodo di verifica e pubblicazione</a></p>
+      </section>
     </article>
-  </main>
+  </div>
 </BaseLayout>

@@ -4,23 +4,41 @@ import UtilityDocument from "../components/UtilityDocument.astro";
 ---
 
 <BaseLayout title="Dati & API" description="Risorse machine-readable, schema pubblico e API di Dichiarazioni Pubbliche." canonicalPath="/dati/">
-  <UtilityDocument eyebrow="Dati & API" title="I dati pubblicati, anche per chi sviluppa." lede="Le risorse qui sotto permettono di leggere i dati pubblici in formato JSON. Se l'archivio è vuoto, anche i risultati sono vuoti: non aggiungiamo dati di prova.">
+  <UtilityDocument eyebrow="Dati & API" title="Le fonti del registro, in un formato aperto." lede="Puoi consultare le risorse strutturate dell'archivio pubblico e il loro schema. I risultati contengono solo record approvati: i dati di ricerca privati e i casi sospesi non vengono esposti.">
     <section class="dp-utility-section">
-      <h2>Risorse pubbliche</h2>
+      <h2>Consulta i dati pubblici</h2>
+      <p>Ogni risorsa contiene soltanto le informazioni disponibili nella proiezione pubblica. Un archivio ancora vuoto non viene riempito con dichiarazioni di esempio.</p>
       <ul class="dp-resource-list">
-        <li><a href="/api/v1/index.json">Archivio JSON</a> — tutti i record attualmente pubblicati.</li>
-        <li><a href="/api/v1/findings">Verifiche JSON</a> — le valutazioni disponibili.</li>
-        <li><a href="/api/v1/openapi.json">Documentazione API</a> — elenco tecnico delle richieste disponibili.</li>
-        <li><a href="/api/v1/schema">Schema dei dati</a> — struttura e versioni del formato pubblico.</li>
+        <li>
+          <a href="/api/v1/index.json">Indice delle dichiarazioni</a>
+          <span class="dp-resource-list__type">JSON</span>
+          <p>I record presenti nell'archivio pubblico.</p>
+        </li>
+        <li>
+          <a href="/api/v1/findings">Verifiche pubblicate</a>
+          <span class="dp-resource-list__type">JSON</span>
+          <p>Le valutazioni associate ai record pubblicabili.</p>
+        </li>
+        <li>
+          <a href="/api/v1/openapi.json">Documentazione delle API</a>
+          <span class="dp-resource-list__type">OpenAPI</span>
+          <p>Le operazioni e i percorsi descritti dal contratto tecnico.</p>
+        </li>
+        <li>
+          <a href="/api/v1/schema">Schema pubblico</a>
+          <span class="dp-resource-list__type">Schema</span>
+          <p>Campi, struttura e versione del formato di scambio.</p>
+        </li>
       </ul>
     </section>
     <section class="dp-utility-section">
-      <h2>Versionamento</h2>
-      <p>Il formato pubblico ha una versione, così le applicazioni possono riconoscere eventuali cambiamenti. Il formato corrente è <code>dichiarazioni-pubbliche-public-v2</code>.</p>
+      <h2>Versione e limiti dei dati</h2>
+      <p>Il formato pubblico è identificato dalla versione <code>dichiarazioni-pubbliche-public-v2</code>, così le applicazioni possono riconoscere eventuali cambiamenti. I campi disponibili non autorizzano a dedurre fatti assenti dalle fonti né a ricostruire i dati privati della ricerca.</p>
     </section>
     <section class="dp-utility-section">
-      <h2>Licenza e diritti</h2>
-      <p>Il codice del repository è distribuito con licenza Apache-2.0. Questa licenza non estende automaticamente i propri termini a fonti, media, dataset o contenuti di terzi, che mantengono i rispettivi diritti e vincoli.</p>
+      <h2>Licenze e riutilizzo</h2>
+      <p>Il <a href="https://github.com/domenicomassafra/DichiarazioniPubbliche.it" rel="noreferrer">codice del progetto</a> è distribuito con licenza Apache-2.0. La licenza del software non si estende automaticamente a fonti, media, dataset e contenuti di terzi: verifica sempre i diritti e i vincoli della fonte originale.</p>
+      <p>Per comprendere come valutiamo provenienza e incertezza puoi leggere il <a href="/metodo/">Metodo</a>.</p>
     </section>
   </UtilityDocument>
 </BaseLayout>

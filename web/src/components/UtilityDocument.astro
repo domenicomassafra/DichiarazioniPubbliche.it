@@ -1,4 +1,6 @@
 ---
+import "../styles/utility-349.css";
+
 interface Props {
   eyebrow: string;
   title: string;
@@ -8,15 +10,19 @@ interface Props {
 const { eyebrow, title, lede } = Astro.props;
 ---
 
-<article class="shell dp-utility-document">
-  <header class="dp-utility-document__header atlas-utility-header">
-    <div class="eyebrow">{eyebrow}</div>
-    <h1>{title}</h1>
+<article class="shell dp-utility-document" aria-labelledby="dp-utility-title">
+  <header class="dp-utility-document__header">
+    <nav class="dp-utility-document__breadcrumb" aria-label="Percorso">
+      <a href="/">Archivio</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">{eyebrow}</span>
+    </nav>
+    <h1 id="dp-utility-title">{title}</h1>
     <p class="lede">{lede}</p>
-    <nav class="atlas-utility-path" aria-label="Percorso documenti dell'Atlante">
-      <a href="/metodo/">Metodo</a>
-      <a href="/correzioni/">Correzioni</a>
-      <a href="/dati/">Fonti e dati</a>
+    <nav class="atlas-utility-path dp-utility-document__sibling-nav" aria-label="Altri documenti">
+      <a href="/metodo/" aria-current={eyebrow === "Metodo" ? "page" : undefined}>Metodo</a>
+      <a href="/correzioni/" aria-current={eyebrow === "Correzioni" ? "page" : undefined}>Correzioni</a>
+      <a href="/dati/" aria-current={eyebrow === "Dati & API" ? "page" : undefined}>Dati &amp; API</a>
     </nav>
   </header>
   <aside class="dp-utility-document__rail" aria-label="Orientamento nel registro">

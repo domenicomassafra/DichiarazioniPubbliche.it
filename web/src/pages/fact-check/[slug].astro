@@ -3,6 +3,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import Assessment from "../../components/Assessment.astro";
 import SourceRow from "../../components/SourceRow.astro";
 import { dossierSlug, formatDate } from "../../lib/format";
+import "../../styles/detail-349.css";
 import { loadPublicProjection } from "../../lib/projection";
 import type { PublicDossier } from "../../lib/types";
 
@@ -18,15 +19,18 @@ interface Props { dossier: PublicDossier }
 const { dossier } = Astro.props;
 const published = formatDate(dossier.finding.published_at ?? dossier.source.published_at);
 const sourceMoment = dossier.source.segments?.[0];
+const isRetracted = dossier.finding.publication_status === "RETRACTED";
 const canonical = `/dichiarazioni/${dossierSlug(dossier)}/`;
 ---
 
-<BaseLayout title={dossier.claim} description={dossier.finding.rationale} canonicalPath={canonical}>
-  <header class="fact-header">
+<BaseLayout title={dossier.claim} description={isRetracted ? "Valutazione ritirata: l'esito e il razionale precedenti non costituiscono una verifica attuale." : dossier.finding.rationale} canonicalPath={canonical}>
+  <header class="fact-header detail-349-hero">
     <div class="shell fact-header-grid">
       <div>
-        <div class="eyebrow">Fact-check · {dossier.claim_type.replaceAll("_", " ")}</div>
-        <h1 class="claim-title">“{dossier.claim}”</h1>
+        <nav class="detail-349-crumbs" aria-label="Percorso"><a href="/esplora/">Archivio pubblico</a><span aria-hidden="true">/</span><span>Verifica</span></nav>
+        <h1 class="claim-title">Verifica di una dichiarazione</h1>
+        <p class="fact-normalized-label">Formulazione normalizzata · parafrasi, non citazione testuale</p>
+        <p class="fact-normalized">{dossier.claim}</p>
         <div class="fact-meta">
           <span>{dossier.speaker.name}</span>
           <span aria-hidden="true">·</span>
@@ -36,38 +40,36 @@ const canonical = `/dichiarazioni/${dossierSlug(dossier)}/`;
         </div>
       </div>
       <div class="fact-status">
-        <div class="eyebrow">Esito della verifica</div>
-        <Assessment code={dossier.finding.assessment} />
+        <p>Esito della verifica</p>
+        {isRetracted ? <strong>Valutazione ritirata</strong> : <Assessment code={dossier.finding.assessment} />}
       </div>
     </div>
   </header>
 
-  <div class="shell fact-body">
+  <div class="shell fact-body detail-349-read detail-349-fact">
     <article class="prose">
-      <p class="fact-answer">{dossier.finding.rationale}</p>
+      <p class="fact-answer">{isRetracted ? "Valutazione ritirata: l'esito precedente non costituisce una verifica attuale." : dossier.finding.rationale}</p>
+      {dossier.finding.publication_status === "DISPUTED" && <p>Valutazione contestata: la contestazione non è risolta da questa pagina.</p>}
+      {dossier.finding.publication_status === "CORRECTED" && <p>Valutazione corretta: consulta la cronologia pubblica delle versioni.</p>}
 
-      <h2>Perché</h2>
-      <p>
-        La valutazione deriva dal confronto tra la formulazione pubblicata, il contesto della fonte originale
-        e le evidenze approvate disponibili nel record. <a class="evidence-marker" href="#fonti">[1]</a>
-      </p>
-      <p>
-        Dichiarazioni Pubbliche distingue sempre ciò che è stato detto dal modo in cui viene normalizzato e verificato,
-        mantenendo fonti e revisione tracciabili senza trasformare la pagina in un pannello tecnico.
-      </p>
+      <h2>Contesto della verifica</h2>
+      <p>La formulazione verificata è una parafrasi. Per consultare le parole effettivamente attribuite e il passaggio corrispondente, apri la fonte originale.</p>
 
       <h2 id="fonti">Fonti principali</h2>
-      <div class="source-stack">
-        {dossier.evidence.map((evidence, index) => <SourceRow evidence={evidence} index={index + 1} />)}
-      </div>
+      {isRetracted ? <p>La verifica è ritirata; le evidenze storiche non vengono mostrate come sostegno a un esito attuale.</p> : (
+        <div class="source-stack">
+          {dossier.evidence.map((evidence, index) => <SourceRow evidence={evidence} index={index + 1} />)}
+        </div>
+      )}
 
       <h2>Momento originale</h2>
       <p>
-        <a class="text-link" href={dossier.source.url}>{dossier.source.title} ↗</a><br />
+        <a class="text-link" href={dossier.source.url} rel="noreferrer">Apri la fonte originale: {dossier.source.title}</a><br />
         {sourceMoment && <>Segmento verificato: {Math.floor((sourceMoment.start_ms ?? 0) / 1000)}s–{Math.ceil((sourceMoment.end_ms ?? 0) / 1000)}s.</>}
       </p>
 
-      <div class="details-list">
+      <div class="details-list" id="storia">
+        <p>Versione {dossier.finding.supersedes_id ? "corretta" : "pubblicata"} · {formatDate(dossier.finding.published_at)}</p>
         <details>
           <summary>Contesto e limiti</summary>
           <div>La pagina pubblica espone soltanto i dati approvati per la pubblicazione. Materiale operativo e trascrizioni grezze restano fuori dalla vista pubblica.</div>
@@ -78,23 +80,24 @@ const canonical = `/dichiarazioni/${dossierSlug(dossier)}/`;
         </details>
         <details>
           <summary>Correzioni e repliche</summary>
-          <div>{dossier.corrections.length === 0 && dossier.rights_of_reply.length === 0 ? "Nessuna correzione o replica pubblicata per questa versione." : "Sono presenti aggiornamenti pubblicati nel record."}</div>
+          <div>{dossier.corrections.length === 0 && dossier.rights_of_reply.length === 0 ? "Nessuna correzione o replica pubblicata per questa versione." : <a href={canonical + "#storia"}>Consulta la cronologia e le repliche nella dichiarazione canonica</a>}</div>
         </details>
       </div>
     </article>
 
     <aside class="fact-rail" aria-label="Contesto della verifica">
       <div class="rail-block">
-        <div class="eyebrow">Fonte originale</div>
+        <p>Fonte originale</p>
         <h3>{dossier.source.title}</h3>
         <p>{published}</p>
       </div>
       <div class="rail-block">
-        <div class="eyebrow">Persona</div>
+        <p>Persona</p>
         <h3>{dossier.speaker.name}</h3>
         <p>{dossier.speaker.public_role}</p>
       </div>
       <nav class="rail-links" aria-label="Sezioni della pagina">
+        <a href={canonical}>Apri la dichiarazione canonica</a>
         <a href="#fonti">Vai alle fonti</a>
         <a href="/metodo/">Leggi il metodo</a>
       </nav>

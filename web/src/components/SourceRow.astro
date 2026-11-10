@@ -12,6 +12,8 @@ const { evidence, index } = Astro.props;
     <strong>{evidence.publisher}</strong>
     <span>{evidence.source_type.replaceAll("_", " ").toLowerCase()}</span>
   </span>
-  <time class="source-date" datetime={evidence.publication_date}>{formatDate(evidence.publication_date)}</time>
+  {evidence.publication_date
+    ? <time class="source-date" datetime={evidence.publication_date}>{formatDate(evidence.publication_date)}</time>
+    : <span class="source-date">Data non indicata</span>}
   <span class="source-arrow" aria-hidden="true">↗</span>
 </a>

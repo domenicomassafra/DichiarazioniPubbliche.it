@@ -3,13 +3,20 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import UtilityDocument from "../components/UtilityDocument.astro";
 ---
 
-<BaseLayout title="Privacy e segnalazioni" description="Segnalazioni privacy relative ai dati pubblicati." canonicalPath="/privacy/" privatePage>
-  <UtilityDocument eyebrow="Privacy" title="Segnala un problema sui dati pubblicati" lede="Puoi contestare una dichiarazione pubblicata che contiene dati personali inesatti o non pertinenti.">
+<BaseLayout title="Privacy e segnalazioni" description="Come contestare dati personali presenti nelle dichiarazioni pubblicate." canonicalPath="/privacy/" privatePage>
+  <UtilityDocument eyebrow="Privacy" title="I dati personali richiedono attenzione." lede="Le dichiarazioni pubbliche possono contenere dati riferiti a persone. Se una scheda contiene informazioni inesatte, non pertinenti o da contestare, qui trovi il percorso per segnalarlo.">
     <section class="dp-utility-section">
-      <h2>Segnalazioni su una scheda pubblica</h2>
-      <p>Apri il <a href="/segnalazioni/">modulo di rettifica</a> e inserisci l'ID della verifica pubblicata, oppure aprilo dal dettaglio della dichiarazione interessata. La segnalazione resta privata e viene associata a un ID tracciabile; quando il percorso live è attivo, una richiesta accettata sospende subito la versione interessata in attesa di verifica.</p>
-      <p>Per segnalazioni privacy, obiezioni e richieste sui dati scrivi a <a href="mailto:privacy@dichiarazionipubbliche.it">privacy@dichiarazionipubbliche.it</a>. Indica l'URL o l'ID della scheda interessata, se disponibile. La ricezione dell'email non sospende automaticamente una scheda pubblicata.</p>
-      <p>Non inserire password, recapiti di terzi o altri dati personali non necessari.</p>
+      <h2>Contesta una scheda pubblica</h2>
+      <p>Apri le <a href="/segnalazioni/">istruzioni per la rettifica</a> dal dettaglio della dichiarazione, oppure indica l'identificativo della verifica pubblicata. Quando il servizio di invio è attivo, una richiesta accettata restituisce un codice con cui consultarne lo stato. La sospensione e la revisione della versione interessata sono gestite dai controlli del sistema.</p>
+    </section>
+    <section class="dp-utility-section">
+      <h2>Contatto per richieste privacy</h2>
+      <p>Per obiezioni, rettifiche e richieste relative ai dati personali puoi scrivere a <a href="mailto:privacy@dichiarazionipubbliche.it">privacy@dichiarazionipubbliche.it</a>. Indica l'URL della scheda e, se lo conosci, l'identificativo del record. La sola ricezione di un'email non produce automaticamente un codice di richiesta né conferma una sospensione.</p>
+      <p>Descrivi il problema con i dettagli strettamente necessari. Non inviare password, documenti o recapiti di terzi non pertinenti.</p>
+    </section>
+    <section class="dp-utility-section">
+      <h2>Che cosa resta pubblico</h2>
+      <p>La ricerca privata, le segnalazioni e i record sospesi non sono parte dell'archivio pubblico. Le correzioni che diventano pubblicabili sono consultabili nel <a href="/correzioni/">registro delle correzioni</a>, con il collegamento alla storia della dichiarazione.</p>
     </section>
   </UtilityDocument>
 </BaseLayout>
