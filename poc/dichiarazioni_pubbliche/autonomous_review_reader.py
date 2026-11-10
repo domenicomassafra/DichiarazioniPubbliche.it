@@ -16,6 +16,7 @@ from dichiarazioni_pubbliche.autonomous_agent_review import PROMPT_VERSION
 from dichiarazioni_pubbliche.autonomous_publication import (
     AgentReview, AutonomousCandidate, AutonomousProofPacket, CHECKS,
     POLICY_VERSION, candidate_fingerprint, independent_review_models_authorized,
+    review_model_authorized,
 )
 from dichiarazioni_pubbliche.public_statement_authority_common import (
     AUTHORITY_CHECKS, AUTHORITY_PROMPT_VERSION, AuthorityReviewPacket,
@@ -28,7 +29,7 @@ _SHA256 = re.compile(r"[a-f0-9]{64}\Z")
 
 
 class JournalReviewPacketReader:
-    """Read exactly one verified completion per configured independent agent.
+    """Read authenticated completion receipts for the selected review path.
 
     Bind this to `SenatoPublicV3Source.read_current_autonomous_evidence`.
     The source still needs independent attestation and challenge readers.
@@ -41,20 +42,33 @@ class JournalReviewPacketReader:
         verify_provider_execution: Callable[[Mapping[str, object]], bool] | None = None,
         primary_agent_id: str,
         primary_model_id: str,
-        independent_agent_id: str,
-        independent_model_id: str,
+        independent_agent_id: str | None = None,
+        independent_model_id: str | None = None,
+        third_agent_id: str | None = None,
+        third_model_id: str | None = None,
     ) -> None:
         if not isinstance(journal, SQLiteRunJournal) or not callable(read_current_candidate):
             raise ValueError("DP413_REVIEW_AUTHORITY_REQUIRED")
-        for agent in (primary_agent_id, independent_agent_id):
-            if type(agent) is not str or not agent or agent != agent.strip():
-                raise ValueError("DP413_REVIEW_AGENT_INVALID")
-        if primary_agent_id.casefold() == independent_agent_id.casefold():
-            raise ValueError("DP413_REVIEW_AGENTS_NOT_INDEPENDENT")
-        if not independent_review_models_authorized(
-            primary_model_id, independent_model_id,
+        if (
+            type(primary_agent_id) is not str
+            or not primary_agent_id.strip() or primary_agent_id != primary_agent_id.strip()
+            or not review_model_authorized(primary_model_id)
         ):
-            raise ValueError("DP413_REVIEW_MODELS_NOT_INDEPENDENT")
+            raise ValueError("DP413_EDITORIAL_REVIEW_CONFIG_INVALID")
+        if (independent_agent_id is None) != (independent_model_id is None):
+            raise ValueError("DP413_INDEPENDENT_REVIEW_CONFIG_INCOMPLETE")
+        if independent_agent_id is not None:
+            if (
+                type(independent_agent_id) is not str
+                or not independent_agent_id.strip()
+                or independent_agent_id != independent_agent_id.strip()
+                or primary_agent_id.casefold() == independent_agent_id.casefold()
+            ):
+                raise ValueError("DP413_REVIEW_AGENTS_NOT_INDEPENDENT")
+            if not independent_review_models_authorized(
+                primary_model_id, independent_model_id,
+            ):
+                raise ValueError("DP413_REVIEW_MODELS_NOT_INDEPENDENT")
         self.journal = journal
         self.read_current_candidate = read_current_candidate
         # This MUST query an independently authenticated OmniRoute execution
@@ -62,10 +76,27 @@ class JournalReviewPacketReader:
         # model, prompt/evidence hash and usage to this exact receipt. A local
         # journal entry, HMAC from the same writer or hardcoded True is not proof.
         self.verify_provider_execution = verify_provider_execution
-        self.identities = (
-            (primary_agent_id, primary_model_id),
-            (independent_agent_id, independent_model_id),
+        self.identities = ((primary_agent_id, primary_model_id),) + (
+            ((independent_agent_id, independent_model_id),)
+            if independent_agent_id is not None else ()
         )
+        if (third_agent_id is None) != (third_model_id is None):
+            raise ValueError("DP413_THIRD_AUDITOR_INCOMPLETE")
+        if third_agent_id is not None:
+            if (
+                type(third_agent_id) is not str or not third_agent_id.strip()
+                or third_agent_id != third_agent_id.strip()
+                or not review_model_authorized(third_model_id)
+                or third_model_id in {primary_model_id, independent_model_id}
+                or third_agent_id.casefold() in {
+                    value.casefold() for value in (primary_agent_id, independent_agent_id)
+                    if isinstance(value, str)
+                }
+            ):
+                raise ValueError("DP413_THIRD_AUDITOR_NOT_INDEPENDENT")
+            self.third_identity = (third_agent_id, third_model_id)
+        else:
+            self.third_identity = None
 
     @staticmethod
     def _matches(
@@ -205,7 +236,13 @@ class JournalReviewPacketReader:
             evidence = authority_review_fingerprint(candidate, authority_kind, decision)
             receipts = self.journal.review_executions(evidence)
             reviews = []
-            for agent_id, model_id in self.identities:
+            if candidate.uncertainty_reasons and len(self.identities) != 2:
+                return None
+            identities = (
+                self.identities if candidate.uncertainty_reasons
+                else self.identities[:1]
+            )
+            for agent_id, model_id in identities:
                 matching = [
                     receipt for receipt in receipts
                     if isinstance(receipt, dict) and receipt.get("agent_id") == agent_id
@@ -230,7 +267,8 @@ class JournalReviewPacketReader:
             if self.read_current_candidate(record_id, version_id) != candidate:
                 return None
             return AuthorityReviewPacket(
-                candidate, authority_kind, dict(decision), reviews[0], reviews[1],
+                candidate, authority_kind, dict(decision), reviews[0],
+                reviews[1] if len(reviews) > 1 else None,
             )
         except Exception:
             return None
@@ -249,7 +287,16 @@ class JournalReviewPacketReader:
             binding = candidate_fingerprint(candidate)
             receipts = self.journal.review_executions(binding)
             reviews = []
-            for agent_id, model_id in self.identities:
+            identities = (
+                self.identities + (self.third_identity,)
+                if candidate.uncertainty_reasons and self.third_identity is not None
+                else self.identities[:1]
+            )
+            if candidate.uncertainty_reasons and (
+                self.third_identity is None or len(self.identities) != 2
+            ):
+                return None
+            for agent_id, model_id in identities:
                 matching = [
                     receipt for receipt in receipts
                     if isinstance(receipt, dict) and receipt.get("agent_id") == agent_id
@@ -276,7 +323,11 @@ class JournalReviewPacketReader:
             # Refuse a mid-read revocation, version change or rights change.
             if self.read_current_candidate(record_id, version_id) != candidate:
                 return None
-            return AutonomousProofPacket(candidate, reviews[0], reviews[1])
+            return AutonomousProofPacket(
+                candidate, reviews[0],
+                reviews[1] if len(reviews) > 1 else None,
+                reviews[2] if len(reviews) > 2 else None,
+            )
         except Exception:
             # Reader errors must never create a publishable packet.
             return None

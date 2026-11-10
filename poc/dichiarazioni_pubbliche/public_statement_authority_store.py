@@ -44,6 +44,16 @@ class PublicStatementAuthorityStore:
         )
         return fresh is not None and fresh == packet
 
+    def _verified_publication_packet(
+        self, binding: Mapping[str, object], packet: AutonomousProofPacket,
+    ) -> bool:
+        """Only current independently witnessed completions can authorize release."""
+        reader = self.model_execution_reader
+        if reader is None or not callable(reader.verify_provider_execution):
+            return False
+        fresh = reader(str(binding["statement_id"]), str(binding["version_id"]))
+        return isinstance(fresh, AutonomousProofPacket) and fresh == packet
+
     def events(self, statement_id: str, version_id: str) -> list[dict[str, object]]:
         raw = self.store.run(
             """
@@ -117,9 +127,11 @@ class PublicStatementAuthorityStore:
                 review_event_id = _model_review_event_id(authority_kind, evidence)
             elif authority_kind == "PUBLICATION":
                 if review_packet is None or not isinstance(review_evidence, Mapping):
-                    raise ValueError("DP468_THREE_RELEASE_DISPOSITIONS_REQUIRED")
+                    raise ValueError("DP468_RELEASE_DISPOSITIONS_REQUIRED")
                 evidence = _review_evidence(review_packet, parsed_binding)
                 _validate_release_dispositions(review_evidence, evidence)
+                if not self._verified_publication_packet(parsed_binding, review_packet):
+                    raise ValueError("DP468_PUBLICATION_REVIEW_NOT_AUTHENTICATED")
                 if type(review_event_id) is not str or not review_event_id.strip():
                     raise ValueError("DP468_EXTERNAL_AUTHORITY_REVIEW_REQUIRED")
             elif (type(review_event_id) is not str or not review_event_id.strip()
@@ -281,6 +293,8 @@ class PublicStatementAuthorityStore:
                         return None
                 elif kind == "PUBLICATION":
                     _validate_release_dispositions(row.get("review_evidence"), evidence)
+                    if not self._verified_publication_packet(parsed_binding, review_packet):
+                        return None
                 # Recheck the independent authority on every replay, including
                 # semantic decisions; in-memory model metadata is not an execution.
                 if (not callable(verify_authority_review)

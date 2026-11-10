@@ -3,11 +3,22 @@
 Issue: [#413](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/413).
 `autonomous_pipeline.AutonomousPipeline.run()` is the composition a scheduler
 calls: it enumerates the private records that must be re-evaluated, runs the
-existing persistent runner per record, runs the nightly third audit at most
+existing persistent runner per record, runs the nightly sample audit at most
 once per UTC day and reports the day's counts. It grants no authority of its
-own: capture, challenge, both independent reviewers, the public surface, the
-third auditor, the provider-execution witness and the correction ledger stay
+own: capture, challenge, editor, escalation reviewers, the public surface, the
+nightly auditor, the provider-execution witness and the correction ledger stay
 separate and fail closed.
+
+## Decision 49 — 10 November 2026
+
+`config/autopublish.v1.json` records the owner autopublish consent, citation
+and date. The ordinary path checks the source, exact wording, attribution and
+current rights/privacy, then authenticates **one editorial review** before
+publication and readback. A source that reports a concrete uncertainty remains
+HOLD until two distinct reviewers and a third auditor have authenticated
+the exact record version. Historical universal 2+1 receipts are no longer
+automatically reusable; the versioned fingerprint changes under this policy.
+Any challenge or source-rights revocation withdraws the record before review.
 
 ## One tick
 
@@ -18,7 +29,7 @@ pipeline = AutonomousPipeline(
     queue=record_queue,                 # current_record_ids() -> tuple[str, ...]
     corrections=correction_ledger,      # () -> tuple[CorrectionMetricEvent, ...]
     limit=25,                           # bounded provider spend per tick
-    audit_ledger=nightly_ledger,        # optional, all three or none
+    audit_ledger=nightly_ledger,        # optional nightly sample, all three or none
     packet_authority=persisted_packets,
     third=third_reviewer,
 )
@@ -48,8 +59,8 @@ view.
 ## Dependencies before activation
 
 Wire only authenticated authorities: the persisted candidate/rights reader,
-the challenge ledger, the two `OmniRouteAgentReview` adapters with their
-model-aware subscription gate, the runtime's own separate
+the challenge ledger, an editorial `OmniRouteAgentReview` adapter and the
+escalation reviewers when the record is uncertain, the runtime's separate
 `verify_provider_execution`, the public publish/withdraw/readback surface and
 the third auditor. A local journal, a fixture witness or a hardcoded `True` is
 not production evidence; without them the tick reports HOLD and publishes

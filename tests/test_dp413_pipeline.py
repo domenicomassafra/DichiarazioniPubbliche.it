@@ -189,13 +189,13 @@ class AutonomousPipelineTests(unittest.TestCase):
             [event.disposition for event in self.journal.all_events()],
             ["INTENT", "PUBLISH"],
         )
-        self.assertEqual((self.first.calls, self.second.calls), (1, 1))
+        self.assertEqual((self.first.calls, self.second.calls), (1, 0))
         self.assertEqual(report.metrics["published"], 1)
         self.assertEqual(report.metrics["publish_events"], 1)
         self.assertEqual(report.metrics["day"], NOW.date().isoformat())
         repeated = self.pipeline().run(now=NOW)
         self.assertEqual(repeated.runs, report.runs)
-        self.assertEqual((self.first.calls, self.second.calls), (1, 1))
+        self.assertEqual((self.first.calls, self.second.calls), (1, 0))
 
     def test_tick_is_bounded_and_defers_the_rest_without_model_work(self):
         self.operations.capture = MultiCapture("finding:413", "record:2", "record:3")
@@ -207,7 +207,7 @@ class AutonomousPipelineTests(unittest.TestCase):
             {event.record_id for event in self.journal.all_events()},
             {"finding:413", "record:2"},
         )
-        self.assertEqual((self.first.calls, self.second.calls), (2, 2))
+        self.assertEqual((self.first.calls, self.second.calls), (2, 0))
 
     def test_unavailable_queue_stops_before_any_model_or_publication(self):
         queue = Queue(error=RuntimeError("DP413_QUEUE_DOWN"))

@@ -34,8 +34,10 @@ def bind_senato_public_v3(
     processing_family_approved: Callable[[], bool],
     primary_agent_id: str,
     primary_model_id: str,
-    independent_agent_id: str,
-    independent_model_id: str,
+    independent_agent_id: str | None = None,
+    independent_model_id: str | None = None,
+    third_agent_id: str | None = None,
+    third_model_id: str | None = None,
 ) -> SenatoPublicV3Source:
     """Return a fail-closed source bound to real current Capture and review stores.
 
@@ -62,6 +64,8 @@ def bind_senato_public_v3(
         primary_agent_id=primary_agent_id, primary_model_id=primary_model_id,
         independent_agent_id=independent_agent_id,
         independent_model_id=independent_model_id,
+        third_agent_id=third_agent_id,
+        third_model_id=third_model_id,
     )
     authority_store = PublicStatementAuthorityStore(
         store=capture_store, model_execution_reader=model_reviews,

@@ -111,6 +111,9 @@ class GatewayReviewTests(TestCase):
         self.assertEqual(self.journal.review_executions(self.binding), ())
 
     def test_two_configured_reviewers_same_approved_model_hold_without_gateway_calls(self):
+        from dataclasses import replace
+        self.item = replace(self.item, uncertainty_reasons=("INDEPENDENCE_UNCERTAIN",))
+        self.binding = candidate_fingerprint(self.item)
         first = self.reviewer("agent:primary")
         second = self.reviewer("agent:independent")
         surface = Surface()

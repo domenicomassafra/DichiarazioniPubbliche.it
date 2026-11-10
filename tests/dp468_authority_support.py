@@ -269,6 +269,12 @@ class AuthorityFixture(unittest.TestCase):
         self.addCleanup(self.provider.doCleanups)
         self.provider.current = self.packet.candidate
         self.model_reader = self.provider.reader()
+        self.provider.complete()
+        self.packet = self.model_reader(
+            self.binding["statement_id"], self.binding["version_id"],
+        )
+        if self.packet is None:
+            raise AssertionError("fixture publication executions not witnessed")
         self.store = PublicStatementAuthorityStore(
             store=self.db, model_execution_reader=self.model_reader,
         )
@@ -357,8 +363,6 @@ class AuthorityFixture(unittest.TestCase):
             "evidence_refs": ["audit:nightly:2026-11-01"],
             "release_dispositions": release_dispositions or [
                 disposition("PRIMARY_REVIEW", self.packet.primary),
-                disposition("INDEPENDENT_REVIEW", self.packet.independent),
-                disposition("THIRD_AUDIT", self.third),
             ],
         }
         self.append("PUBLICATION", {

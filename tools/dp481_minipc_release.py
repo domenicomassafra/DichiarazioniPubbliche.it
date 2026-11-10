@@ -159,6 +159,17 @@ def stage(root: Path, source: Path, static: Path, projection: Path, *,
                         symlinks=True)
         shutil.copy2(schema_source, candidate / "code" / "schema.v1.sql",
                      follow_symlinks=False)
+        autopublish_policy = source / "config" / "autopublish.v1.json"
+        if autopublish_policy.exists() or autopublish_policy.is_symlink():
+            if autopublish_policy.is_symlink() or not autopublish_policy.is_file():
+                fail("AUTOPUBLISH_CONFIG_INVALID")
+            (candidate / "code" / "config").mkdir()
+            shutil.copy2(
+                autopublish_policy, candidate / "code" / "config" / "autopublish.v1.json",
+                follow_symlinks=False,
+            )
+            # No DRAFT release obtains publication authority just by shipping
+            # the consent contract. It is hashed alongside the executable code.
         shutil.copytree(static, candidate / "static", symlinks=True)
         shutil.copytree(projection, candidate / "projection", symlinks=True)
         assets = collect(candidate)

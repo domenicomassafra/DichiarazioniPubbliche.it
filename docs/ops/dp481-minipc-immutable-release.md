@@ -23,6 +23,11 @@ any drift from that Git reference. Do not confuse these two statements.
   source checkout. The service reads `current/code/poc`, `current/static`, and
   `current/projection/index.json` together; the existing static root guard
   returns `404` rather than old `200` on a pointer rotation.
+- If `config/autopublish.v1.json` exists in the authoritative source, staging
+  copies it into the immutable `code/config/` directory. Its digest is included
+  in the release's `code_sha256`. Runtime publication still requires current
+  rights, editorial and provider-execution authorities; the DRAFT release
+  manifest explicitly records `publication_authorized=false`.
 
 ## Dry run: real MiniPC source/projection, isolated HTTP origin
 

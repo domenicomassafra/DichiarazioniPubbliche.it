@@ -23,7 +23,7 @@ from dichiarazioni_pubbliche.autonomous_operations import (
 )
 from dichiarazioni_pubbliche.autonomous_execution_witness import review_execution_witnessed
 from dichiarazioni_pubbliche.autonomous_publication import (
-    AutonomousCandidate, AutonomousProofPacket, candidate_fingerprint,
+    AgentReview, AutonomousCandidate, AutonomousProofPacket, candidate_fingerprint,
     evaluate_autonomous_publication,
 )
 
@@ -251,7 +251,7 @@ class PersistentRunner:
 
     # A prior PUBLISH checkpoint predating verified provider execution has no
     # authority after the review-witness gate becomes mandatory.
-    EXECUTION_WITNESS_VERSION = "dp413-execution-witness-v1"
+    EXECUTION_WITNESS_VERSION = "dp413-execution-witness-v2-owner49"
 
     def __init__(
         self, operations: AutonomousOperations, journal: SQLiteRunJournal, *,
@@ -278,20 +278,35 @@ class PersistentRunner:
             ):
                 return False
             packet = self.current_verified_packet(record_id, candidate.record_version_id)
+            if not isinstance(packet, AutonomousProofPacket) or packet.candidate != candidate:
+                return False
+            reviews = [packet.primary]
+            issuers = [self.operations.first]
+            if packet.independent is not None or candidate.uncertainty_reasons:
+                reviews.append(packet.independent)
+                issuers.append(self.operations.second)
+            if candidate.uncertainty_reasons:
+                reviews.append(packet.third)
+                issuers.append(self.operations.uncertainty_auditor)
+            elif packet.third is not None:
+                return False
+            ids = [
+                review.provider_request_id for review in reviews
+                if isinstance(review, AgentReview)
+            ]
             if (
-                not isinstance(packet, AutonomousProofPacket)
-                or packet.candidate != candidate
-                or not _review_identity_ok(packet.primary, self.operations.first)
-                or not _review_identity_ok(packet.independent, self.operations.second)
-                or packet.primary.provider_request_id == packet.independent.provider_request_id
-                or not review_execution_witnessed(
-                    packet.primary, self.operations.verify_provider_execution,
-                )
-                or not review_execution_witnessed(
-                    packet.independent, self.operations.verify_provider_execution,
+                len(ids) != len(reviews)
+                or len(set(ids)) != len(reviews)
+                or not all(
+                    issuer is not None
+                    and _review_identity_ok(review, issuer)
+                    and review_execution_witnessed(
+                        review, self.operations.verify_provider_execution,
+                    )
+                    for review, issuer in zip(reviews, issuers)
                 )
                 or not evaluate_autonomous_publication(
-                    candidate, packet.primary, packet.independent,
+                    candidate, packet.primary, packet.independent, third=packet.third,
                 ).publishable
             ):
                 return False
@@ -314,7 +329,10 @@ class PersistentRunner:
         except Exception:
             challenge_state = "UNKNOWN"
         reviewers = []
-        for reviewer in (self.operations.first, self.operations.second):
+        for reviewer in (
+            self.operations.first, self.operations.second,
+            self.operations.uncertainty_auditor,
+        ):
             reviewers.append((getattr(reviewer, "agent_id", None),
                               getattr(reviewer, "model_id", None)))
         return hashlib.sha256(_json({

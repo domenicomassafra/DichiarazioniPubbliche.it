@@ -66,6 +66,7 @@ def require_autonomous_publication(
     decision = evaluate_autonomous_publication(
         candidate, packet.primary, packet.independent,
         active_challenge=active_challenge,
+        third=packet.third,
     )
     if not decision.publishable:
         raise ValueError("Statement autonomous review HOLD: " + ",".join(decision.reason_codes))
