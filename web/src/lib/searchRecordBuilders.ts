@@ -17,6 +17,7 @@ export function compactTerms(values: Array<string | null | undefined>): string[]
 }
 
 export function findingRecord(dossier: PublicDossier): PublicSearchRecord {
+  const isRetracted = dossier.finding.publication_status === "RETRACTED";
   const roles = (dossier.speaker.public_roles ?? []).flatMap(role => [
     role.role, role.organization_name ?? null,
   ]);
@@ -24,9 +25,10 @@ export function findingRecord(dossier: PublicDossier): PublicSearchRecord {
     id: dossier.finding_id,
     kind: "finding",
     title: dossier.claim,
-    subtitle: [dossier.speaker.name, dossier.source.title].filter(Boolean).join(" · "),
+    subtitle: [isRetracted ? "Valutazione ritirata" : null, dossier.speaker.name, dossier.source.title]
+      .filter(Boolean).join(" · "),
     published_at: dossier.finding.published_at ?? dossier.source.published_at ?? null,
-    assessment: dossier.finding.assessment,
+    assessment: isRetracted ? null : dossier.finding.assessment,
     route: `/dichiarazioni/${publicIdSlug(dossier.finding_id)}/`,
     has_corrections: (dossier.corrections ?? []).length > 0,
     has_rights_of_reply: (dossier.rights_of_reply ?? []).length > 0,
@@ -36,7 +38,7 @@ export function findingRecord(dossier: PublicDossier): PublicSearchRecord {
     primary_terms: compactTerms([dossier.claim]),
     secondary_terms: compactTerms([
       dossier.speaker.name, dossier.source.title, dossier.claim_type,
-      dossier.finding.assessment, ...roles,
+      isRetracted ? "Valutazione ritirata" : dossier.finding.assessment, ...roles,
     ]),
     person_id: dossier.speaker.id,
     topic_ids: [],

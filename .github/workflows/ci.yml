@@ -273,6 +273,10 @@ jobs:
           DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION: "1"
         run: npm run build
 
+      - name: DP349 withdrawn assessments remain visibly retired in public pages and search
+        working-directory: web
+        run: node --experimental-strip-types scripts/check-dp349-retracted-surfaces.mjs
+
       - name: Explicit public-projection build fails closed
         working-directory: web
         env:
