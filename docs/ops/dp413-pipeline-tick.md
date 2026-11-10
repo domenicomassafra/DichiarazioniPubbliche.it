@@ -35,8 +35,9 @@ produces no model work.
 
 `metrics` is `daily_metrics(journal.all_events(), ...)`. An unavailable or
 invalid correction ledger stops the tick before reviewer calls or publication,
-with an empty metrics report; an unconfigured or failing audit leaves `audit`
-as `None` with the matching status. Nothing in a tick authorizes publication: a record is public
+with an empty metrics report. A nightly tick without audit authorities likewise
+stops before model work; a later audit failure reports `audit=None` and its
+reason. Nothing in a tick authorizes publication: a record is public
 only because the existing policy, witnesses and surface readback said so.
 
 `SQLiteRunJournal.all_events()` returns the whole corpus in append order after

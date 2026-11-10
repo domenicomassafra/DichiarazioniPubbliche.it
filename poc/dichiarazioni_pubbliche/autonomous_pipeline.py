@@ -168,6 +168,11 @@ class AutonomousPipeline:
                 at, "AUDIT_REJECTED", ("NIGHTLY_AUDIT_DAY_INVALID",),
                 (), (), (), (), None, {},
             )
+        if audit_day is not None and self.coordinator is None:
+            return TickReport(
+                at, "AUDIT_UNAVAILABLE", ("AUDIT_NOT_CONFIGURED",),
+                (), (), (), (), None, {},
+            )
         selected, queue_status, reasons = self._queue()
         if selected is None:
             return TickReport(at, queue_status, reasons, (), (), (), (), None, {})

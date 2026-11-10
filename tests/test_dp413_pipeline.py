@@ -288,7 +288,9 @@ class AutonomousPipelineTests(unittest.TestCase):
         self.assertEqual(report.reason_codes, ("AUDIT_NOT_CONFIGURED",))
         self.assertIsNone(report.audit)
         self.assertEqual(self.third.calls, 0)
-        self.assertEqual([run.disposition for run in report.runs], ["PUBLISH"])
+        self.assertEqual(report.runs, ())
+        self.assertEqual((self.first.calls, self.second.calls), (0, 0))
+        self.assertEqual(self.surface.visible, {})
 
     def test_unavailable_correction_ledger_never_fabricates_metrics(self):
         def corrections():
