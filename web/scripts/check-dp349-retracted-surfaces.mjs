@@ -72,6 +72,14 @@ active.assessment = null;
 active.subtitle = `Valutazione ritirata · ${active.subtitle}`;
 await assert.rejects(validateSearchIndex(await finalizeSearchIndex(forged), demo.dataset_sha256),
   /SEARCH_INDEX_RECORD_INVALID/, "an active Finding cannot acquire a withdrawn state from subtitle text");
+const reissued = structuredClone(searchMaterial);
+const reissuedRow = reissued.records.find((record) => record.id === disputed.finding_id);
+reissuedRow.assessment = null;
+reissuedRow.publication_status = "RETRACTED";
+reissuedRow.subtitle = `Valutazione ritirata · ${reissuedRow.subtitle}`;
+const reissuedIndex = await finalizeSearchIndex(reissued);
+assert.notEqual(reissuedIndex.index_sha256, index.index_sha256,
+  "a forged complete status change must fail the independently embedded page digest");
 
 const { DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH: _path,
   DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION: _demo, ...cleanEnv } = process.env;
@@ -147,6 +155,11 @@ try {
 
   const builtIndex = JSON.parse(await readFile(join(dist, "search-index.v1.json"), "utf8"));
   assert.deepEqual(await validateSearchIndex(builtIndex, demo.dataset_sha256), builtIndex);
+  const exploreHtml = await readRoute("esplora");
+  assert(exploreHtml.includes(builtIndex.index_sha256),
+    "Explore HTML must bind the exact search-index SHA independently of fetched asset bytes");
+  assert(!exploreHtml.includes(reissuedIndex.index_sha256),
+    "a reissued bogus index cannot match the page's authenticated build digest");
   assert.equal(builtIndex.records.find((record) => record.id === retracted.finding_id).assessment, null);
   console.log("DP349 RETRACTED Home/Person/Topic + Explore search index PASS; DISPUTED/CORRECTED unchanged");
 } finally {

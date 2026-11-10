@@ -17,7 +17,7 @@ export interface PublicSearchRecord {
   subtitle: string;
   published_at: string | null;
   assessment: PublicDossier["finding"]["assessment"] | null;
-  publication_status?: "PUBLISH" | "PUBLISHED" | "DISPUTED" | "CORRECTED" | "RETRACTED";
+  publication_status?: "PUBLISH" | "DISPUTED" | "CORRECTED" | "RETRACTED";
   route: string;
   has_corrections: boolean;
   has_rights_of_reply: boolean;

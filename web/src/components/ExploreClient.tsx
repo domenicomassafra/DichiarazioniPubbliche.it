@@ -18,6 +18,7 @@ import type { PublicDossier } from "../lib/types";
 
 interface Props {
   expectedProjectionSha256: string;
+  expectedIndexSha256: string;
 }
 
 type AssessmentFilter = PublicDossier["finding"]["assessment"] | "ALL";
@@ -94,7 +95,6 @@ export function getExploreFacetCounts(
   return {people,topics};
 }
 
-/** Preserve the typed query in URL state. */
 export function buildExploreUrlKeepingQuery(state: ExploreUrlState): string {
   const params = new URLSearchParams(buildExploreSearch(state));
   if (state.query.length > 0) params.set("q", state.query);
@@ -123,7 +123,6 @@ function nearbyPublicWord(typed: string, candidate: string, limit: number): bool
   return previous[candidate.length] <= limit;
 }
 
-/** Suggestions use only verified public terms. */
 export function getExploreSuggestions(
   index: PublicSearchIndex,
   rawQuery: string,
@@ -132,7 +131,6 @@ export function getExploreSuggestions(
   if (!rawQuery.trim() || [...rawQuery].length > SEARCH_QUERY_MAX_CHARS) return [];
 
   const words = new Set<string>();
-  // Bound candidates per public kind to prevent catalog domination.
   const collected: Record<SearchRecordKind, number> = {
     finding: 0, statement: 0, content: 0, person: 0, topic: 0,
   };
@@ -141,7 +139,6 @@ export function getExploreSuggestions(
   const personId = filters.personId ?? "ALL";
   const topicId = filters.topicId ?? "ALL";
   for (const record of index.records) {
-    // Filter before spending the candidate budget.
     if ((kind !== "ALL" && record.kind !== kind) ||
         (assessment !== "ALL" && record.assessment !== assessment) ||
         (personId !== "ALL" &&
@@ -163,7 +160,6 @@ export function getExploreSuggestions(
     if (words.size >= 1600) break;
   }
 
-  // Preserve the original punctuation, case and whitespace in unedited tokens.
   const typedWords = [...rawQuery.matchAll(/[\p{L}\p{N}]+/gu)]
     .filter((match) => {
       const normalized = normalizeSearchText(match[0]);
@@ -192,7 +188,7 @@ export function getExploreSuggestions(
   return [...candidates].sort((left, right) => left.localeCompare(right, "it")).slice(0, 4);
 }
 
-export default function ExploreClient({ expectedProjectionSha256 }: Props) {
+export default function ExploreClient({ expectedProjectionSha256, expectedIndexSha256 }: Props) {
   const [query, setQuery] = useState("");
   const [assessment, setAssessment] = useState<AssessmentFilter>("ALL");
   const [kind, setKind] = useState<SearchRecordKind | "ALL">("ALL");
@@ -239,6 +235,8 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
           await response.json(),
           expectedProjectionSha256,
         );
+        // Bind fetched bytes to the index digest in the rendered page.
+        if (verified.index_sha256 !== expectedIndexSha256) throw new Error("SEARCH_INDEX_RELEASE_MISMATCH");
         if (!cancelled) {
           setIndex(verified);
           setIndexState("ready");
@@ -248,7 +246,7 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
       }
     })();
     return () => { cancelled = true; };
-  }, [expectedProjectionSha256]);
+  }, [expectedProjectionSha256, expectedIndexSha256]);
 
   useEffect(() => {
     if (!urlReady) return;

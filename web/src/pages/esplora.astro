@@ -5,9 +5,11 @@ import AtlasRoute from "../components/AtlasRoute.astro";
 import "../styles/explore-349.css";
 import { loadPublicProjection } from "../lib/projection";
 import { loadPublishedPeopleV3 } from "../lib/publishedPeopleV3";
+import { buildSearchIndexMaterial, finalizeSearchIndex } from "../lib/searchIndex";
 
 const projection = await loadPublicProjection();
 const peopleRelease = await loadPublishedPeopleV3();
+const approvedIndex = await finalizeSearchIndex(buildSearchIndexMaterial(projection, peopleRelease?.people));
 const hasPublicRecords = projection.dossiers.length > 0 || (projection.topics?.length ?? 0) > 0 || (projection.contents?.length ?? 0) > 0 || (peopleRelease?.people.length ?? 0) > 0;
 ---
 
@@ -34,7 +36,7 @@ const hasPublicRecords = projection.dossiers.length > 0 || (projection.topics?.l
   </section>
   <div class="shell">
     {hasPublicRecords ? (
-      <ExploreClient expectedProjectionSha256={projection.dataset_sha256} client:load />
+      <ExploreClient expectedProjectionSha256={projection.dataset_sha256} expectedIndexSha256={approvedIndex.index_sha256} client:load />
     ) : (
       <section class="dp-state launch-empty-state" data-state="empty" aria-labelledby="archivio-vuoto">
         <p class="eyebrow">Archivio in preparazione</p>

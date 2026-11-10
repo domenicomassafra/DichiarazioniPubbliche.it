@@ -16,7 +16,7 @@ const ASSESSMENTS = new Set([
   "SUPPORTED", "FACTUALLY_FALSE", "OUTDATED_DATA",
   "INSUFFICIENT_EVIDENCE", "UNRESOLVED",
 ]);
-const PUBLIC_FINDING_STATUSES = new Set(["PUBLISH", "PUBLISHED", "DISPUTED", "CORRECTED", "RETRACTED"]);
+const PUBLIC_FINDING_STATUSES = new Set(["PUBLISH", "DISPUTED", "CORRECTED", "RETRACTED"]);
 
 function isDisplaySafeRecord(value: unknown): value is PublicSearchRecord {
   if (!value || typeof value !== "object" || Array.isArray(value) ||
