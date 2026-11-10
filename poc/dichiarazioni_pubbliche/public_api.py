@@ -1273,7 +1273,8 @@ def dispatch(
                 conditional_headers=conditional_headers,
                 accept=accept,
             )
-        if not _accepts_json(accept):
+        linked_v3 = split.path in ("/api/v3/statements.jsonld", "/api/v3/statements.nt")
+        if not linked_v3 and not _accepts_json(accept):
             raise PublicApiError(
                 406,
                 "NOT_ACCEPTABLE",
@@ -1292,6 +1293,7 @@ def dispatch(
                 method, path,
                 statement_projection_path=statement_projection_path,
                 statement_current_fingerprint_path=statement_current_fingerprint_path,
+                accept=accept,
             )
         if not split.path.startswith(API_BASE_PATH):
             raise _not_found()
@@ -1532,10 +1534,7 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
         self.end_headers()
 
     def _serve_static(self, method: str) -> None:
-        # An account rollback does not make its private SQLite DB or secrets
-        # public. Verify and serve the *same opened descriptor*: a pathname
-        # preflight followed by SimpleHTTPRequestHandler.send_head() could
-        # race a symlink swap between the check and the actual open().
+        # Serve from the pinned descriptor to prevent symlink-swap leaks.
         root = Path(type(self).static_dir)
         raw = Path(self.translate_path(self.path))
         try:

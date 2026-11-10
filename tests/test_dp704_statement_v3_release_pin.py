@@ -243,6 +243,75 @@ class StatementV3ReleasePinTests(unittest.TestCase):
         self.assertEqual(response.status, 400)
         self.assertEqual(response.read(), b"")
 
+    def test_linked_data_uses_the_same_authorized_v3_pin_and_hold(self):
+        root, candidate, current, corrected, _ = self.fixtures()
+        store = PublicStatementChallengeStore(store=MemoryPostgres())
+        server = self.serve(root, candidate, current, store, lambda *_: True)
+        old_port = self.port
+        self.port = server.server_port
+        self.addCleanup(setattr, self, "port", old_port)
+
+        status, headers, graph = self.request(
+            "GET", "/api/v3/statements.jsonld", headers={"Accept": "application/ld+json"})
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "application/ld+json; charset=utf-8")
+        self.assertEqual(headers["Cache-Control"], "no-store")
+        self.assertEqual(graph["@graph"][0]["dp:projectionFingerprint"], corrected["dataset_sha256"])
+        self.assertTrue(any(node.get("@type") == "Quotation" for node in graph["@graph"]))
+
+        status, headers, rdf = self.request(
+            "GET", "/api/v3/statements.nt", headers={"Accept": "application/n-triples"})
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "application/n-triples")
+        self.assertIn(b"statement:1", rdf)
+        self.assertEqual(self.request("GET", "/api/v3/statements.nt?unknown=1")[0], 400)
+        self.assertEqual(self.request(
+            "GET", "/api/v3/statements.nt", headers={"Accept": "application/json"})[0], 406)
+        self.assertEqual(self.request(
+            "GET", "/api/v3/statements.nt", headers={"Accept": "application/n-triples;q=0"})[0], 406)
+        self.assertEqual(self.request(
+            "GET", "/api/v3/statements.nt",
+            headers={"Accept": "application/n-triples;q=0, */*;q=1"})[0], 406)
+
+        import http.client
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        self.addCleanup(connection.close)
+        connection.request("HEAD", "/api/v3/statements.nt")
+        response = connection.getresponse()
+        self.assertEqual(response.status, 200)
+        self.assertGreater(int(response.getheader("Content-Length")), 0)
+        self.assertEqual(response.read(), b"")
+
+        status, _, receipt = self.request(
+            "POST", "/intake/corrections",
+            {"statement_id": "statement:1", "version_id": "statement-version:1-corrected",
+             "reason": "Test: attribuzione in contestazione"}, self.auth_headers())
+        self.assertEqual(status, 202)
+        self.assertEqual(receipt["state"], "HOLD")
+        self.assertEqual(self.request("GET", "/api/v3/statements.jsonld")[0], 503)
+        self.assertEqual(self.request("GET", "/api/v3/statements.nt")[0], 503)
+
+    def test_linked_data_is_absent_without_an_independent_public_release(self):
+        from dichiarazioni_pubbliche.public_api import dispatch
+
+        for path in ("/api/v3/statements.jsonld", "/api/v3/statements.nt"):
+            self.assertEqual(dispatch("GET", path).status, 404)
+            self.assertEqual(dispatch("HEAD", path).status, 404)
+
+        # A stable pointer to a *different* release is never an approval for
+        # this valid source snapshot, including for the two linked-data views.
+        _, candidate, current, _, _ = self.fixtures()
+        current.write_text("0" * 64 + "\n", encoding="ascii")
+        for path in ("/api/v3/statements", "/api/v3/statements.jsonld",
+                     "/api/v3/statements.nt"):
+            for method in ("GET", "HEAD"):
+                response = dispatch(
+                    method, path, statement_projection_path=candidate,
+                    statement_current_fingerprint_path=current)
+                self.assertEqual((path, method, response.status), (path, method, 503))
+                if method == "HEAD":
+                    self.assertEqual(response.body, b"")
+
 
 if __name__ == "__main__":
     unittest.main()

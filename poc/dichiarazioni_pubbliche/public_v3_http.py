@@ -14,7 +14,7 @@ from pathlib import Path
 from urllib.parse import parse_qsl, unquote, urlsplit
 
 from .public_api import (
-    API_VERSION_HEADER, JSON_CONTENT_TYPE, ApiResponse, _bad_request, _not_found,
+    API_VERSION_HEADER, JSON_CONTENT_TYPE, ApiResponse, PublicApiError, _bad_request, _not_found,
     _unavailable, canonical_json_bytes, get_public_statement_v3,
     list_public_opinions_by_person_content_v3, list_public_statements_v3,
 )
@@ -76,6 +76,25 @@ def _query(raw: str, allowed: set[str]) -> dict[str, str]:
     return dict(pairs)
 
 
+def _accepts_media(accept: str | None, media: str) -> bool:
+    if not accept:
+        return True
+    quality: dict[str, float] = {}
+    for item in accept.split(","):
+        parts = [part.strip().lower() for part in item.split(";")]
+        if parts[0] not in (media, "application/*", "*/*"):
+            continue
+        qvalues = [part[2:] for part in parts[1:] if part.startswith("q=")]
+        try:
+            q = float(qvalues[0]) if len(qvalues) == 1 else (1.0 if not qvalues else -1.0)
+        except ValueError:
+            continue
+        if 0 <= q <= 1:
+            quality[parts[0]] = max(quality.get(parts[0], -1), q)
+    return next((quality[item] > 0 for item in (media, "application/*", "*/*")
+                 if item in quality), False)
+
+
 def pinned_release(
     statement_projection_path: str | Path | None,
     statement_current_fingerprint_path: str | Path | None,
@@ -100,13 +119,16 @@ def pinned_release(
 
 
 def response_for_pinned_release(
-    method: str, path: str, *, bundle: dict, release: str,
+    method: str, path: str, *, bundle: dict, release: str, accept: str | None = None,
 ) -> ApiResponse:
     """Serialize one already authorized and unchanged release snapshot."""
     url = urlsplit(path)
     if url.path == f"{V3_BASE}/statements":
         params = _query(url.query, set())
         operation = "list"
+    elif url.path in (f"{V3_BASE}/statements.jsonld", f"{V3_BASE}/statements.nt"):
+        params = _query(url.query, set())
+        operation = "jsonld" if url.path.endswith(".jsonld") else "ntriples"
     elif url.path == f"{V3_BASE}/opinions":
         params = _query(url.query, {"person_id", "content_id"})
         operation = "opinions"
@@ -120,6 +142,9 @@ def response_for_pinned_release(
         raise _not_found()
     if not isinstance(bundle, dict):
         raise _unavailable()
+    media_type = {"jsonld": "application/ld+json", "ntriples": "application/n-triples"}.get(operation)
+    if media_type and not _accepts_media(accept, media_type):
+        raise PublicApiError(406, "NOT_ACCEPTABLE", f"This resource serves {media_type}.")
     if operation == "list":
         payload = list_public_statements_v3(
             bundle, allow_statement_v3=True, current_public_dataset_sha256=release)
@@ -127,13 +152,25 @@ def response_for_pinned_release(
         payload = get_public_statement_v3(
             bundle, identifier, allow_statement_v3=True,
             current_public_dataset_sha256=release)
-    else:
+    elif operation == "opinions":
         payload = list_public_opinions_by_person_content_v3(
             bundle, allow_statement_v3=True, current_public_dataset_sha256=release,
             **params)
-    body = canonical_json_bytes(payload)
+    elif operation == "jsonld":
+        from .linked_data import projection_statement_v3_jsonld
+        list_public_statements_v3(
+            bundle, allow_statement_v3=True, current_public_dataset_sha256=release)
+        payload = projection_statement_v3_jsonld(bundle, allow_statement_v3=True)
+    elif operation == "ntriples":
+        from .linked_data import projection_statement_v3_ntriples
+        list_public_statements_v3(
+            bundle, allow_statement_v3=True, current_public_dataset_sha256=release)
+        payload = projection_statement_v3_ntriples(bundle, allow_statement_v3=True)
+    body = payload.encode("utf-8") if operation == "ntriples" else canonical_json_bytes(payload)
+    content_type = ("application/n-triples" if operation == "ntriples" else
+                    "application/ld+json; charset=utf-8" if operation == "jsonld" else JSON_CONTENT_TYPE)
     return ApiResponse(
-        200, b"" if method == "HEAD" else body, JSON_CONTENT_TYPE,
+        200, b"" if method == "HEAD" else body, content_type,
         {"Cache-Control": "no-store", "Surrogate-Control": "no-store",
          "X-Content-Type-Options": "nosniff", API_VERSION_HEADER: "v3"},
         content_length=len(body) if method == "HEAD" else None,
@@ -143,6 +180,7 @@ def response_for_pinned_release(
 def serve_public_v3(
     method: str, path: str, *, statement_projection_path: str | Path | None,
     statement_current_fingerprint_path: str | Path | None,
+    accept: str | None = None,
 ) -> ApiResponse:
     if statement_projection_path is None and statement_current_fingerprint_path is None:
         raise _not_found()
@@ -151,7 +189,7 @@ def serve_public_v3(
     _, authority, release, bundle = pinned_release(
         statement_projection_path, statement_current_fingerprint_path)
     response = response_for_pinned_release(
-        method, path, bundle=bundle, release=release)
+        method, path, bundle=bundle, release=release, accept=accept)
     if _current_release(authority) != release:
         raise _unavailable()
     return response

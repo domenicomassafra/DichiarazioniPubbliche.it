@@ -96,7 +96,7 @@ class StatementCorrectionIntake:
             accept="application/json",
         )
 
-    def public_response(self, method: str, path: str):
+    def public_response(self, method: str, path: str, *, accept: str | None = None):
         """Serve exactly the release this request fenced on.
 
         The fence and the body must observe one snapshot: reading the pointer
@@ -107,7 +107,7 @@ class StatementCorrectionIntake:
             _, authority, release, bundle = pinned_release(
                 self.projection_path, self.current_fingerprint_path)
             response = response_for_pinned_release(
-                method, path, bundle=bundle, release=release)
+                method, path, bundle=bundle, release=release, accept=accept)
             listing = response_for_pinned_release(
                 "GET", "/api/v3/statements", bundle=bundle, release=release)
             published = _release_published_versions(listing.body)
