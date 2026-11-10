@@ -224,3 +224,55 @@ decision with revocation and attribution; actual per-family GDPR necessity,
 notice, access, retention and independent-review receipts; then the genuine
 three distinct model executions (#413) and public v3 release/correction
 readback (#98). None was minted by the read-only assessment.
+
+## New first-batch text selection (10 November 2026; private-candidate status)
+
+The coordinator selected **10–20 new verbatim, text-only statements** from
+official parliamentary records. This separate selection has **16 passages and
+16 distinct official Person URIs** from the Senate's sitting 310 of
+29 May 2025. It is **not** the previous three HELD launch-set sources. The
+immutable source is the [Senato AKN document](https://github.com/SenatoDellaRepubblica/AkomaNtosoBulkData/blob/bfac144eb5c54820971bc1020fece11aae56ec90/Leg19/Atto00055187/resaula/01457617-ra.akn.xml),
+commit `bfac144eb5c54820971bc1020fece11aae56ec90`, blob
+`bec30c067a1a79e8b377af483cfc4bfb44d13896`, content SHA-256
+`1cb2b5fc3cbc96701e52f06c34c3ae3cd494eb622aa3f124fb1a93a223e27476`.
+The source was re-fetched and verified with the existing
+`import_senato_akoma_stenographic` importer. The quoted bytes are **not copied
+into this public repository** while publication rights remain unapproved.
+
+For every row, reconstruct the exact literal as
+`next(s for s in imported.speeches if s.ordinal == ordinal).review_text[start:end]`;
+offsets are zero-based, end-exclusive
+Python character positions after the importer's canonical text normalization.
+The last column is the full SHA-256 of the resulting UTF-8 quotation. Each
+substring was observed **exactly once** in its own source-linked speech.
+The `Person URI` is `http://dati.senato.it/osr/Persona/<id>`; the display
+name comes from the original `TLCPerson`, not from a second identity witness.
+
+| Speech ordinal | Original display name | Person URI id | Text range | Literal SHA-256 |
+| ---: | --- | ---: | ---: | --- |
+| 3 | Potenti | 33022 | 143:268 | `10e853dc569025edd00423b653bd68f85cc11de9e0a1d09fb49ac17e3948176d` |
+| 6 | Pucciarelli | 32697 | 417:540 | `33dfddb7fad615bf6d06359410e43028af6d20ab6fdc59bdfed76465d0545826` |
+| 7 | Tajani | 37739 | 449:512 | `fa70cb7bf6a2e8e854ed806c1e128da87b698a6786ffc608fa1233daf840668d` |
+| 8 | Spinelli | 36447 | 238:337 | `8af431ff7299a9d7be94170840e7e0fd57b4f3c3dc39056bed003bea36622769` |
+| 13 | Unterberger | 32727 | 367:439 | `a345b8031d18d89e01aeca8d1469f7f1c58dbb394ade4d1597805dd44755110b` |
+| 31 | Sironi | 36425 | 103:153 | `3ebf26c92c613baab8f1e98becdcbe99c5547e6d00d8a3f12e74651d521fa5b3` |
+| 33 | Maiorino | 32658 | 28:96 | `f50615eeb17e041db4edb7bbfad5e3c3b1582fd43ca400a58cc423f12a30ad34` |
+| 42 | Spagnolli | 36426 | 467:532 | `a5378d432caed4654a76c193716e298f6ecae94bf9d1c6d6bd6b675f493abd04` |
+| 50 | Lopreiato | 36404 | 365:423 | `f04375ff43dd0f8496ccf83f13da2c24d63a11da846d111bc875e5583335a071` |
+| 57 | Sensi | 27622 | 201:307 | `b5c8b2a78112e00120f92444e5010fde8a308902eab2dcc09ef51637dc067118` |
+| 82 | Musolino | 36409 | 185:278 | `fac88ca00ed523f308947ccde07437c527fc109bfb39ce35553cf1bd25ee1d3e` |
+| 83 | Biancofiore | 22871 | 192:268 | `ccf4744a14af0428b28390d72f4e095349c70585eb2de2785894bf9d65f3ec01` |
+| 85 | Cucchi | 36390 | 128:211 | `b57049e1e462988b3027a7b26aaf7c8c95b88797dd1ca5f5535cfcf897ba2ab6` |
+| 86 | Zanettin | 17811 | 157:236 | `2f6df176c4dc463a2e1bf74d983f76a106e828c7a447129ef43197f031d2c07b` |
+| 87 | Bilotti | 32851 | 424:510 | `50b477306fe9a7d69d4a7dc5bb54345090e368931595fbad78dde989e1c0e0ee` |
+| 88 | Stefani | 29185 | 277:373 | `22e538c7a8ab357dc01f74aef561bccd6664f3aca5b55da7a1e8cad4b246cf05` |
+
+**Status: 16 selected / 0 authorized for publication.** The 16 excerpts
+have a source-integrity and literal-match check only; they have **zero**
+genuine per-item OmniRoute 2+1 execution receipts, zero independently
+established dual speaker-identity signals, and zero public source-specific
+rights grants. The six required GDPR processing families remain `BLOCKED`.
+Product review must independently establish these authorities for **each**
+record, then #98 must prove a persistent v3 correction, withdrawal and
+CDN readback before public release. These metadata rows cannot be passed to
+the publication pipeline as approvals and do not alter `launch-set-v1.json`.
