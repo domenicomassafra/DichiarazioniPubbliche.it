@@ -17,6 +17,7 @@ export interface PublicSearchRecord {
   subtitle: string;
   published_at: string | null;
   assessment: PublicDossier["finding"]["assessment"] | null;
+  publication_status?: "PUBLISH" | "PUBLISHED" | "DISPUTED" | "CORRECTED" | "RETRACTED";
   route: string;
   has_corrections: boolean;
   has_rights_of_reply: boolean;
@@ -346,15 +347,8 @@ export async function validateSearchIndex(
   return index;
 }
 
-/**
- * DP-409 opt-in release reference for an independently authenticated,
- * monotonically versioned CURRENT public-v2 search manifest.
- *
- * A self-hashed index is *not* release authority: a cached asset may be
- * rewritten with the new projection SHA and rehashed after a rights hold.
- * The publisher/host must rotate these pins atomically when a record is
- * withdrawn. This interface does not authorize a publication or create pins.
- */
+/** DP-409: a self-hashed index is not release authority. Authenticated CURRENT
+ * host pins rotate on withdrawal; this interface grants no publication rights. */
 export interface PinnedPublicSearchRelease {
   allowPinnedSearch: true;
   releaseId: string;

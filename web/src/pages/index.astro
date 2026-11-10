@@ -10,7 +10,8 @@ const peopleRelease = await loadPublishedPeopleV3();
 const recent = [...projection.dossiers]
   .sort((a, b) => new Date(b.finding.published_at ?? 0).getTime() - new Date(a.finding.published_at ?? 0).getTime())
   .slice(0, 4);
-const featured = recent[0];
+const featured = recent.find((dossier) => dossier.finding.publication_status !== "RETRACTED");
+const recentOthers = recent.filter((dossier) => dossier !== featured).slice(0, 3);
 const hasPublicRecords = projection.dossiers.length > 0 ||
   (projection.topics?.length ?? 0) > 0 ||
   (projection.contents?.length ?? 0) > 0 ||
@@ -73,7 +74,7 @@ const explorePaths = [
       </section>
     )}
 
-    {recent.length > 1 && (
+    {recentOthers.length > 0 && (
       <section class="shell page-section-tight home-recent dp-home-recent" aria-labelledby="home-recent-heading">
         <div class="section-heading ruled-heading">
           <div class="section-heading-copy">
@@ -83,7 +84,7 @@ const explorePaths = [
           <a class="text-link" href="/esplora/?ordine=recent">Vedi tutte <span aria-hidden="true">↗</span></a>
         </div>
         <div class="claim-list">
-          {recent.slice(1).map((dossier) => <ClaimRow dossier={dossier} showTopic={false} />)}
+          {recentOthers.map((dossier) => <ClaimRow dossier={dossier} showTopic={false} />)}
         </div>
       </section>
     )}

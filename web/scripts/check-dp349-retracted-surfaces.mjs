@@ -8,6 +8,7 @@ import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { publicIdSlug } from "../src/lib/format.ts";
 import {
   buildSearchIndexMaterial,
   canonicalJson,
@@ -39,10 +40,12 @@ const disputedIndex = finding(disputed.finding_id);
 const correctedIndex = finding(corrected.finding_id);
 assert(retiredIndex && disputedIndex && correctedIndex, "all public demo Finding routes must stay indexed");
 assert.equal(retiredIndex.assessment, null, "RETRACTED must not expose the historical assessment");
+assert.equal(retiredIndex.publication_status, "RETRACTED", "withdrawal must be explicitly declared in the index schema");
 assert.match(retiredIndex.subtitle, /^Valutazione ritirata · /, "Explore must show explicit withdrawal");
 assert(!retiredIndex.secondary_terms.includes(retracted.finding.assessment),
   "historical assessment must not become a searchable term");
 for (const [record, dossier] of [[disputedIndex, disputed], [correctedIndex, corrected]]) {
+  assert.equal(record.publication_status, dossier.finding.publication_status);
   assert.equal(record.assessment, dossier.finding.assessment,
     dossier.finding.publication_status + " must retain its current assessment");
 }
@@ -60,6 +63,15 @@ invalid.subtitle = "Senza stato di ritiro";
 const resealed = await finalizeSearchIndex(altered);
 await assert.rejects(validateSearchIndex(resealed, demo.dataset_sha256),
   /SEARCH_INDEX_RECORD_INVALID/, "other null-assessment findings must still fail the index gate");
+
+// A forged withdrawal label on an ordinary PUBLISH record must not validate,
+// even when both the search material and its self-hash have been recomputed.
+const forged = structuredClone(searchMaterial);
+const active = forged.records.find((record) => record.id === disputed.finding_id);
+active.assessment = null;
+active.subtitle = `Valutazione ritirata · ${active.subtitle}`;
+await assert.rejects(validateSearchIndex(await finalizeSearchIndex(forged), demo.dataset_sha256),
+  /SEARCH_INDEX_RECORD_INVALID/, "an active Finding cannot acquire a withdrawn state from subtitle text");
 
 const { DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH: _path,
   DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION: _demo, ...cleanEnv } = process.env;
@@ -90,6 +102,15 @@ try {
   };
 
   const home = await readRoute("");
+  assert.match(home, /Dalle parole alle prove\./);
+  const featuredSection = home.match(/<section\b[^>]*class="[^"]*dp-home-feature[^\"]*"[^>]*>([\s\S]*?)<\/section>/)?.[1];
+  assert(featuredSection, "Home must feature an active Finding if available");
+  assert(!featuredSection.includes(finding(retracted.finding_id).route), "Home must not feature a withdrawn Finding");
+  const newestActive = [...demo.dossiers]
+    .filter((dossier) => dossier.finding.publication_status !== "RETRACTED")
+    .sort((a, b) => Date.parse(b.finding.published_at) - Date.parse(a.finding.published_at))[0];
+  assert(featuredSection.includes(finding(newestActive.finding_id).route),
+    "Home should feature the newest active Finding");
   const person = await readRoute("persone/" + retracted.speaker.id.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
   const topic = demo.topics.find((item) =>
     item.memberships.some((membership) => membership.finding_ids.includes(retracted.finding_id)));
@@ -106,6 +127,22 @@ try {
     const row = claimRow(home, dossier);
     assert.match(row, /class="assessment assessment-/,
       dossier.finding.publication_status + " retains the assessment badge");
+  }
+
+  const detail = await readRoute(`dichiarazioni/${publicIdSlug(retracted.finding_id)}`);
+  assert.match(detail, /Valutazione ritirata/, "canonical detail must announce withdrawal");
+  assert(!detail.includes(retracted.finding.rationale), "canonical detail must hide historical rationale");
+  const source = await readRoute(`contenuti/${publicIdSlug(retracted.source.content_id)}`);
+  assert.match(source, /Valutazione ritirata/, "Content source moments must announce withdrawal");
+  for (const relation of retracted.relations ?? []) {
+    const tracePath = join(dist, "tracce", publicIdSlug(relation.id), "index.html");
+    const trace = await readFile(tracePath, "utf8").catch((error) => {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    });
+    if (trace !== null) {
+      assert.match(trace, /Valutazione ritirata/, "Trace must not show withdrawn verdict as current");
+    }
   }
 
   const builtIndex = JSON.parse(await readFile(join(dist, "search-index.v1.json"), "utf8"));

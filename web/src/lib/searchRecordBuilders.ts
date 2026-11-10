@@ -29,6 +29,7 @@ export function findingRecord(dossier: PublicDossier): PublicSearchRecord {
       .filter(Boolean).join(" · "),
     published_at: dossier.finding.published_at ?? dossier.source.published_at ?? null,
     assessment: isRetracted ? null : dossier.finding.assessment,
+    publication_status: dossier.finding.publication_status as PublicSearchRecord["publication_status"],
     route: `/dichiarazioni/${publicIdSlug(dossier.finding_id)}/`,
     has_corrections: (dossier.corrections ?? []).length > 0,
     has_rights_of_reply: (dossier.rights_of_reply ?? []).length > 0,

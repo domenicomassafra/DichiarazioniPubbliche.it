@@ -6,7 +6,7 @@ const INDEX_FIELDS = new Set([
   "generated_at", "index_sha256", "records",
 ]);
 const RECORD_FIELDS = new Set([
-  "id", "kind", "title", "subtitle", "published_at", "assessment", "route",
+  "id", "kind", "title", "subtitle", "published_at", "assessment", "publication_status", "route",
   "has_corrections", "has_rights_of_reply", "wording_type",
   "source_wording_type", "direct_quote_eligible", "primary_terms",
   "secondary_terms", "person_id", "topic_ids",
@@ -16,6 +16,7 @@ const ASSESSMENTS = new Set([
   "SUPPORTED", "FACTUALLY_FALSE", "OUTDATED_DATA",
   "INSUFFICIENT_EVIDENCE", "UNRESOLVED",
 ]);
+const PUBLIC_FINDING_STATUSES = new Set(["PUBLISH", "PUBLISHED", "DISPUTED", "CORRECTED", "RETRACTED"]);
 
 function isDisplaySafeRecord(value: unknown): value is PublicSearchRecord {
   if (!value || typeof value !== "object" || Array.isArray(value) ||
@@ -35,10 +36,13 @@ function isDisplaySafeRecord(value: unknown): value is PublicSearchRecord {
     (record.kind === "finding"
       ? record.wording_type === "PARAPHRASE"
       : record.wording_type === null) &&
-    (record.assessment === null
-      ? (record.kind !== "finding" ||
-         record.subtitle.startsWith("Valutazione ritirata · "))
-      : record.kind === "finding" && typeof record.assessment === "string" && ASSESSMENTS.has(record.assessment)) &&
+    (record.kind === "finding"
+      ? PUBLIC_FINDING_STATUSES.has(String(record.publication_status)) &&
+        (record.publication_status === "RETRACTED"
+          ? record.assessment === null && record.subtitle.startsWith("Valutazione ritirata · ")
+          : typeof record.assessment === "string" && ASSESSMENTS.has(record.assessment) &&
+            !record.subtitle.startsWith("Valutazione ritirata · "))
+      : record.assessment === null && record.publication_status === undefined) &&
     (record.source_wording_type === null ||
       record.source_wording_type === "VERBATIM_ORIGINAL" ||
       record.source_wording_type === "REPORTED_QUOTE") &&
