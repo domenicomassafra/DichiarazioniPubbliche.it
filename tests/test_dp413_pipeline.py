@@ -298,7 +298,18 @@ class AutonomousPipelineTests(unittest.TestCase):
         self.assertEqual(report.status, "METRICS_UNAVAILABLE")
         self.assertEqual(report.metrics, {})
         self.assertIn("CORRECTIONS_UNAVAILABLE", report.reason_codes)
-        self.assertEqual([run.disposition for run in report.runs], ["PUBLISH"])
+        self.assertEqual(report.runs, ())
+        self.assertEqual(report.deferred, ("finding:413",))
+        self.assertEqual((self.first.calls, self.second.calls), (0, 0))
+        self.assertEqual(self.surface.visible, {})
+
+    def test_invalid_correction_ledger_rejects_before_publication(self):
+        report = self.pipeline(corrections=lambda: ("not-an-event",)).run(now=NOW)
+        self.assertEqual(report.status, "METRICS_INVALID")
+        self.assertEqual(report.runs, ())
+        self.assertEqual(report.deferred, ("finding:413",))
+        self.assertEqual((self.first.calls, self.second.calls), (0, 0))
+        self.assertEqual(self.surface.visible, {})
 
     def test_pipeline_refuses_mismatched_authorities(self):
         other_journal = SQLiteRunJournal(Path(self.directory.name) / "other.sqlite3")
