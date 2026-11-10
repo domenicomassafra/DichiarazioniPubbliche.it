@@ -19,6 +19,39 @@ a design ticket.
 
 ---
 
+## DP-349 — Public editorial overlay (2026-11-10; in review)
+
+The owner explicitly requested a new Public visual direction on 2026-11-10.
+DP-349 implements that request as an **additive, Public-only editorial overlay**,
+not a retroactive rewrite of the frozen v1 foundation or of the historical
+decisions below. This records work in progress; it is **not** evidence of final
+owner acceptance, completed browser QA, or production publication.
+
+- **Surface and typography:** warmer ivory paper, restrained ink and fine rules
+  are exposed as `--editorial-*` values in `web/src/styles/tokens.css` and
+  applied through `web/src/styles/redesign-349.css`, scoped with
+  `body:not(.is-studio)`. Newsreader remains the editorial display face,
+  with sans-serif navigation and legible provenance details. The frozen
+  foundation, semantic finding states, and Studio styling remain distinct.
+- **Source-first paths:** the Public homepage leads from a declaration to its
+  source, verification context, revisions, and corrections. Navigation favors
+  the public record, people, topics, methods, and traceable sources; empty
+  publication states remain truthful rather than presenting demo claims as
+  approved records. Mobile navigation uses native disclosure behavior and
+  natural keyboard tab order.
+- **Progressive motion:** a small Public section-rule accent may follow
+  scroll position only where CSS scroll-driven animations are supported and
+  the user has not requested reduced motion. Content is visible without that
+  animation; reduced-motion users see the static state. No JS scroll listener,
+  decorative loading signal, or new epistemic/status animation is introduced.
+
+This exception is tied to DP-349's owner-requested exploration and remains
+subject to independent accessibility, responsive-browser, and owner review.
+The original v1 contract, previous composition reasoning, and change-control
+history below are retained as historical foundation, not silently superseded.
+
+---
+
 ## The thesis
 
 **A civic ledger, not a dashboard.**

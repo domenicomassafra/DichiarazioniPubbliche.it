@@ -4,6 +4,7 @@ import AtlasRoute from "./AtlasRoute.astro";
 import Assessment from "./Assessment.astro";
 import SourceRow from "./SourceRow.astro";
 import { publicIdSlug, dossierSlug, formatDate, relationSlug } from "../lib/format";
+import "../styles/detail-349.css";
 import type { PublicContent, PublicDossier } from "../lib/types";
 
 interface Props {
@@ -142,10 +143,10 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
   description={`Fonte pubblica e dichiarazioni con valutazioni pubblicate collegate a ${source.title}.`}
   canonicalPath={canonical}
 >
-  <header class="record-header content-record-header">
+  <header class="record-header content-record-header detail-349-hero">
     <div class="shell content-record-header__grid">
       <div>
-        <div class="eyebrow">Contenuto</div>
+        <nav class="detail-349-crumbs" aria-label="Percorso"><a href="/esplora/">Archivio pubblico</a><span aria-hidden="true">/</span><span>Fonte e contenuto</span></nav>
         <h1 class="page-title">{source.title}</h1>
         <div class="content-record-meta">
           {source.published_at && <span>{formatDate(source.published_at)}</span>}
@@ -173,7 +174,7 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
     </div>
   </header>
 
-  <div class="shell content-record">
+  <div class="shell content-record detail-349-read detail-349-content">
     <section class="content-context" aria-labelledby="content-context-heading">
       <div>
         <div class="eyebrow">Contesto sorgente</div>

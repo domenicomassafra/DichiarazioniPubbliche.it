@@ -14,17 +14,17 @@ const entries = projection.dossiers
   });
 ---
 
-<BaseLayout title="Correzioni" description="Registro cronologico delle correzioni pubblicate da Dichiarazioni Pubbliche." canonicalPath="/correzioni/">
-  <UtilityDocument eyebrow="Correzioni" title="Gli errori si correggono. La storia resta." lede="Qui raccogliamo le correzioni pubblicate e le colleghiamo alle schede originali, senza cancellare silenziosamente le versioni precedenti.">
-    <p><a href="/segnalazioni/">Invia una rettifica o una segnalazione privacy</a></p>
+<BaseLayout title="Correzioni" description="Registro cronologico delle correzioni pubbliche collegate alle dichiarazioni." canonicalPath="/correzioni/">
+  <UtilityDocument eyebrow="Correzioni" title="Una correzione non cancella la storia." lede="Qui trovi le correzioni rese pubbliche, in ordine cronologico, con un collegamento alla scheda interessata e alla sua storia. Le versioni cambiano, il percorso per verificarle rimane.">
+    <p>Vuoi contestare una scheda? Consulta le <a href="/segnalazioni/">istruzioni per inviare una rettifica o una segnalazione privacy</a>. La richiesta è confermata soltanto quando il servizio di invio restituisce un identificativo.</p>
     {entries.length === 0 ? (
       <section class="dp-utility-empty" aria-labelledby="correzioni-vuote">
         <h2 id="correzioni-vuote">Nessuna correzione pubblicata.</h2>
-        <p>Quando viene approvata una correzione a una scheda pubblica, la troverai qui con il collegamento alla versione interessata. Questo elenco riguarda solo ciò che è pubblicato.</p>
-        <p><a href="/metodo/#correzioni">Come funzionano correzioni e versioni</a></p>
+        <p>Questo registro contiene soltanto correzioni già incluse nella proiezione pubblica. Non mostra richieste private, verifiche in corso o versioni sospese.</p>
+        <p><a href="/metodo/#correzioni">Leggi come funzionano versioni, repliche e rettifiche</a>.</p>
       </section>
     ) : (
-      <ol class="dp-correction-list">
+      <ol class="dp-correction-list" aria-label="Correzioni pubblicate, dalla più recente">
         {entries.map(({ dossier, correction }) => (
           <li class="dp-correction-item">
             <div class="dp-correction-item__date">{formatDate(String(correction.created_at ?? dossier.finding.published_at ?? ""))}</div>
@@ -32,7 +32,7 @@ const entries = projection.dossiers
               <h2><a href={`/dichiarazioni/${dossierSlug(dossier)}/`}>{dossier.claim}</a></h2>
               <p class="dp-correction-item__meta">{dossier.speaker.name} · {dossier.source.title}</p>
               {correction.reason && <p>{String(correction.reason)}</p>}
-              <p class="dp-correction-item__version"><a href={`/dichiarazioni/${dossierSlug(dossier)}/#storia`}>Consulta lo storico pubblico delle versioni →</a></p>
+              <p class="dp-correction-item__version"><a href={`/dichiarazioni/${dossierSlug(dossier)}/#storia`}>Apri la cronologia della dichiarazione</a></p>
             </div>
           </li>
         ))}

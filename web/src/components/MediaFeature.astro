@@ -5,17 +5,16 @@ interface Props {
   href: string;
   duration?: string;
 }
-const { title, description, href, duration = "32:15" } = Astro.props;
+const { title, description, href, duration } = Astro.props;
 ---
 
 <article class="media-feature">
   <a class="media-poster" href={href} aria-label={`Apri la fonte originale: ${title}`} rel="noreferrer">
     <span class="media-kicker">Fonte pubblica</span>
-    <span class="media-play" aria-hidden="true">▶</span>
-    <span class="media-duration">{duration}</span>
+    <span class="media-play" aria-hidden="true">↗</span>
+    {duration && <span class="media-duration">{duration}</span>}
   </a>
   <div class="media-copy">
-    <div class="eyebrow">Contesto originale</div>
     <h3><a href={href} rel="noreferrer">{title}</a></h3>
     <p>{description}</p>
     <a class="text-link" href={href} rel="noreferrer">Apri la fonte <span aria-hidden="true">↗</span></a>

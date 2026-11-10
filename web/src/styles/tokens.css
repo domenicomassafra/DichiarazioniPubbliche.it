@@ -45,6 +45,18 @@
   --ink-inverse: #0e1524;
 }
 
+/* DP-349 Public palette; Studio keeps its original tokens. */
+:root {
+  --editorial-paper: #f8f5ef;
+  --editorial-paper-band: #efe9df;
+  --editorial-paper-well: #e7e0d5;
+  --editorial-paper-raised: #fffdf9;
+  --editorial-rule: #d4cec3;
+  --editorial-rule-strong: #aaa59c;
+  --editorial-ink: #161c27;
+  --editorial-ink-soft: #404b5d;
+}
+
 /* --------------------------------------------------------------------------
    2. INK
    Three steps only. `ink-500` is the last step permitted to carry body text;

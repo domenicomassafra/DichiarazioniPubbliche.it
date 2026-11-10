@@ -15,6 +15,7 @@ const require = createRequire(import.meta.url);
 const ts = require("typescript");
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const componentPath = path.join(webRoot, "src/components/ExploreClient.tsx");
+const filterControlsPath = path.join(webRoot, "src/components/ExploreFilterControls.tsx");
 const indexPath = path.join(webRoot, "src/lib/searchIndex.ts");
 const builderPath = path.join(webRoot, "src/lib/searchRecordBuilders.ts");
 const shapePath = path.join(webRoot, "src/lib/searchIndexShape.ts");
@@ -108,6 +109,8 @@ const deps = {
   "./design/SegmentedControl": { __esModule: true, default: () => null },
   "../lib/searchIndex": search,
 };
+// Render the extracted controls, so their public-only facets still get tested.
+deps["./ExploreFilterControls"] = load(await readFile(filterControlsPath, "utf8"), filterControlsPath, deps);
 const component = load(source, componentPath, deps);
 assert.equal(typeof component.getExploreSuggestions, "function", "public-only suggestions function must exist");
 assert.equal(typeof component.buildExploreUrlKeepingQuery, "function", "URL must retain exact typed query");
@@ -276,7 +279,8 @@ function walk(node, predicate, found = []) {
     node.forEach((item) => walk(item, predicate, found));
   } else if (node && typeof node === "object") {
     if (predicate(node)) found.push(node);
-    walk(node.props?.children, predicate, found);
+    if (typeof node.type === "function") walk(node.type(node.props), predicate, found);
+    else walk(node.props?.children, predicate, found);
   }
   return found;
 }
@@ -291,7 +295,8 @@ assert(suggestionButton, "visible interactive suggestion should be offered on a 
 assert.ok(walk(view, (node) => node.type === "button" && node.props["data-search-suggestion"] === true).length <= 4);
 assert.equal(nextStates.length, 0, "rendering a suggestion must never auto-correct the query");
 suggestionButton.props.onClick();
-assert.deepEqual(nextStates, [[0, "  inflazione  "]], "only explicit suggestion click updates query");
+assert.deepEqual(nextStates, [[10, 1], [0, "  inflazione  "]],
+  "only explicit suggestion click updates query and resets pagination");
 const unchanged = render("Inflazione");
 assert.equal(walk(unchanged, (node) => node.props?.["data-search-suggestion"] === true).length, 0);
 assert(walk(view,node=>node.type===deps["./design/SegmentedControl"].default)
@@ -324,7 +329,8 @@ const savedWindow=globalThis.window;
 const navigations=[];
 globalThis.window={location:{pathname:"/esplora/"},history:{pushState(_a,_b,url){navigations.push(url);}}};
 try{personChip.props.onClick();}finally{globalThis.window=savedWindow;}
-assert.deepEqual(nextStates,[[4,"ALL"]],"only the Person facet state may change");
+assert.deepEqual(nextStates,[[10,1],[4,"ALL"]],
+  "removing Person facet must reset pagination and only clear the Person filter");
 assert.equal(navigations.length,1);
 const nextParams=new URL(navigations[0],"https://example.test").searchParams;
 assert.equal(nextParams.get("persona"),null);

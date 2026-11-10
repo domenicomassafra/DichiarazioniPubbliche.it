@@ -4,6 +4,7 @@ import AtlasRoute from "./AtlasRoute.astro";
 import SearchField from "./SearchField.astro";
 import ClaimRow from "./ClaimRow.astro";
 import { claimTypeLabel, dossierSlug, formatDate, relationSlug, speakerSlug } from "../lib/format";
+import "../styles/detail-349.css";
 import type { PublicDossier } from "../lib/types";
 
 // This input must come from a separately validated, approved public Person
@@ -94,10 +95,10 @@ const roleAt = (dossier: PublicDossier) => {
 ---
 
 <BaseLayout title={personName} description={`Archivio pubblico delle dichiarazioni di ${personName}.`} canonicalPath={canonical}>
-  <header class="record-header person-header">
+  <header class="record-header person-header detail-349-hero">
     <div class="shell record-header-grid">
       <div>
-        <div class="eyebrow">Persona</div>
+        <nav class="detail-349-crumbs" aria-label="Percorso"><a href="/esplora/">Archivio pubblico</a><span aria-hidden="true">/</span><span>Persona</span></nav>
         <h1 class="page-title">{personName}</h1>
         {approvedEmptyPerson?.disambiguator && <p>{approvedEmptyPerson.disambiguator}</p>}
         {approvedEmptyPerson && approvedEmptyPerson.roles.length > 0 && (
@@ -134,7 +135,7 @@ const roleAt = (dossier: PublicDossier) => {
     </div>
   </header>
 
-  <section class="shell page-section-tight person-chronology" id="atlas-person-chronology">
+  <section class="shell page-section-tight person-chronology detail-349-read" id="atlas-person-chronology">
     {isPubliclyEmpty ? (
       <section class="dp-utility-empty" aria-labelledby="person-empty-title">
         <h2 id="person-empty-title">Nessuna dichiarazione pubblicata per questa persona</h2>

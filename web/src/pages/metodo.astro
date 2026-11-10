@@ -10,37 +10,41 @@ import UtilityDocument from "../components/UtilityDocument.astro";
 >
   <UtilityDocument
     eyebrow="Metodo"
-    title="Come controlliamo una dichiarazione."
-    lede="Prima di pubblicare, verifichiamo chi ha parlato, che cosa ha detto e quali fonti sostengono la valutazione. Se mancano prove sufficienti, non pubblichiamo una conclusione."
+    title="Ogni parola ha una fonte. Ogni verifica, un percorso."
+    lede="Prima di pubblicare una dichiarazione controlliamo le parole originali, la persona a cui sono attribuite, i diritti di utilizzo e le prove. Se manca un requisito necessario, il record resta fuori dall'archivio pubblico."
   >
-    <nav slot="rail" aria-label="Principi del metodo">
-      <h2>In questa pagina</h2>
-      <a href="#pubblicazione">Prima di pubblicare</a>
-      <a href="#provenienza">La fonte originale</a>
-      <a href="#incertezza">Quando non ci sono prove</a>
-      <a href="#correzioni">Come correggiamo</a>
+    <nav slot="rail" aria-label="Indice del metodo">
+      <h2>In questo documento</h2>
+      <a href="#dichiarazioni">Che cosa raccogliamo</a>
+      <a href="#pubblicazione">Controlli di pubblicazione</a>
+      <a href="#provenienza">Fonte e parole originali</a>
+      <a href="#esiti">Esiti delle verifiche</a>
+      <a href="#incertezza">Incertezza e limiti</a>
+      <a href="#correzioni">Correzioni e repliche</a>
+      <a href="#automazione">Automazione</a>
     </nav>
-    <nav class="dp-utility-index" aria-label="Sezioni del metodo">
-      <a href="#pubblicazione">Pubblicazione</a>
-      <a href="#provenienza">Provenienza</a>
-      <a href="#formulazioni">Citazioni e parafrasi</a>
-      <a href="#attribuzione">Chi ha parlato</a>
-      <a href="#ruolo-fonti">Fonti e prove</a>
-      <a href="#esiti">Valutazioni</a>
-      <a href="#incertezza">Cosa non sappiamo</a>
-      <a href="#correzioni">Correzioni</a>
-      <a href="#tracce">Cosa cambia nel tempo</a>
-      <a href="#automazione">Uso dell'AI</a>
-      <a href="#dati">Dati pubblici</a>
-    </nav>
-
+    <div class="dp-method-overview" aria-label="Il percorso di una dichiarazione">
+      <h2>Il percorso che puoi ricostruire</h2>
+      <ol>
+        <li><strong>Dichiarazione</strong><span>Le parole e chi le ha pronunciate.</span></li>
+        <li><strong>Fonte</strong><span>Il documento o il momento originale.</span></li>
+        <li><strong>Verifica</strong><span>Le prove, l'esito e i suoi limiti.</span></li>
+        <li><strong>Storia</strong><span>Revisioni, correzioni e repliche.</span></li>
+      </ol>
+    </div>
+    <section id="dichiarazioni" class="dp-utility-section">
+      <h2>Quali dichiarazioni raccogliamo</h2>
+      <p>Il progetto documenta dichiarazioni pubbliche attribuibili a persone note o pronunciate in un contesto di interesse pubblico: interviste, discorsi, articoli, video, post e documenti. Raccogliere il materiale per la ricerca non significa pubblicarlo.</p>
+      <p>Una posizione o un'opinione può essere documentata senza trasformarla in una domanda di vero o falso. Quando una frase contiene un'affermazione fattuale verificabile, distinguiamo ciò che è stato detto dalla nostra valutazione delle prove.</p>
+    </section>
     <section id="pubblicazione" class="dp-utility-section">
-      <h2>Pubblicazione</h2>
-      <p>Raccogliere un video, un articolo o un discorso non basta per inserirlo nell'archivio. Controlliamo separatamente la fonte, l'attribuzione, le prove e la revisione. La pubblicazione automatica avviene soltanto dopo controlli indipendenti; se manca una prova necessaria, la dichiarazione resta sospesa.</p>
+      <h2>Cosa serve per pubblicare</h2>
+      <p>Ogni scheda pubblicabile richiede la fonte verificata, le parole fedeli all'originale, l'attribuzione, i diritti di citazione e i controlli di privacy. La pubblicazione automatica avviene soltanto dopo controlli indipendenti. Una verifica ordinaria richiede anche una revisione editoriale autenticata. Nei casi realmente incerti sono necessarie due revisioni indipendenti e un ulteriore controllo distinto.</p>
+      <p>La ricerca, la generazione automatica di un testo e il reperimento di una prova non rendono di per sé pubblico un record. I record che non superano i controlli necessari restano sospesi.</p>
     </section>
     <section id="provenienza" class="dp-utility-section">
       <h2>Provenienza e fonte originale</h2>
-      <p>Ogni dichiarazione pubblicata deve rimandare alla fonte da cui provengono le parole. Quando è disponibile, indichiamo anche il punto esatto di un video o il passaggio di un testo, così puoi controllare il contesto.</p>
+      <p>Ogni dichiarazione pubblicata deve rimandare alla fonte da cui provengono le parole. Quando disponibile, indichiamo il momento esatto di un video o il passaggio di un testo, così puoi ricostruire il contesto. Per una fonte scritta non inventiamo un timestamp.</p>
     </section>
     <section id="formulazioni" class="dp-utility-section">
       <h2>Originale, parafrasi, traduzione e discorso riportato</h2>
@@ -58,15 +62,16 @@ import UtilityDocument from "../components/UtilityDocument.astro";
     </section>
     <section id="esiti" class="dp-utility-section">
       <h2>Esiti senza punteggi sulle persone</h2>
-      <p>Una valutazione riguarda una singola affermazione e le prove disponibili. Non assegniamo punteggi di affidabilità a persone, partiti o organizzazioni.</p>
+      <p>Una valutazione riguarda una singola affermazione fattuale e le prove disponibili. Un esito può indicare che le prove sostengono, contraddicono o rendono imprecisa l'affermazione; può anche restare <strong>non risolto</strong>. Le opinioni non ricevono un verdetto fattuale solo per essere presenti nell'archivio.</p>
+      <p>Non assegniamo punteggi di affidabilità a persone, partiti o organizzazioni.</p>
     </section>
     <section id="incertezza" class="dp-utility-section">
       <h2>Incertezza</h2>
-      <p>Se mancano fonti, prove, diritti di utilizzo o una revisione necessaria, la dichiarazione può non comparire nell'archivio. I controlli sono requisiti precisi, non una percentuale di “fiducia”. Non riempiamo le lacune con conclusioni inventate.</p>
+      <p>Se mancano fonti, prove, diritti di utilizzo o una revisione necessaria, la dichiarazione non compare nell'archivio pubblico. Quando una verifica già pubblicabile non permette una conclusione sicura, il limite delle prove deve essere spiegato. L'incertezza descrive ciò che le fonti non consentono di stabilire: è un limite documentato, non una percentuale di «fiducia». Non riempiamo le lacune con conclusioni inventate.</p>
     </section>
     <section id="correzioni" class="dp-utility-section">
       <h2>Correzioni, repliche e versioni</h2>
-      <p>Quando una scheda pubblicata viene corretta, la modifica deve essere visibile e collegata alla versione precedente. Anche le repliche approvate trovano spazio nella cronologia. Consulta il <a href="/correzioni/">registro delle correzioni</a>.</p>
+      <p>Una contestazione o una richiesta di rettifica relativa a un record pubblico attiva i controlli di sospensione previsti dal sistema. Le modifiche materiali devono restare visibili e collegate alle versioni precedenti; anche le repliche approvate possono comparire nella cronologia. Consulta il <a href="/correzioni/">registro pubblico delle correzioni</a> o le <a href="/segnalazioni/">istruzioni per una segnalazione</a>.</p>
     </section>
     <section id="tracce" class="dp-utility-section">
       <h2>Relazioni nel tempo</h2>
@@ -74,7 +79,7 @@ import UtilityDocument from "../components/UtilityDocument.astro";
     </section>
     <section id="automazione" class="dp-utility-section">
       <h2>AI e automazione</h2>
-      <p>L'intelligenza artificiale può aiutare a cercare e organizzare il materiale. Il solo risultato di un modello non autorizza la pubblicazione: servono verifiche indipendenti della fonte, dell'attribuzione, dei diritti e delle prove. Le pagine visibili mostrano soltanto record che hanno superato i controlli.</p>
+      <p>L'intelligenza artificiale può aiutare a cercare, organizzare e analizzare il materiale. Il risultato di un modello non è una fonte e non autorizza la pubblicazione: sono necessari controlli verificabili su provenienza, attribuzione, diritti, privacy e prove. Solo la proiezione approvata è destinata alle pagine pubbliche.</p>
     </section>
     <section id="dati" class="dp-utility-section">
       <h2>Dati e codice</h2>

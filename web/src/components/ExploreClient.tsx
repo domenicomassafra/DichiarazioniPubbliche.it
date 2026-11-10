@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { assessmentLabel, assessmentTone, formatDate } from "../lib/format";
 import SegmentedControl from "./design/SegmentedControl";
+import { ExploreFilterSheet, ExploreSidebar } from "./ExploreFilterControls";
 import {
   SEARCH_QUERY_MAX_CHARS,
   buildExploreSearch,
@@ -21,6 +22,12 @@ interface Props {
 
 type AssessmentFilter = PublicDossier["finding"]["assessment"] | "ALL";
 type SortOrder = "relevance" | "recent" | "old";
+const PAGE_SIZE = 24;
+
+function pageFromUrl(): number {
+  const value = new URLSearchParams(window.location.search).get("pagina");
+  return value && /^[1-9]\d{0,5}$/.test(value) ? Number(value) : 1;
+}
 
 const kindLabels: Record<SearchRecordKind, string> = {
   finding: "Dichiarazione",
@@ -36,10 +43,7 @@ interface ActiveExploreFilter {
   label: string;
 }
 
-/** Only labels from the validated public index may name Person/Topic chips.
- * An opaque URL ID not present in the current public projection is never
- * echoed into visible text, accessibility labels or analytics.
- */
+/** Never echo unknown Person/Topic IDs into labels. */
 export function getExploreActiveFilters(
   index: PublicSearchIndex | null,
   state: ExploreUrlState,
@@ -63,7 +67,7 @@ export function getExploreActiveFilters(
   return active;
 }
 
-/** Person includes public Findings/Statements; Topic needs reviewed Finding membership. */
+/** Count only public, reviewed facet membership. */
 export function getExploreFacetCounts(
   index: PublicSearchIndex,
   query: string,
@@ -90,7 +94,7 @@ export function getExploreFacetCounts(
   return {people,topics};
 }
 
-/** URL state keeps user-entered bytes; only the actual search normalizes input. */
+/** Preserve the typed query in URL state. */
 export function buildExploreUrlKeepingQuery(state: ExploreUrlState): string {
   const params = new URLSearchParams(buildExploreSearch(state));
   if (state.query.length > 0) params.set("q", state.query);
@@ -119,7 +123,7 @@ function nearbyPublicWord(typed: string, candidate: string, limit: number): bool
   return previous[candidate.length] <= limit;
 }
 
-/** Suggestion terms come only from the current verified public index. */
+/** Suggestions use only verified public terms. */
 export function getExploreSuggestions(
   index: PublicSearchIndex,
   rawQuery: string,
@@ -137,9 +141,7 @@ export function getExploreSuggestions(
   const personId = filters.personId ?? "ALL";
   const topicId = filters.topicId ?? "ALL";
   for (const record of index.records) {
-    // Apply the exact public membership filters used by searchPublicIndex
-    // BEFORE collecting fuzzy vocabulary or spending its candidate budget.
-    // Unrelated public records cannot crowd out an eligible suggestion.
+    // Filter before spending the candidate budget.
     if ((kind !== "ALL" && record.kind !== kind) ||
         (assessment !== "ALL" && record.assessment !== assessment) ||
         (personId !== "ALL" &&
@@ -201,9 +203,12 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
   const [index, setIndex] = useState<PublicSearchIndex | null>(null);
   const [indexState, setIndexState] = useState<"loading" | "ready" | "unavailable">("loading");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [page, setPage] = useState(1);
   const searchInput = useRef<HTMLInputElement>(null);
   const filterDialog = useRef<HTMLDialogElement>(null);
   const filterButton = useRef<HTMLButtonElement>(null);
+  const resultsHeading = useRef<HTMLHeadingElement>(null);
+  const pageFocusRequested = useRef(false);
 
   useEffect(() => {
     function restoreFromUrl() {
@@ -214,6 +219,7 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
       setSort(restored.sort);
       setPersonId(restored.personId ?? "ALL");
       setTopicId(restored.topicId ?? "ALL");
+      setPage(pageFromUrl());
     }
     restoreFromUrl();
     window.addEventListener("popstate", restoreFromUrl);
@@ -246,10 +252,12 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
 
   useEffect(() => {
     if (!urlReady) return;
-    const search = buildExploreUrlKeepingQuery({ query, assessment, kind, sort, personId, topicId });
+    const params = new URLSearchParams(buildExploreUrlKeepingQuery({ query, assessment, kind, sort, personId, topicId }));
+    if (page > 1) params.set("pagina", String(page));
+    const search = params.toString();
     const next = `${window.location.pathname}${search ? `?${search}` : ""}`;
     window.history.replaceState(null, "", next);
-  }, [assessment, kind, query, sort, personId, topicId, urlReady]);
+  }, [assessment, kind, query, sort, personId, topicId, page, urlReady]);
 
   const response = useMemo(() => {
     if (!index) return null;
@@ -263,7 +271,7 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
     [assessment, index, kind, personId, query, response, topicId],
   );
 
-  // Facet choices are exclusively from this verified public projection.
+  // Facets come from the verified projection.
   const people = useMemo(
     () => index?.records.filter((record) => record.kind === "person") ?? [],
     [index],
@@ -298,6 +306,25 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
     query, assessment, kind, sort, personId, topicId,
   }), [index, query, assessment, kind, sort, personId, topicId]);
   const records = response?.records ?? [];
+  const pageCount = Math.max(1, Math.ceil(records.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const visibleRecords = records.length > PAGE_SIZE
+    ? records.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+    : records;
+
+  useEffect(() => {
+    if (indexState === "ready" && page > pageCount) setPage(pageCount);
+  }, [indexState, page, pageCount]);
+
+  useEffect(() => {
+    if (!pageFocusRequested.current) return;
+    pageFocusRequested.current = false;
+    resultsHeading.current?.focus({ preventScroll: true });
+    resultsHeading.current?.scrollIntoView({
+      block: "start",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
+  }, [currentPage]);
 
   function closeFilters() {
     filterDialog.current?.close();
@@ -316,6 +343,7 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
     personId?: string;
     topicId?: string;
   }) {
+    setPage(1);
     const nextAssessment = overrides.assessment ?? assessment;
     const nextKind = overrides.kind ?? kind;
     const nextSort = overrides.sort ?? sort;
@@ -347,6 +375,27 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
     setSort(next);
   }
 
+  function changePerson(next: string) {
+    pushFilterState({ personId: next });
+    setPersonId(next);
+  }
+
+  function changeTopic(next: string) {
+    pushFilterState({ topicId: next });
+    setTopicId(next);
+  }
+
+  function changePage(next: number) {
+    const target = Math.max(1, Math.min(pageCount, next));
+    if (target === currentPage) return;
+    const params = new URLSearchParams(buildExploreUrlKeepingQuery({ query, assessment, kind, sort, personId, topicId }));
+    if (target > 1) params.set("pagina", String(target));
+    const search = params.toString();
+    window.history.pushState(null, "", `${window.location.pathname}${search ? `?${search}` : ""}`);
+    pageFocusRequested.current = true;
+    setPage(target);
+  }
+
   function resetFilters() {
     pushFilterState({ assessment: "ALL", kind: "ALL", sort: "relevance", personId: "ALL", topicId: "ALL" });
     setAssessment("ALL");
@@ -370,10 +419,16 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
         setTopicId("ALL");
         break;
     }
-    // A chip disappears on selection; keep keyboard users in the filtering
-    // context rather than letting focus fall back to the document body.
+    // The removed chip must not strand keyboard focus.
     filterButton.current?.focus();
   }
+
+  const filterProps = {
+    kind, assessment, sort, personId, topicId, people, topics, facetCounts,
+    onKind: changeKind, onAssessment: changeAssessment, onSort: changeSort,
+    onPerson: changePerson, onTopic: changeTopic,
+    onReset: resetFilters, onClose: closeFilters,
+  };
 
   if (indexState === "unavailable") {
     return (
@@ -387,7 +442,7 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
   return (
     <section className="explore-client" aria-label="Risultati di ricerca">
       <label className="dp-visually-hidden" htmlFor="client-search">Cerca nel record pubblico</label>
-      <div className="search-field" style={{ margin: "0 0 22px" }}>
+      <div className="search-field explore-search-bar">
         <span className="search-icon" aria-hidden="true">⌕</span>
         <input
           ref={searchInput}
@@ -396,13 +451,15 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
           value={query}
           maxLength={SEARCH_QUERY_MAX_CHARS}
           aria-describedby="search-limit"
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => { setPage(1); setQuery(event.target.value); }}
           placeholder="Cerca dichiarazioni, persone, temi, contenuti…"
         />
         {query && <button type="button" aria-label="Pulisci ricerca" onClick={() => {
+          setPage(1);
           setQuery("");
           searchInput.current?.focus();
         }}>×</button>}
+        <span className="explore-search-hint" aria-hidden="true">Ricerca istantanea</span>
       </div>
       <p id="search-limit" className="dp-visually-hidden">Massimo {SEARCH_QUERY_MAX_CHARS} caratteri. La ricerca resta nel browser.</p>
 
@@ -421,6 +478,7 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
                   data-search-suggestion={true}
                   style={{ overflowWrap: "anywhere", whiteSpace: "normal" }}
                   onClick={() => {
+                    setPage(1);
                     setQuery(suggestion);
                     searchInput.current?.focus();
                   }}
@@ -470,6 +528,14 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
               ? "Ricerca non eseguita"
               : `${records.length} ${records.length === 1 ? "risultato" : "risultati"}`}
         </span>
+        <label className="explore-inline-sort">
+          Ordina per
+          <select className="sort-select" aria-label="Ordina i risultati" value={sort} onChange={(event) => changeSort(event.target.value as SortOrder)}>
+            <option value="relevance">Pertinenza</option>
+            <option value="recent">Più recenti</option>
+            <option value="old">Meno recenti</option>
+          </select>
+        </label>
       </div>
 
       {indexState === "ready" && activeFilters.length > 0 && (
@@ -493,7 +559,7 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
           </ul>
           <button className="quiet-button" type="button" onClick={() => {
             resetFilters();
-            // The active-filter group unmounts when the last chip is removed.
+            // The last chip unmounts this group.
             filterButton.current?.focus();
           }}>
             Azzera tutti i filtri
@@ -507,94 +573,23 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
         className="dp-overlay dp-sheet"
         aria-labelledby="filter-title"
         onClose={() => {
-          // A queued close event can arrive after the sheet was reopened.
-          // Reflect the dialog's actual state rather than hiding a live sheet
-          // from assistive technology by reverting aria-expanded to false.
+          // Reflect native state if a stale close event arrives.
           const isOpen = filterDialog.current?.open ?? false;
           setFiltersOpen(isOpen);
           if (!isOpen) filterButton.current?.focus();
         }}
       >
-        <div className="dp-overlay__header">
-          <h2 id="filter-title" className="dp-overlay__title">Filtri di ricerca</h2>
-          <button className="quiet-button" type="button" aria-label="Chiudi filtri" onClick={closeFilters}>×</button>
-        </div>
-        <div className="dp-overlay__body filter-controls">
-          <label>
-            Tipo
-            <select className="filter-button" value={kind} onChange={(event) => changeKind(event.target.value as SearchRecordKind | "ALL")}>
-              <option value="ALL">Tutti i tipi</option>
-              <option value="finding">Dichiarazioni</option>
-              <option value="statement">Dichiarazioni originali</option>
-              <option value="person">Persone</option>
-              <option value="topic">Temi</option>
-              <option value="content">Contenuti</option>
-            </select>
-          </label>
-          <label>
-            Esito
-            <select className="filter-button" value={assessment} onChange={(event) => changeAssessment(event.target.value as AssessmentFilter)}>
-              <option value="ALL">Tutti gli esiti</option>
-              <option value="SUPPORTED">Supportata</option>
-              <option value="FACTUALLY_FALSE">Conclusione fattualmente falsa</option>
-              <option value="OUTDATED_DATA">Dato superato</option>
-              <option value="INSUFFICIENT_EVIDENCE">Prove insufficienti</option>
-              <option value="UNRESOLVED">Non risolta</option>
-            </select>
-          </label>
-          <label>
-            Persona
-            <select
-              className="filter-button"
-              aria-label="Filtra dichiarazioni per persona pubblica"
-              value={personId}
-              onChange={(event) => {
-                const next = event.target.value;
-                pushFilterState({ personId: next });
-                setPersonId(next);
-              }}
-            >
-              <option value="ALL">Tutte le persone pubbliche</option>
-              {people.map((person) => <option key={person.id} value={person.id}>
-                {person.title} · {facetCounts.people[person.id] ?? 0} dichiarazioni
-              </option>)}
-            </select>
-          </label>
-          <label>
-            Tema
-            <select
-              className="filter-button"
-              aria-label="Filtra dichiarazioni per tema pubblico"
-              value={topicId}
-              onChange={(event) => {
-                const next = event.target.value;
-                pushFilterState({ topicId: next });
-                setTopicId(next);
-              }}
-            >
-              <option value="ALL">Tutti i temi pubblici</option>
-              {topics.map((topic) => <option key={topic.id} value={topic.id}>
-                {topic.title} · {facetCounts.topics[topic.id] ?? 0} dichiarazioni
-              </option>)}
-            </select>
-          </label>
-          <label>
-            Ordine
-            <select className="sort-select" value={sort} onChange={(event) => changeSort(event.target.value as SortOrder)}>
-              <option value="relevance">Più pertinenti</option>
-              <option value="recent">Più recenti</option>
-              <option value="old">Meno recenti</option>
-            </select>
-          </label>
-        </div>
-        <div className="dp-overlay__footer">
-          <button className="quiet-button" type="button" onClick={resetFilters}>Azzera filtri</button>
-          <button className="primary-button" type="button" onClick={closeFilters}>Mostra risultati</button>
-        </div>
+        <ExploreFilterSheet {...filterProps} />
       </dialog>
 
+      <div className="explore-results-layout">
+        <ExploreSidebar {...filterProps} kindCounts={kindCounts} activeFilterCount={activeFilterCount} />
+        <div className="explore-results-content">
       {indexState === "ready" && response?.status === "OK" && (
         <>
+          <h2 className="dp-visually-hidden" ref={resultsHeading} tabIndex={-1}>
+            Risultati di ricerca, pagina {currentPage} di {pageCount}
+          </h2>
           {records.length > 0 && (
             <p className="claim-row-meta">
               La data mostrata indica la pubblicazione del risultato o della fonte, quando
@@ -603,9 +598,9 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
             </p>
           )}
           <div className="claim-list explore-list">
-            {records.map((record, position) => (
+            {visibleRecords.map((record, position) => (
               <article className="claim-row explore-row" key={`${record.kind}:${record.id}`}>
-                <div className="explore-rank" aria-hidden="true">{String(position + 1).padStart(2, "0")}</div>
+                <div className="explore-rank" aria-hidden="true">{String((currentPage - 1) * PAGE_SIZE + position + 1).padStart(2, "0")}</div>
                 <div className="claim-row-date">{record.published_at ? formatDate(record.published_at) : kindLabels[record.kind]}</div>
                 <div className="claim-row-main">
                   <div className="eyebrow">{kindLabels[record.kind]}</div>
@@ -638,6 +633,13 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
               </article>
             ))}
           </div>
+          {records.length > PAGE_SIZE && (
+            <nav className="explore-pagination" aria-label="Pagine dei risultati">
+              <button type="button" disabled={currentPage === 1} onClick={() => changePage(currentPage - 1)}>← Precedenti</button>
+              <span aria-live="polite" aria-atomic="true">Pagina {currentPage} di {pageCount}</span>
+              <button type="button" disabled={currentPage === pageCount} onClick={() => changePage(currentPage + 1)}>Successivi →</button>
+            </nav>
+          )}
           {records.length === 0 && (
             <div className="dp-state" data-state="empty" aria-live="polite">
               <h2 className="dp-state__title">
@@ -658,6 +660,8 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
           )}
         </>
       )}
+        </div>
+      </div>
     </section>
   );
 }

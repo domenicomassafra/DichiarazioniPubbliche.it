@@ -3,23 +3,25 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import UtilityDocument from "../components/UtilityDocument.astro";
 ---
 
-<BaseLayout title="Progetto" description="Missione, governance e repository di Dichiarazioni Pubbliche." canonicalPath="/progetto/">
-  <UtilityDocument eyebrow="Il progetto" title="Per capire cosa è stato detto, partiamo dalle fonti." lede="Dichiarazioni Pubbliche è un progetto per rendere più semplici da trovare e controllare le dichiarazioni pubbliche. Ogni scheda deve poter essere ricondotta alle fonti e alle eventuali correzioni.">
-    <section class="dp-utility-section">
-      <h2>Missione</h2>
-      <p>Vogliamo rendere più facile leggere le parole nel loro contesto e distinguere ciò che è stato detto da ciò che è stato verificato. Non assegniamo voti alle persone e non suggeriamo scelte politiche.</p>
+<BaseLayout title="Il progetto" description="Scopo, limiti, metodo e codice aperto di Dichiarazioni Pubbliche." canonicalPath="/progetto/">
+  <UtilityDocument eyebrow="Il progetto" title="Una memoria pubblica che puoi verificare." lede="Dichiarazioni Pubbliche raccoglie ciò che viene detto in pubblico e conserva il percorso per tornare alle fonti. Il progetto serve a leggere meglio le parole nel loro contesto, senza dare voti a chi le pronuncia.">
+    <section class="dp-utility-section" id="missione">
+      <h2>Che cosa vogliamo rendere possibile</h2>
+      <p>Cercare una dichiarazione, leggere le parole attribuite alla persona, aprire la fonte originale, distinguere il fatto dall'opinione e seguire correzioni o chiarimenti successivi. Le schede pubbliche sono documenti consultabili, non profili di affidabilità.</p>
     </section>
-    <section class="dp-utility-section">
-      <h2>Codice aperto</h2>
-      <p>Il codice del sito è consultabile su <a href="https://github.com/domenicomassafra/DichiarazioniPubbliche.it" rel="noreferrer">GitHub ↗</a> ed è distribuito con licenza Apache-2.0. I contenuti delle fonti esterne conservano i propri diritti.</p>
+    <section class="dp-utility-section" id="responsabilita">
+      <h2>Come vengono prese le decisioni</h2>
+      <p>La ricerca e parte delle analisi possono essere automatizzate. L'ingresso nell'archivio pubblico dipende da controlli espliciti su fonte, attribuzione, esattezza delle citazioni, diritti, privacy e revisione. Le contestazioni e le correzioni richiedono un nuovo esame della versione interessata.</p>
+      <p>Il <a href="/metodo/">Metodo</a> descrive questi passaggi e indica come trattiamo le prove insufficienti.</p>
     </section>
-    <section class="dp-utility-section">
-      <h2>Trasparenza</h2>
-      <p>Stiamo preparando l'archivio. Le dichiarazioni appariranno soltanto dopo i controlli necessari. Per verificare come distinguiamo fonti, valutazioni e incertezze, puoi leggere il <a href="/metodo/">Metodo</a>. Informazioni operative o contatti non ancora confermati non vengono presentati come definitivi.</p>
+    <section class="dp-utility-section" id="codice">
+      <h2>Il codice è consultabile</h2>
+      <p>Il <a href="https://github.com/domenicomassafra/DichiarazioniPubbliche.it" rel="noreferrer">repository su GitHub</a> rende ispezionabili il software e i contratti tecnici del progetto. Il codice è distribuito con licenza Apache-2.0; questa licenza non attribuisce diritti automatici sui video, testi o documenti citati, che restano soggetti alle condizioni delle rispettive fonti.</p>
     </section>
-    <section class="dp-utility-section">
-      <h2>Metodo e limiti</h2>
-      <p><a href="/metodo/">Come lavoriamo</a> spiega i controlli prima di una pubblicazione. La pagina <a href="/correzioni/">Correzioni</a> mostra le modifiche a schede già pubblicate, quando presenti.</p>
+    <section class="dp-utility-section" id="trasparenza">
+      <h2>Trasparenza, anche sui limiti</h2>
+      <p>L'archivio mostra soltanto i record che hanno superato i controlli previsti. La ricerca privata e i materiali sospesi non diventano consultabili perché sono stati raccolti. Informazioni su finanziamenti, responsabilità o contatti non confermate non vengono presentate come dichiarazioni ufficiali.</p>
+      <p>Puoi consultare il <a href="/correzioni/">registro delle correzioni pubbliche</a> e le <a href="/dati/">risorse dati disponibili</a>. Per problemi relativi a una scheda consulta le <a href="/segnalazioni/">istruzioni sulle rettifiche</a>.</p>
     </section>
   </UtilityDocument>
 </BaseLayout>

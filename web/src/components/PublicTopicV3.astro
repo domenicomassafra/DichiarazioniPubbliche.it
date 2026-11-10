@@ -8,6 +8,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import { canonicalJson } from "../lib/searchIndex.ts";
 import { publicIdSlug, formatDate } from "../lib/format.ts";
 import { createHash } from "node:crypto";
+import "../styles/detail-349.css";
 
 interface Props {
   collection: unknown;
@@ -162,15 +163,15 @@ const sources = [...new Map(rows.map((row) => [row.statement.source.content_id,
 ---
 
 <BaseLayout title={String(topic.canonical_name)} description={String(topic.scope_text || "Dossier pubblico di dichiarazioni originali sul tema approvato.")} canonicalPath={route}>
-  <header class="record-header topic-header" data-public-topic-v3={expectedCollectionSha256}>
+  <header class="record-header topic-header detail-349-hero" data-public-topic-v3={expectedCollectionSha256}>
     <div class="shell">
-      <div class="eyebrow">Tema · dossier di parole originali</div>
+      <nav class="detail-349-crumbs" aria-label="Percorso"><a href="/esplora/">Archivio pubblico</a><span aria-hidden="true">/</span><span>Tema · parole originali</span></nav>
       <h1 class="page-title">{topic.canonical_name}</h1>
       {topic.scope_text && <p class="lede">{topic.scope_text}</p>}
       <p>Questo archivio raccoglie soltanto opinioni pubbliche attribuite e collegate al Tema tramite appartenenze revisionate. Non classifica persone né attribuisce un verdetto al Tema.</p>
     </div>
   </header>
-  <div class="shell topic-v3-dossier page-section-tight" data-topic-v3-root>
+  <div class="shell topic-v3-dossier page-section-tight detail-349-read detail-349-topic-v3" data-topic-v3-root>
     <section aria-labelledby="topic-v3-statements" class="topic-v3-primary">
       <h2 id="topic-v3-statements" class="section-title section-title-sm">Opinioni pubblicate sul Tema</h2>
       <p>{collection.coverage_note}</p>

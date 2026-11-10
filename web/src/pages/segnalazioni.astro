@@ -3,27 +3,32 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import UtilityDocument from "../components/UtilityDocument.astro";
 ---
 
-<BaseLayout title="Invia una segnalazione" description="Modulo privato per richiedere la rettifica di una scheda pubblica." canonicalPath="/segnalazioni/" privatePage>
-  <UtilityDocument eyebrow="Segnalazioni" title="Richiedi una rettifica" lede="Le segnalazioni sono private. Una richiesta confermata sospende la versione interessata in HOLD; la richiesta resta tracciata fino alla decisione.">
+<BaseLayout title="Invia una segnalazione" description="Percorso di richiesta di rettifica per una dichiarazione pubblicata." canonicalPath="/segnalazioni/" privatePage>
+  <UtilityDocument eyebrow="Segnalazioni" title="Hai trovato qualcosa da correggere?" lede="Una citazione inesatta, un errore nella verifica o un problema di privacy meritano una segnalazione chiara. Il modulo richiede un account verificato; l'invio è confermato soltanto se ricevi un codice di richiesta.">
     <section class="dp-utility-section" aria-labelledby="richiedi-rettifica">
-      <h2 id="richiedi-rettifica">Rettifica o problema di privacy</h2>
-      <p>Indica l'ID della verifica pubblicata oppure apri questo modulo dal dettaglio della dichiarazione. Devi aver effettuato l'accesso con un account verificato. Non includere dati personali non necessari.</p>
-      <form id="correction-request" method="post" action="/intake/corrections">
+      <h2 id="richiedi-rettifica">Richiedi una rettifica</h2>
+      <p>Apri la pagina dal dettaglio della dichiarazione, se disponibile, oppure indica l'identificativo della verifica pubblicata. Spiega che cosa va corretto e aggiungi il riferimento alla fonte pertinente.</p>
+      <form id="correction-request" class="dp-utility-form" method="post" action="/intake/corrections">
         <div id="correction-finding-group">
-          <p><label for="correction-finding">ID della verifica pubblicata</label></p>
-          <p><input id="correction-finding" name="finding_id" type="text" maxlength="128" required autocomplete="off" placeholder="finding:…" /></p>
+          <label for="correction-finding">Identificativo della verifica pubblicata</label>
+          <span class="dp-utility-field-hint" id="finding-hint">Si trova nella scheda della dichiarazione interessata.</span>
+          <input id="correction-finding" name="finding_id" type="text" maxlength="128" required autocomplete="off" aria-describedby="finding-hint" />
         </div>
         <p id="correction-statement-target" hidden></p>
         <input id="correction-statement" name="statement_id" type="hidden" />
         <input id="correction-version" name="version_id" type="hidden" />
-        <p><label for="correction-reason">Cosa va corretto e perché?</label></p>
-        <p><textarea id="correction-reason" name="reason" minlength="3" maxlength="4000" required rows="5" placeholder="Indica la fonte originale o il problema di privacy."></textarea></p>
-        <p><button type="submit">Invia la segnalazione</button></p>
+        <div>
+          <label for="correction-reason">Che cosa va corretto e perché?</label>
+          <span class="dp-utility-field-hint" id="reason-hint">Indica il passaggio contestato e, se possibile, la fonte. Evita dati personali non necessari.</span>
+          <textarea id="correction-reason" name="reason" minlength="3" maxlength="4000" required rows="5" aria-describedby="reason-hint"></textarea>
+        </div>
+        <div><button type="submit">Invia richiesta di rettifica</button></div>
         <p id="correction-result" role="status" aria-live="polite"></p>
       </form>
-      <p>Se il modulo non è disponibile, scrivi a <a href="mailto:privacy@dichiarazionipubbliche.it">privacy@dichiarazionipubbliche.it</a> indicando l'URL della scheda e il problema. L'email non produce un ID di richiesta né sospende automaticamente la scheda.</p>
-      <p><a href="/accedi/">Accedi al sito</a> · <a href="/privacy/">Informazioni privacy</a></p>
-      <p>Conserva l'ID ricevuto: permette di consultare online lo stato della richiesta. In caso di errore, l'invio non è confermato e puoi riprovare.</p>
+      <noscript><p>Per il modulo online è necessario JavaScript. In alternativa, puoi scrivere all'indirizzo privacy indicato qui sotto.</p></noscript>
+      <p>Se il servizio di invio non è disponibile, scrivi a <a href="mailto:privacy@dichiarazionipubbliche.it">privacy@dichiarazionipubbliche.it</a> indicando l'URL della scheda e il problema. L'email non produce un codice di richiesta né sospende automaticamente la scheda.</p>
+      <p><a href="/accedi/">Accedi al sito</a> · <a href="/privacy/">Informazioni privacy</a> · <a href="/metodo/#correzioni">Come funzionano le correzioni</a></p>
+      <p>Conserva il codice restituito dal modulo per consultare lo stato della richiesta. Se non ricevi la conferma, l'invio non è verificato.</p>
     </section>
   </UtilityDocument>
 </BaseLayout>
@@ -86,7 +91,7 @@ import UtilityDocument from "../components/UtilityDocument.astro";
       });
       const data = await response.json();
       if (response.status === 202 && typeof data.request_id === "string") {
-        result.replaceChildren(document.createTextNode("Rettifica in HOLD. ID: " + data.request_id + " — "));
+        result.replaceChildren(document.createTextNode("Richiesta ricevuta. Codice: " + data.request_id + " — "));
         const link = document.createElement("a");
         link.href = "/intake/corrections/" + encodeURIComponent(data.request_id);
         link.textContent = "Verifica lo stato";

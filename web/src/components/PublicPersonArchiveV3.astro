@@ -4,6 +4,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import AtlasRoute from "./AtlasRoute.astro";
 import { readApprovedPersonV3 } from "../lib/publicPersonV3.ts";
 import { formatDate } from "../lib/format.ts";
+import "../styles/detail-349.css";
 
 interface Props {
   collection: unknown;
@@ -19,13 +20,13 @@ const ordered = [...person.statements].sort((a, b) =>
 ---
 
 <BaseLayout title={person.display_name} description={`Archivio pubblico delle dichiarazioni di ${person.display_name}.`} canonicalPath={person.route}>
-  <header class="record-header person-header" data-public-person-v3={expectedCollectionSha256}>
+  <header class="record-header person-header detail-349-hero" data-public-person-v3={expectedCollectionSha256}>
     <div class="shell record-header-grid">
       <div>
-        <div class="eyebrow">Persona · archivio di parole originali</div>
+        <nav class="detail-349-crumbs" aria-label="Percorso"><a href="/esplora/">Archivio pubblico</a><span aria-hidden="true">/</span><span>Persona</span></nav>
         <h1 class="page-title">{person.display_name}</h1>
         {person.disambiguator && <p>{person.disambiguator}</p>}
-        <p class="person-boundary">Sono mostrate solo dichiarazioni attribuite e approvate nel record pubblico. Nessun punteggio o giudizio sulla persona.</p>
+        <p class="person-boundary">Sono mostrate solo dichiarazioni attribuite e approvate nel record pubblico: non esiste un punteggio della persona e nessun esito è attribuito a chi parla.</p>
         <AtlasRoute steps={[
           { label: "Parole originali nel tempo", href: "#person-v3-timeline" },
           { label: "Fonte e locator per frase", href: "#person-v3-timeline" },
@@ -34,7 +35,7 @@ const ordered = [...person.statements].sort((a, b) =>
       </div>
     </div>
   </header>
-  <section class="shell page-section-tight person-chronology" aria-labelledby="person-v3-timeline">
+  <section class="shell page-section-tight person-chronology detail-349-read detail-349-person-v3" aria-labelledby="person-v3-timeline">
     <h2 id="person-v3-timeline" class="section-title section-title-sm">Dichiarazioni nel tempo</h2>
     {ordered.length === 0 ? (
       <div class="dp-utility-empty" data-public-person-empty>

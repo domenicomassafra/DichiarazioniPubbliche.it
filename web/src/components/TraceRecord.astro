@@ -3,6 +3,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import AtlasRoute from "./AtlasRoute.astro";
 import Assessment from "./Assessment.astro";
 import { dossierSlug, formatDate } from "../lib/format";
+import "../styles/detail-349.css";
 import { describeReviewedRelation } from "../lib/relation-description";
 import type { PublicTrace } from "../lib/relations";
 import type { PublicDossier } from "../lib/types";
@@ -19,9 +20,9 @@ const relationTitle = `${relation.label}: dichiarazioni nel tempo`;
 ---
 
 <BaseLayout title={relationTitle} description={relation.copy} canonicalPath={`/tracce/${trace.slug}/`}>
-  <header class="record-header dp-trace-header">
+  <header class="record-header dp-trace-header detail-349-hero">
     <div class="shell">
-      <div class="eyebrow">Traccia nel tempo</div>
+      <nav class="detail-349-crumbs" aria-label="Percorso"><a href="/esplora/">Archivio pubblico</a><span aria-hidden="true">/</span><span>Traccia nel tempo</span></nav>
       <h1 class="page-title">{relationTitle}</h1>
       <p class="lede">{relation.copy}</p>
       <AtlasRoute steps={[
@@ -32,7 +33,7 @@ const relationTitle = `${relation.label}: dichiarazioni nel tempo`;
     </div>
   </header>
 
-  <div class="shell page-section-tight">
+  <div class="shell page-section-tight detail-349-read detail-349-trace">
     <div class="dp-trace-relation-note">
       <strong>{relation.label}</strong>
       <span>{trace.participants.length} dichiarazioni pubbliche · gli esiti restano propri di ciascuna dichiarazione. La relazione descrive testi e tempo senza attribuire intenzioni.</span>
@@ -65,8 +66,16 @@ const relationTitle = `${relation.label}: dichiarazioni nel tempo`;
               <p class="dp-trace-event__paraphrase">{dossier.claim}</p>
               <p class="dp-trace-event__source">{dossier.speaker.name} · <a href={dossier.source.url} rel="noreferrer">{dossier.source.title} ↗</a></p>
               <div class="dp-trace-event__finding">
-                <Assessment code={dossier.finding.assessment} />
-                <p>{dossier.finding.rationale}</p>
+                {dossier.finding.publication_status === "RETRACTED" ? (
+                  <p>Valutazione ritirata. L'esito della versione precedente non è attuale.</p>
+                ) : (
+                  <>
+                    <Assessment code={dossier.finding.assessment} />
+                    {dossier.finding.publication_status === "DISPUTED" && <p>Valutazione contestata.</p>}
+                    {dossier.finding.publication_status === "CORRECTED" && <p>Valutazione corretta; la versione aggiornata è consultabile nella dichiarazione.</p>}
+                    <p>{dossier.finding.rationale}</p>
+                  </>
+                )}
               </div>
               <div class="dp-trace-event__paths">
                 <a href={`/dichiarazioni/${dossierSlug(dossier)}/`}>Apri la dichiarazione →</a>

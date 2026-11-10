@@ -2,6 +2,7 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import ExploreClient from "../components/ExploreClient";
 import AtlasRoute from "../components/AtlasRoute.astro";
+import "../styles/explore-349.css";
 import { loadPublicProjection } from "../lib/projection";
 import { loadPublishedPeopleV3 } from "../lib/publishedPeopleV3";
 
@@ -15,11 +16,10 @@ const hasPublicRecords = projection.dossiers.length > 0 || (projection.topics?.l
   description="Cerca dichiarazioni, persone, temi e contenuti nel record pubblico di Dichiarazioni Pubbliche."
   canonicalPath="/esplora/"
 >
-  <section class="shell explore-header">
-    <div class="section-number" aria-hidden="true">01</div>
+  <section class="shell explore-header explore-editorial-intro">
     <div>
-      <p class="eyebrow">Archivio pubblico</p>
-      <h1 class="page-title">Esplora l'archivio</h1>
+      <p class="eyebrow">Archivio pubblico / Esplora</p>
+      <h1 class="page-title">Cerca. Confronta. <em>Verifica.</em></h1>
       <p class="lede">
         {hasPublicRecords
           ? "Qui puoi cercare dichiarazioni, persone, argomenti e fonti già approvati per la pubblicazione."
