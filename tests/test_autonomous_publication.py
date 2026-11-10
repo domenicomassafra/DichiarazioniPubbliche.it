@@ -143,9 +143,16 @@ class AutonomousPublicationTests(unittest.TestCase):
             "RIGHTS_PRIVACY",
             evaluate_autonomous_publication(without_rights, *reviews(without_rights)).reason_codes,
         )
+        self.assertEqual(
+            evaluate_autonomous_publication(item, reviews(item)[0], None).disposition,
+            "PUBLISH",
+        )
+        uncertain = replace(item, uncertainty_reasons=("ATTRIBUTION_AMBIGUITY",))
         self.assertIn(
             "INDEPENDENT_REVIEW",
-            evaluate_autonomous_publication(item, reviews(item)[0], None).reason_codes,
+            evaluate_autonomous_publication(
+                uncertain, reviews(uncertain)[0], None,
+            ).reason_codes,
         )
 
     def test_single_source_of_speaker_claim_is_insufficient(self):

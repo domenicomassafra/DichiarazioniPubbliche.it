@@ -137,14 +137,31 @@ class PersistedReviewReaderTests(unittest.TestCase):
     def test_two_actual_adapter_receipts_rehydrate_current_packet(self):
         self.assertIsNone(self.packet())
         self.review("agent:primary", PRIMARY)
-        self.assertIsNone(self.packet())
+        one_editorial = self.packet()
+        self.assertIsNotNone(one_editorial)
+        self.assertIsNone(one_editorial.independent)
         self.review("agent:independent", SECOND)
         proof = self.packet()
         self.assertIsNotNone(proof)
         self.assertEqual(proof.candidate, self.current)
         self.assertEqual(proof.primary.model_id, PRIMARY)
-        self.assertEqual(proof.independent.model_id, SECOND)
+        self.assertIsNone(proof.independent)
         self.assertEqual(self.calls, [PRIMARY, SECOND])
+
+    def test_configured_one_editor_suffices_for_certain_record_only(self):
+        one = JournalReviewPacketReader(
+            journal=self.journal,
+            read_current_candidate=self.read_candidate,
+            verify_provider_execution=self.provider_witness,
+            primary_agent_id="agent:primary", primary_model_id=PRIMARY,
+        )
+        self.assertIsNone(one(self.current.record_id, self.current.record_version_id))
+        self.review("agent:primary", PRIMARY)
+        packet = one(self.current.record_id, self.current.record_version_id)
+        self.assertIsNotNone(packet)
+        self.assertIsNone(packet.independent)
+        self.current = replace(self.current, uncertainty_reasons=("SOURCE_DISPUTE",))
+        self.assertIsNone(one(self.current.record_id, self.current.record_version_id))
 
     def test_authority_reviews_bind_the_exact_semantic_payload_and_provider_calls(self):
         decision = {

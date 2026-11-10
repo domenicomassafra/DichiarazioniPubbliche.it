@@ -38,16 +38,64 @@ class PublicStatementAuthorityTests(AuthorityFixture):
                review_event_id="review:rights", verify=lambda _row: False)
         self.assertEqual(len(self.db.authority_events), 0)
 
-    def test_publication_requires_three_distinct_authorized_model_dispositions(self):
+    def test_ready_publication_requires_only_one_editorial_disposition(self):
+        self.append_all()
+        publication = next(
+            row for row in self.db.authority_events
+            if row["authority_kind"] == "PUBLICATION"
+        )
+        self.assertEqual(
+            [row["role"] for row in publication["review_evidence"]["release_dispositions"]],
+            ["PRIMARY_REVIEW"],
+        )
+
+    def test_normal_publication_rejects_extra_unverified_dispositions(self):
         repeated = [
             disposition("PRIMARY_REVIEW", self.packet.primary),
-            disposition("INDEPENDENT_REVIEW", self.packet.independent),
+            disposition("INDEPENDENT_REVIEW", self.third),
             disposition("THIRD_AUDIT", self.packet.primary),
         ]
-        with self.assertRaisesRegex(ValueError, "DP468_RELEASE_DISPOSITIONS_NOT_INDEPENDENT"):
+        with self.assertRaisesRegex(ValueError, "DP468_RELEASE_DISPOSITIONS_REQUIRED"):
             self.append_all(release_dispositions=repeated)
         self.assertFalse(any(
             row["authority_kind"] == "PUBLICATION" for row in self.db.authority_events
+        ))
+
+    def test_publication_cannot_authenticate_locally_forged_model_receipts(self):
+        from dp468_authority_support import disposition
+        self.store.model_execution_reader = None
+        with self.assertRaisesRegex(
+            ValueError, "DP468_PUBLICATION_REVIEW_NOT_AUTHENTICATED",
+        ):
+            self.append(
+                "PUBLICATION", {
+                    "automatic_authorization_ref": "owner-decision:49-2026-11-10",
+                    "release_pin_id": "release-pin:dp468:test",
+                    "readback_required": True,
+                },
+                review_packet=self.packet,
+                evidence={
+                    "evidence_refs": ["evidence:editorial"],
+                    "release_dispositions": [
+                        disposition("PRIMARY_REVIEW", self.packet.primary),
+                    ],
+                },
+                review_event_id="review:publication",
+            )
+        self.assertEqual(self.db.authority_events, [])
+
+    def test_lost_provider_witness_revokes_existing_publication_attestation(self):
+        self.append_all()
+        self.assertIsNotNone(self.store.current_attestations(
+            binding=self.binding, review_packet=self.packet,
+            authority_review_packets=self.authority_packets,
+            verify_authority_review=self.verify, now=self.now,
+        ))
+        self.provider.gateway_events.clear()
+        self.assertIsNone(self.store.current_attestations(
+            binding=self.binding, review_packet=self.packet,
+            authority_review_packets=self.authority_packets,
+            verify_authority_review=self.verify, now=self.now,
         ))
 
     def test_expiry_and_current_source_binding_are_rechecked_on_every_read(self):

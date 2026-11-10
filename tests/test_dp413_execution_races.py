@@ -39,7 +39,10 @@ class ExecutionRaceTests(unittest.TestCase):
     def test_nightly_audit_skips_third_provider_when_challenge_opens_in_preflight(self):
         ops, capture, challenge, first, second, surface, _ = harness()
         self.assertEqual(ops.evaluate_and_apply("finding:413", now=NOW).disposition, "PUBLISH")
-        packet = AutonomousProofPacket(capture.item, first.last_review, second.last_review)
+        packet = AutonomousProofPacket(
+            capture.item, first.last_review,
+            second.review(capture.item, first.last_review.evidence_sha256),
+        )
         witnesses = []
 
         def challenge_during_witness(review):

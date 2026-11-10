@@ -122,14 +122,16 @@ class AutonomousOperations:
 
     def __init__(
         self, *, capture: CaptureAuthority, challenge: ChallengeAuthority,
-        first: ReviewAuthority, second: ReviewAuthority,
-        public_surface: PublicSurface, journal: EventJournal,
+        first: ReviewAuthority, public_surface: PublicSurface, journal: EventJournal,
+        second: ReviewAuthority | None = None,
         verify_provider_execution: Callable[[AgentReview], bool] | None = None,
+        uncertainty_auditor: ReviewAuthority | None = None,
     ) -> None:
         self.capture = capture
         self.challenge = challenge
         self.first = first
         self.second = second
+        self.uncertainty_auditor = uncertainty_auditor
         self.surface = public_surface
         self.journal = journal
         # Require independent, authenticated gateway execution evidence.
@@ -199,25 +201,60 @@ class AutonomousOperations:
             preliminary = evaluate_autonomous_publication(item, None, None)
         except (ValueError, TypeError, AttributeError):
             return self._hold(record_id, binding, ("EVIDENCE_INVALID",), at)
-        failures = tuple(code for code in preliminary.reason_codes if code != "INDEPENDENT_REVIEW")
+        failures = tuple(code for code in preliminary.reason_codes if code not in {
+            "EDITORIAL_REVIEW", "INDEPENDENT_REVIEW", "THIRD_AUDIT",
+        })
         if failures:
             return self._hold(record_id, binding, failures, at)
-        # Reject impossible model pairs before consuming provider quota.
-        if not independent_review_models_authorized(
-            getattr(self.first, "model_id", None), getattr(self.second, "model_id", None),
-        ):
-            return self._hold(record_id, binding, ("INDEPENDENT_REVIEW",), at)
+        uncertain = bool(item.uncertainty_reasons)
+        if not review_model_authorized(getattr(self.first, "model_id", None)):
+            return self._hold(record_id, binding, ("EDITORIAL_REVIEW",), at)
+        if uncertain:
+            # 2+1 is reserved for recorded uncertainties. All three configured
+            # identities and authenticated completions must exist before POST.
+            if not independent_review_models_authorized(
+                getattr(self.first, "model_id", None),
+                getattr(self.second, "model_id", None),
+            ):
+                return self._hold(record_id, binding, ("INDEPENDENT_REVIEW",), at)
+            third_issuer = self.uncertainty_auditor
+            model_ids = {self.first.model_id, self.second.model_id}
+            actor_ids = {self.first.agent_id.casefold(), self.second.agent_id.casefold()}
+            if (third_issuer is None
+                    or not review_model_authorized(getattr(third_issuer, "model_id", None))
+                    or third_issuer.model_id in model_ids
+                    or not isinstance(getattr(third_issuer, "agent_id", None), str)
+                    or third_issuer.agent_id.casefold() in actor_ids):
+                return self._hold(record_id, binding, ("THIRD_AUDIT",), at)
         try:
             first = self.first.review(item, binding)
-            second = self.second.review(item, binding)
         except Exception:
-            return self._hold(record_id, binding, ("INDEPENDENT_REVIEW_UNAVAILABLE",), at)
-        if not (_review_identity_ok(first, self.first) and _review_identity_ok(second, self.second)):
+            return self._hold(record_id, binding, ("EDITORIAL_REVIEW_UNAVAILABLE",), at)
+        if not _review_identity_ok(first, self.first):
             return self._hold(record_id, binding, ("REVIEW_EXECUTION_IDENTITY_MISMATCH",), at)
-        if not original_executions_witnessed(first, second, self.verify_provider_execution):
+        if not review_execution_witnessed(first, self.verify_provider_execution):
             return self._hold(record_id, binding, ("REVIEW_EXECUTION_UNVERIFIED",), at)
+        second = third = None
+        if uncertain:
+            try:
+                second = self.second.review(item, binding)
+                third = self.uncertainty_auditor.review(item, binding)
+            except Exception:
+                return self._hold(record_id, binding, ("ESCALATED_REVIEW_UNAVAILABLE",), at)
+            if not (_review_identity_ok(second, self.second)
+                    and _review_identity_ok(third, self.uncertainty_auditor)):
+                return self._hold(record_id, binding, ("REVIEW_EXECUTION_IDENTITY_MISMATCH",), at)
+            if (not original_executions_witnessed(first, second, self.verify_provider_execution)
+                    or not review_execution_witnessed(third, self.verify_provider_execution)
+                    or len({
+                        first.provider_request_id, second.provider_request_id,
+                        third.provider_request_id,
+                    }) != 3):
+                return self._hold(record_id, binding, ("REVIEW_EXECUTION_UNVERIFIED",), at)
         try:
-            decision: AutonomousDecision = evaluate_autonomous_publication(item, first, second)
+            decision: AutonomousDecision = evaluate_autonomous_publication(
+                item, first, second, third=third,
+            )
         except (ValueError, TypeError, AttributeError):
             return self._hold(record_id, binding, ("INDEPENDENT_REVIEW_INVALID",), at)
         if not decision.publishable:
@@ -226,7 +263,7 @@ class AutonomousOperations:
             return self._hold(record_id, binding, ("STALE_ORIGINAL",), at)
         if self._read_challenge(record_id) is not False:
             return self._hold(record_id, binding, ("CHALLENGE_HOLD",), at)
-        packet = AutonomousProofPacket(item, first, second)
+        packet = AutonomousProofPacket(item, first, second, third)
         self._record(record_id, "INTENT", binding, (), at)
         try:
             self.surface.publish(packet)
@@ -239,7 +276,13 @@ class AutonomousOperations:
             return self._hold(record_id, binding, ("STALE_ORIGINAL",), at)
         if self._read_challenge(record_id) is not False:
             return self._hold(record_id, binding, ("CHALLENGE_HOLD",), at)
-        if not original_executions_witnessed(first, second, self.verify_provider_execution):
+        if (not review_execution_witnessed(first, self.verify_provider_execution)
+                or (uncertain and not (
+                    original_executions_witnessed(
+                        first, second, self.verify_provider_execution,
+                    )
+                    and review_execution_witnessed(third, self.verify_provider_execution)
+                ))):
             return self._hold(record_id, binding, ("REVIEW_EXECUTION_UNVERIFIED",), at)
         try:
             return self._record(record_id, "PUBLISH", binding, (), at)
@@ -251,83 +294,9 @@ class AutonomousOperations:
         self, packet: AutonomousProofPacket, auditor: ReviewAuthority,
         *, now: datetime,
     ) -> RunReceipt:
-        at = _now(now)
-        if not isinstance(packet, AutonomousProofPacket) or not isinstance(
-            packet.candidate, AutonomousCandidate
-        ):
-            raise ValueError("AUTONOMOUS_AUDIT_PACKET_INVALID")
-        item = packet.candidate
-        record_id = item.record_id
-        binding = candidate_fingerprint(item)
-        try:
-            prior = evaluate_autonomous_publication(item, packet.primary, packet.independent)
-            visible = self.surface.current_evidence_sha256(record_id)
-        except Exception:
-            prior = None
-            visible = None
-        unchanged = (
-            prior is not None and prior.publishable
-            and _review_identity_ok(packet.primary, self.first)
-            and _review_identity_ok(packet.independent, self.second)
-            and _matches(self._read_capture(record_id), binding)
-            and self._read_challenge(record_id) is False
-            and visible == binding
-        )
-        model_ids = {
-            review.model_id for review in (packet.primary, packet.independent)
-            if isinstance(review, AgentReview) and review_model_authorized(review.model_id)
-        }
-        actor_ids = {
-            review.agent_id.strip().casefold() for review in (packet.primary, packet.independent)
-            if isinstance(review, AgentReview) and isinstance(review.agent_id, str)
-        }
-        independent = (
-            isinstance(getattr(auditor, "model_id", None), str)
-            and isinstance(getattr(auditor, "agent_id", None), str)
-            and bool(auditor.model_id.strip()) and bool(auditor.agent_id.strip())
-            and review_model_authorized(auditor.model_id)
-            and auditor.model_id not in model_ids
-            and auditor.agent_id.strip().casefold() not in actor_ids
-        )
-        original_witnesses_ok = (
-            unchanged and independent
-            and original_executions_witnessed(
-                packet.primary, packet.independent, self.verify_provider_execution,
-            )
-            and _matches(self._read_capture(record_id), binding)
-            and self._read_challenge(record_id) is False
-            and self._publicly_current(record_id, binding)
-        )
-        third = None
-        if original_witnesses_ok:
-            try:
-                third = auditor.review(item, binding)
-            except Exception:
-                pass
-        if (
-            not original_witnesses_ok
-            or not _review_identity_ok(third, auditor)
-            or not original_executions_witnessed(
-                packet.primary, packet.independent, self.verify_provider_execution,
-            )
-            or not review_execution_witnessed(third, self.verify_provider_execution)
-            or len({
-                packet.primary.provider_request_id,
-                packet.independent.provider_request_id,
-                third.provider_request_id,
-            }) != 3
-            or third.evidence_sha256 != binding
-            or third.checked_stages != CHECKS
-            or third.accepted is not True
-            or not _matches(self._read_capture(record_id), binding)
-            or self._read_challenge(record_id) is not False
-            or not self._publicly_current(record_id, binding)
-        ):
-            self._withdraw(record_id)
-            return self._record(
-                record_id, "AUDIT_HOLD", binding, ("THIRD_REVIEW_FAILED",), at
-            )
-        return self._record(record_id, "AUDIT_PASS", binding, (), at)
+        """Revalidate the installed sample through the nightly audit authority."""
+        from .autonomous_nightly_execution import audit_and_apply
+        return audit_and_apply(self, packet, auditor, now=now)
 
     def _publicly_current(self, record_id: str, binding: str) -> bool:
         try:

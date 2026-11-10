@@ -52,13 +52,13 @@ _CHALLENGE_TRANSITIONS = {
 
 @dataclass(frozen=True)
 class AuthorityReviewPacket:
-    """Two independent model receipts for one exact private authority decision."""
+    """One editorial receipt; second is required on recorded uncertainty."""
 
     candidate: AutonomousCandidate
     authority_kind: str
     decision: Mapping[str, object]
     primary: AgentReview
-    independent: AgentReview
+    independent: AgentReview | None = None
 
 
 def _canonical(value: object) -> str:
@@ -212,17 +212,33 @@ def _review_evidence(
     evidence_sha256 = _review_candidate_fingerprint(packet.candidate, binding)
 
     primary, independent = packet.primary, packet.independent
-    if not isinstance(primary, AgentReview) or not isinstance(independent, AgentReview):
+    if not isinstance(primary, AgentReview):
         raise ValueError("DP468_MODEL_REVIEW_PACKET_REQUIRED")
-    primary_agent = _text(primary.agent_id, "DP468_MODEL_REVIEW_RECEIPT_INVALID")
-    independent_agent = _text(independent.agent_id, "DP468_MODEL_REVIEW_RECEIPT_INVALID")
-    if (not independent_review_models_authorized(
+    if packet.candidate.uncertainty_reasons and not (
+        isinstance(independent, AgentReview) and isinstance(packet.third, AgentReview)
+    ):
+        raise ValueError("DP468_MODEL_REVIEW_PACKET_REQUIRED")
+    if not packet.candidate.uncertainty_reasons and packet.third is not None:
+        raise ValueError("DP468_MODEL_REVIEW_PACKET_REQUIRED")
+    if independent is not None and (not isinstance(independent, AgentReview)
+            or not independent_review_models_authorized(
             primary.model_id, independent.model_id,
-        ) or primary_agent.casefold() == independent_agent.casefold()):
+        ) or _text(primary.agent_id, "DP468_MODEL_REVIEW_RECEIPT_INVALID").casefold()
+            == _text(independent.agent_id, "DP468_MODEL_REVIEW_RECEIPT_INVALID").casefold()):
         raise ValueError("DP468_MODEL_REVIEW_NOT_INDEPENDENT")
 
     receipts: list[dict[str, object]] = []
-    for review in (primary, independent):
+    reviewer_set = (
+        (primary,) + ((independent,) if independent is not None else ())
+        + ((packet.third,) if packet.third is not None else ())
+    )
+    if len({
+        review.agent_id.casefold() for review in reviewer_set
+    }) != len(reviewer_set) or len({
+        review.model_id for review in reviewer_set
+    }) != len(reviewer_set):
+        raise ValueError("DP468_MODEL_REVIEW_NOT_INDEPENDENT")
+    for review in reviewer_set:
         _text(review.agent_id, "DP468_MODEL_REVIEW_RECEIPT_INVALID")
         if (
             review.evidence_sha256 != evidence_sha256
@@ -260,12 +276,14 @@ def _review_evidence(
             "checked_stages": list(CHECKS),
             "evidence_sha256": evidence_sha256,
         })
-    if receipts[0]["provider_request_id"] == receipts[1]["provider_request_id"]:
+    if len({receipt["provider_request_id"] for receipt in receipts}) != len(receipts):
         raise ValueError("DP468_MODEL_REVIEW_NOT_INDEPENDENT")
     return {
         "evidence_sha256": evidence_sha256,
         "primary": receipts[0],
-        "independent": receipts[1],
+        "independent": receipts[1] if len(receipts) >= 2 else None,
+        "third": receipts[2] if len(receipts) == 3 else None,
+        "requires_escalation": bool(packet.candidate.uncertainty_reasons),
     }
 
 
@@ -305,17 +323,19 @@ def _authority_review_evidence(
         packet.candidate, authority_kind, parsed_decision,
     )
     primary, independent = packet.primary, packet.independent
-    if not isinstance(primary, AgentReview) or not isinstance(independent, AgentReview):
+    if not isinstance(primary, AgentReview):
         raise ValueError("DP468_AUTHORITY_REVIEW_PACKET_REQUIRED")
-    primary_agent = _text(primary.agent_id, "DP468_MODEL_REVIEW_RECEIPT_INVALID")
-    independent_agent = _text(independent.agent_id, "DP468_MODEL_REVIEW_RECEIPT_INVALID")
-    if (not independent_review_models_authorized(
+    if packet.candidate.uncertainty_reasons and not isinstance(independent, AgentReview):
+        raise ValueError("DP468_AUTHORITY_REVIEW_PACKET_REQUIRED")
+    if independent is not None and (not isinstance(independent, AgentReview)
+            or not independent_review_models_authorized(
             primary.model_id, independent.model_id,
-        ) or primary_agent.casefold() == independent_agent.casefold()):
+        ) or _text(primary.agent_id, "DP468_MODEL_REVIEW_RECEIPT_INVALID").casefold()
+            == _text(independent.agent_id, "DP468_MODEL_REVIEW_RECEIPT_INVALID").casefold()):
         raise ValueError("DP468_MODEL_REVIEW_NOT_INDEPENDENT")
 
     receipts: list[dict[str, object]] = []
-    for review in (primary, independent):
+    for review in (primary,) + ((independent,) if independent is not None else ()):
         _text(review.agent_id, "DP468_MODEL_REVIEW_RECEIPT_INVALID")
         if (
             review.evidence_sha256 != evidence_sha256
@@ -353,7 +373,7 @@ def _authority_review_evidence(
             "checked_stages": list(AUTHORITY_CHECKS),
             "evidence_sha256": evidence_sha256,
         })
-    if receipts[0]["provider_request_id"] == receipts[1]["provider_request_id"]:
+    if len(receipts) == 2 and receipts[0]["provider_request_id"] == receipts[1]["provider_request_id"]:
         raise ValueError("DP468_MODEL_REVIEW_NOT_INDEPENDENT")
     return {
         "evidence_sha256": evidence_sha256,
@@ -362,7 +382,8 @@ def _authority_review_evidence(
         "decision_sha256": _digest(parsed_decision),
         "decision": parsed_decision,
         "primary": receipts[0],
-        "independent": receipts[1],
+        "independent": receipts[1] if len(receipts) == 2 else None,
+        "requires_escalation": bool(packet.candidate.uncertainty_reasons),
     }
 
 
@@ -370,73 +391,9 @@ def _validate_release_dispositions(
     review_evidence: Mapping[str, object],
     model_evidence: Mapping[str, object],
 ) -> None:
-    if (not isinstance(review_evidence, Mapping)
-            or not isinstance(review_evidence.get("evidence_refs"), list)
-            or not review_evidence["evidence_refs"]
-            or any(type(ref) is not str or not ref.strip()
-                   for ref in review_evidence["evidence_refs"])):
-        raise ValueError("DP468_EXTERNAL_AUTHORITY_REVIEW_REQUIRED")
-    dispositions = review_evidence.get("release_dispositions")
-    if not isinstance(dispositions, list) or len(dispositions) != 3:
-        raise ValueError("DP468_THREE_RELEASE_DISPOSITIONS_REQUIRED")
-    expected_roles = ("PRIMARY_REVIEW", "INDEPENDENT_REVIEW", "THIRD_AUDIT")
-    expected_receipts = (
-        model_evidence.get("primary"), model_evidence.get("independent"),
-    )
-    agents: set[str] = set()
-    models: set[str] = set()
-    requests: set[str] = set()
-    evidence_sha256 = model_evidence.get("evidence_sha256")
-    for index, disposition in enumerate(dispositions):
-        if not isinstance(disposition, Mapping):
-            raise ValueError("DP468_RELEASE_DISPOSITION_INVALID")
-        required = {
-            "role", "agent_id", "model_id", "provider", "provider_request_id",
-            "returned_model", "prompt_sha256", "usage", "accepted",
-            "checked_stages", "evidence_sha256",
-        }
-        if set(disposition) != required or disposition.get("role") != expected_roles[index]:
-            raise ValueError("DP468_RELEASE_DISPOSITION_INVALID")
-        agent = _text(disposition.get("agent_id"), "DP468_RELEASE_DISPOSITION_INVALID")
-        model = _text(disposition.get("model_id"), "DP468_RELEASE_DISPOSITION_INVALID")
-        request = _text(
-            disposition.get("provider_request_id"), "DP468_RELEASE_DISPOSITION_INVALID",
-        )
-        if (
-            disposition.get("provider") != "omniroute"
-            or not matches_returned_model(model, disposition.get("returned_model"))
-            or disposition.get("accepted") is not True
-            or disposition.get("checked_stages") != list(CHECKS)
-            or disposition.get("evidence_sha256") != evidence_sha256
-            or not review_model_authorized(model)
-        ):
-            raise ValueError("DP468_RELEASE_DISPOSITION_INVALID")
-        _sha(disposition.get("prompt_sha256"), "DP468_RELEASE_DISPOSITION_INVALID")
-        usage = disposition.get("usage")
-        if (not isinstance(usage, Mapping)
-                or type(usage.get("prompt_tokens")) is not int
-                or usage["prompt_tokens"] <= 0
-                or type(usage.get("completion_tokens")) is not int
-                or usage["completion_tokens"] < 0):
-            raise ValueError("DP468_RELEASE_DISPOSITION_USAGE_INVALID")
-        if agent.casefold() in {value.casefold() for value in agents}:
-            raise ValueError("DP468_RELEASE_DISPOSITIONS_NOT_INDEPENDENT")
-        if model in models or request in requests:
-            raise ValueError("DP468_RELEASE_DISPOSITIONS_NOT_INDEPENDENT")
-        agents.add(agent)
-        models.add(model)
-        requests.add(request)
-        if index < 2:
-            expected = expected_receipts[index]
-            if not isinstance(expected, Mapping) or any(
-                disposition.get(key) != expected.get(key)
-                for key in (
-                    "agent_id", "model_id", "provider", "provider_request_id",
-                    "returned_model", "prompt_sha256", "usage", "accepted",
-                    "checked_stages", "evidence_sha256",
-                )
-            ):
-                raise ValueError("DP468_RELEASE_DISPOSITION_REVIEW_MISMATCH")
+    """Validate the owner-49 release roles against authenticated model receipts."""
+    from .public_statement_release_dispositions import validate_release_dispositions
+    validate_release_dispositions(review_evidence, model_evidence)
 
 
 def _model_review_event_id(kind: str, evidence: Mapping[str, object]) -> str:

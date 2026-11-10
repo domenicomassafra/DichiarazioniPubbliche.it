@@ -1,6 +1,7 @@
 """Exact-model subscription policy tests for DP-413 operations."""
 
 import unittest
+from dataclasses import replace
 
 from dichiarazioni_pubbliche.autonomous_operations import AutonomousOperations
 from dichiarazioni_pubbliche.autonomous_publication import (
@@ -9,6 +10,7 @@ from dichiarazioni_pubbliche.autonomous_publication import (
 from tests.test_autonomous_operations import (
     Capture, Challenge, Journal, NOW, Reviewer, Surface, fixture_execution_witness,
 )
+from tests.test_autonomous_publication import candidate
 
 class SubscriptionOperationsTests(unittest.TestCase):
 
@@ -19,7 +21,8 @@ class SubscriptionOperationsTests(unittest.TestCase):
         second = Reviewer("agent:independent", approved)
         surface, journal = Surface(), Journal()
         ops = AutonomousOperations(
-            capture=Capture(), challenge=Challenge(), first=first, second=second,
+            capture=Capture(replace(candidate(), uncertainty_reasons=("CONFLICT",))),
+            challenge=Challenge(), first=first, second=second,
             public_surface=surface, journal=journal,
         )
         result = ops.evaluate_and_apply("finding:413", now=NOW)
@@ -49,7 +52,7 @@ class SubscriptionOperationsTests(unittest.TestCase):
         )
         receipt = ops.evaluate_and_apply("finding:413", now=NOW)
         self.assertEqual(receipt.disposition, "PUBLISH")
-        self.assertEqual((first.calls, second.calls), (1, 1))
+        self.assertEqual((first.calls, second.calls), (1, 0))
         fingerprint = candidate_fingerprint(capture.item)
         packet = AutonomousProofPacket(
             capture.item,
@@ -80,7 +83,8 @@ class SubscriptionOperationsTests(unittest.TestCase):
                 first = Reviewer("agent:first", "antigravity/gemini-3.8-flash-tiered")
                 second = Reviewer("agent:independent", unapproved)
                 ops = AutonomousOperations(
-                    capture=Capture(), challenge=Challenge(), first=first, second=second,
+                    capture=Capture(replace(candidate(), uncertainty_reasons=("CONFLICT",))),
+                    challenge=Challenge(), first=first, second=second,
                     public_surface=Surface(), journal=Journal(),
                 )
                 result = ops.evaluate_and_apply("finding:413", now=NOW)
@@ -117,7 +121,8 @@ class SubscriptionOperationsTests(unittest.TestCase):
         first = Reviewer("agent:first", "antigravity/gemini-3.8-flash-tiered")
         second = Reviewer("agent:independent", "local:unapproved-model")
         ops = AutonomousOperations(
-            capture=Capture(), challenge=Challenge(), first=first, second=second,
+            capture=Capture(replace(candidate(), uncertainty_reasons=("CONFLICT",))),
+            challenge=Challenge(), first=first, second=second,
             public_surface=Surface(), journal=Journal(),
         )
         result = ops.evaluate_and_apply("finding:413", now=NOW)

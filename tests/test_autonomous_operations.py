@@ -129,16 +129,18 @@ class AutonomousOperationsTests(unittest.TestCase):
         receipt = operations.evaluate_and_apply("finding:413", now=NOW)
         self.assertEqual(receipt.disposition, "HOLD")
         self.assertEqual(receipt.reason_codes, ("REVIEW_EXECUTION_UNVERIFIED",))
-        self.assertEqual((first.calls, second.calls), (1, 1))
+        self.assertEqual((first.calls, second.calls), (1, 0))
         self.assertFalse(surface.visible)
 
     def test_locally_forged_or_reused_execution_ids_cannot_publish(self):
         for forged in ("missing_receipt", "duplicated_receipt", "witness_rejected"):
             with self.subTest(forged=forged):
-                ops, _, _, first, second, surface, _ = harness()
-                old = second.review
+                ops, capture, _, first, second, surface, _ = harness()
+                capture.item = replace(candidate(), uncertainty_reasons=("REVIEW_AMBIGUITY",))
+                ops.uncertainty_auditor = Reviewer("agent:nightly", "other:model-3")
+                old = first.review if forged == "missing_receipt" else second.review
                 if forged == "missing_receipt":
-                    second.review = lambda *args: replace(old(*args), provider_request_id=None)
+                    first.review = lambda *args: replace(old(*args), provider_request_id=None)
                 elif forged == "duplicated_receipt":
                     second.review = lambda *args: replace(
                         old(*args), provider_request_id="fixture:agent:one:1",
@@ -155,7 +157,7 @@ class AutonomousOperationsTests(unittest.TestCase):
         outcome = ops.evaluate_and_apply("finding:413", now=NOW)
         self.assertEqual(outcome.disposition, "PUBLISH")
         self.assertEqual(surface.current_evidence_sha256("finding:413"), outcome.evidence_sha256)
-        self.assertEqual((first.calls, second.calls), (1, 1))
+        self.assertEqual((first.calls, second.calls), (1, 0))
         self.assertEqual([row.disposition for row in journal.events], ["INTENT", "PUBLISH"])
 
     def test_correction_withdraws_before_any_models_execute(self):
@@ -170,13 +172,13 @@ class AutonomousOperationsTests(unittest.TestCase):
         self.assertIsNone(surface.current_evidence_sha256("finding:413"))
 
     def test_after_updated_rights_stale_old_decision_is_replaced_autonomously(self):
-        ops, capture, _, _, second, surface, journal = harness()
+        ops, capture, _, first, _, surface, journal = harness()
         ops.evaluate_and_apply("finding:413", now=NOW)
-        second.accepted = False
+        first.accepted = False
         self.assertEqual(ops.evaluate_and_apply("finding:413", now=NOW).disposition, "HOLD")
         self.assertIsNone(surface.current_evidence_sha256("finding:413"))
         capture.item = replace(capture.item, rights_cleared=True, snapshot_sha256="b" * 64)
-        second.accepted = True
+        first.accepted = True
         reopened = ops.evaluate_and_apply("finding:413", now=NOW)
         self.assertEqual(reopened.disposition, "PUBLISH")
         self.assertEqual(surface.current_evidence_sha256("finding:413"), reopened.evidence_sha256)
@@ -269,7 +271,10 @@ class AutonomousOperationsTests(unittest.TestCase):
             with self.subTest(invalid=invalid):
                 ops, capture, _, first, second, surface, _ = harness()
                 self.assertEqual(ops.evaluate_and_apply("finding:413", now=NOW).disposition, "PUBLISH")
-                packet = AutonomousProofPacket(capture.item, first.last_review, second.last_review)
+                packet = AutonomousProofPacket(
+                    capture.item, first.last_review,
+                    second.review(capture.item, candidate_fingerprint(capture.item)),
+                )
                 if invalid == "reused_request_id":
                     packet = replace(packet, independent=replace(
                         packet.independent,

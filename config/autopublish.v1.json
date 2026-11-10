@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "contract": "dp-autopublish-owner49-2026-11-10",
+  "owner_decision": {
+    "number": 49,
+    "date": "2026-11-10",
+    "source": "/Users/domenico/.dstack/docs/evidence/orchestrator-owner-decisions.md",
+    "source_section": "Risposte numerate della seconda intervista",
+    "issue": "https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/413"
+  },
+  "publish_automatically": true,
+  "per_record_owner_go": false,
+  "required_checks": [
+    "PROVENANCE",
+    "WORDING",
+    "SPEAKER",
+    "PERSON",
+    "RIGHTS_PRIVACY",
+    "CURRENT_CHALLENGE",
+    "EDITORIAL_REVIEW",
+    "AUTHENTIC_EXECUTION",
+    "PUBLIC_READBACK"
+  ],
+  "normal_review": "ONE_EDITORIAL",
+  "uncertain_review": "TWO_INDEPENDENT_PLUS_THIRD_AUDIT",
+  "uncertainty_disposition": "HOLD_UNTIL_ESCALATED_REVIEW",
+  "withdraw_on_revoke_or_correction": true,
+  "missing_authority_disposition": "HOLD"
+}

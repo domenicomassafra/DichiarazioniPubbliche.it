@@ -15,9 +15,11 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from urllib.parse import urlsplit
 
+from dichiarazioni_pubbliche.autopublish_contract import load_autopublish_contract
 
-# v5 invalidates receipts issued under the unavailable 3.7/3.1 model set.
-POLICY_VERSION = "autonomous-publication-413-v5"
+
+# Owner decision 49 (2026-11-10) invalidates old universal 2+1 receipts.
+POLICY_VERSION = "autonomous-publication-413-v6-owner49"
 # Current owner-authorized Pro connections expose three distinct Gemini models,
 # through existing Antigravity/OmniRoute subscriptions; no direct/paid fallback.
 # Model strings alone never prove actual upstream identity, subscription scope,
@@ -92,6 +94,9 @@ class AutonomousCandidate:
     rights_citation_url: str
     source_length_chars: int
     contains_editorial_judgment: bool
+    # Persisted uncertainty is bound to this candidate's versioned fingerprint.
+    # It cannot be cleared by a model output; source authority must resolve it.
+    uncertainty_reasons: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -112,7 +117,8 @@ class AgentReview:
 class AutonomousProofPacket:
     candidate: AutonomousCandidate
     primary: AgentReview
-    independent: AgentReview
+    independent: AgentReview | None = None
+    third: AgentReview | None = None
 
 
 @dataclass(frozen=True)
@@ -266,19 +272,38 @@ def _rights_privacy(candidate: AutonomousCandidate) -> bool:
         return False
 
 
+def _review_accepts(review: AgentReview | None, binding: str) -> bool:
+    return (
+        isinstance(review, AgentReview)
+        and type(review.agent_id) is str
+        and bool(review.agent_id.strip())
+        and review_model_authorized(review.model_id)
+        and review.evidence_sha256 == binding
+        and review.checked_stages == CHECKS
+        and review.accepted is True
+    )
+
+
 def evaluate_autonomous_publication(
     candidate: AutonomousCandidate,
     primary: AgentReview | None,
     independent: AgentReview | None,
     *,
     active_challenge: bool = False,
+    third: AgentReview | None = None,
 ) -> AutonomousDecision:
-    """Publish only when all checks and two different, current agent reviews agree.
+    """Apply owner decision 49: one editorial check, 2+1 on actual uncertainty.
 
     A new immutable capture or a correction changes the evidence fingerprint;
-    stale approvals no longer count. The consumer retries when its inputs change.
+    stale approvals no longer count. Authenticated provider execution is checked
+    by the consuming writer and durable packet reader, not by this pure function.
     """
     binding = candidate_fingerprint(candidate)
+    try:
+        load_autopublish_contract()
+        config_error = False
+    except ValueError:
+        config_error = True
     checks = {
         "PROVENANCE": _provenance(candidate),
         "WORDING": _wording(candidate),
@@ -287,25 +312,43 @@ def evaluate_autonomous_publication(
         "RIGHTS_PRIVACY": _rights_privacy(candidate),
     }
     reasons = [name for name, passed in checks.items() if not passed]
+    if config_error:
+        reasons.append("AUTOPUBLISH_CONTRACT")
     if active_challenge:
         reasons.append("CHALLENGE_HOLD")
-    if (
-        primary is None
-        or independent is None
-        or not isinstance(primary, AgentReview)
-        or not isinstance(independent, AgentReview)
-        or not primary.agent_id.strip()
-        or not independent.agent_id.strip()
-        or primary.agent_id.strip().casefold() == independent.agent_id.strip().casefold()
-        or not independent_review_models_authorized(primary.model_id, independent.model_id)
-        or primary.evidence_sha256 != binding
-        or independent.evidence_sha256 != binding
-        or primary.checked_stages != CHECKS
-        or independent.checked_stages != CHECKS
-        or primary.accepted is not True
-        or independent.accepted is not True
+    uncertain = candidate.uncertainty_reasons
+    if type(uncertain) is not tuple or any(
+        type(code) is not str or not code.strip() or len(code) > 120
+        for code in uncertain
     ):
-        reasons.append("INDEPENDENT_REVIEW")
+        reasons.append("UNCERTAINTY_STATUS_INVALID")
+        uncertain = ("UNKNOWN_UNCERTAINTY",)
+    if not _review_accepts(primary, binding):
+        reasons.append("EDITORIAL_REVIEW")
+    if uncertain or independent is not None:
+        if not (
+            _review_accepts(independent, binding)
+            and isinstance(primary, AgentReview)
+            and independent_review_models_authorized(primary.model_id, independent.model_id)
+            and primary.agent_id.strip().casefold() != independent.agent_id.strip().casefold()
+        ):
+            reasons.append("INDEPENDENT_REVIEW")
+    if uncertain:
+        if not (
+            _review_accepts(third, binding)
+            and isinstance(primary, AgentReview)
+            and isinstance(independent, AgentReview)
+            and third.model_id not in {primary.model_id, independent.model_id}
+            and third.agent_id.strip().casefold() not in {
+                primary.agent_id.strip().casefold(),
+                independent.agent_id.strip().casefold(),
+            }
+        ):
+            reasons.append("THIRD_AUDIT")
+    elif third is not None:
+        # A rejection supplied explicitly is still a HOLD, never ignored.
+        if not _review_accepts(third, binding):
+            reasons.append("THIRD_AUDIT")
     return AutonomousDecision(
         disposition="HOLD" if reasons else "PUBLISH",
         reason_codes=tuple(reasons),
