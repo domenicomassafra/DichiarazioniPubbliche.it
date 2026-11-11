@@ -106,6 +106,18 @@ private write authority must be limited to the genuine OmniRoute adapter;
 test fixtures are not release evidence. A missing upstream service yields
 no packet and therefore HOLD.
 
+The witness has **not yet been exercised against a real DP-scoped gateway
+completion**. Its exact client-payload digest must match the management
+`requestBody` after removing only OmniRoute's `_omniroute` annotation. The
+gateway also stores `clientRequestBody` separately; its relationship to the
+readback body must be demonstrated on a redacted real DP request before
+activation. Likewise, the DP key's management policy fields and the
+route-explain replay/fallback shape require an authenticated live readback.
+Until those comparisons and verified upstream quota/grants exist, any
+unverified witness or missing field is **HOLD**. A provider's genuine
+`accepted=false` with empty citations can attest execution, but can never
+make an editorial approval.
+
 ## Dependencies before activation
 
 - [#458](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/458)

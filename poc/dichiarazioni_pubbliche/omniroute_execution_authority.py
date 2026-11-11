@@ -18,15 +18,11 @@ from typing import Callable, Mapping
 from dichiarazioni_pubbliche.autonomous_publication import (
     APPROVED_REVIEW_MODELS, AgentReview,
 )
+from dichiarazioni_pubbliche.autonomous_runner_v3 import _json
 from dichiarazioni_pubbliche.claim_runtime import DEFAULT_BASE_URL, matches_returned_model
 
 _TAG = re.compile(r"dp413-[a-f0-9]{32}\Z")
 _SHA = re.compile(r"[a-f0-9]{64}\Z")
-
-
-def _json(value: object) -> str:
-    return json.dumps(value, sort_keys=True, ensure_ascii=False,
-                      separators=(",", ":"), allow_nan=False)
 
 
 def _management_read(base_url: str, token: str, path: str) -> object:
@@ -87,13 +83,17 @@ class OmniRouteExecutionAuthority:
         model = receipt.get("requested_model", receipt.get("model_id"))
         response_id = receipt.get("provider_request_id")
         prompt_sha256 = receipt.get("prompt_sha256")
+        if ("requested_model" in receipt and "model_id" in receipt
+                and receipt["requested_model"] != receipt["model_id"]):
+            return False
         if (type(tag) is not str or not _TAG.fullmatch(tag)
                 or type(model) is not str or model not in APPROVED_REVIEW_MODELS
                 or receipt.get("provider") != "omniroute"
                 or type(response_id) is not str or not response_id
                 or type(prompt_sha256) is not str or not _SHA.fullmatch(prompt_sha256)
                 or not matches_returned_model(model, receipt.get("returned_model"))
-                or not isinstance(receipt.get("usage"), dict)):
+                or not isinstance(receipt.get("usage"), dict)
+                or type(receipt.get("accepted")) is not bool):
             return False
 
         keys = self._read("/api/keys")
@@ -132,6 +132,11 @@ class OmniRouteExecutionAuthority:
             if not isinstance(row, dict) or type(row.get("id")) is not str:
                 return False
             if row.get("provider") != "antigravity" or row.get("status") != 200:
+                continue
+            # The gateway's list response includes sessionTag. Fetch only
+            # matching detail rows; unrelated traffic must not make a review
+            # tick perform up to 99 authenticated requests.
+            if row.get("sessionTag") != tag:
                 continue
             detail = self._read("/api/usage/call-logs/" + urllib.parse.quote(
                 row["id"], safe="",
@@ -190,9 +195,12 @@ class OmniRouteExecutionAuthority:
                 or not isinstance(verdict.get("stage_citations"), dict)
                 or verdict["stage_citations"] != receipt.get("stage_citations")
                 or set(verdict["stage_citations"]) != set(receipt["checked_stages"])
-                or any(not isinstance(values, list) or not values
+                or any(not isinstance(values, list)
                        or any(type(value) is not str or not value for value in values)
-                       for values in verdict["stage_citations"].values())):
+                       for values in verdict["stage_citations"].values())
+                or (receipt["accepted"] is True and any(
+                    not values for values in verdict["stage_citations"].values()
+                ))):
             return False
 
         explain = self._read("/api/usage/route-explain/" + urllib.parse.quote(
