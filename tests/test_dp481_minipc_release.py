@@ -155,6 +155,16 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
         self.assertEqual(result["withdrawn_old_listener_http"], 404)
         self.assertFalse(result["publication_authorized"])
 
+    def test_rehearse_sealed_static(self):
+        installed = self.make(withdrawn=True)
+        sealed = self.root / "releases" / installed["release_id"] / "static"
+        self.assertEqual(sealed.stat().st_mode & 0o222, 0)
+        result = rehearse(self.source, sealed, self.projection,
+                          git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
+        self.assertEqual(result["status"], "PASS_PRIVATE_REHEARSAL")
+        self.assertEqual(result["safe_release_id"], result["rollback_release_id"])
+        self.assertEqual(sealed.stat().st_mode & 0o222, 0)
+
     def test_missing_required_runtime_routes_and_favicon_fail_before_stage(self):
         self.make(withdrawn=True)
         for name in ("privacy/index.html", "segnalazioni/index.html", "favicon.svg",
