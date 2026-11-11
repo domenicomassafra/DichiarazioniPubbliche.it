@@ -94,6 +94,18 @@ class StatementV3CorrectionIntakeTests(unittest.TestCase):
             self.assertEqual(self.request("GET", "/")[0], 503)
             self.assertEqual(self.request("GET", "/segnalazioni/")[0], 200)
 
+            # A failed edge readback cannot acknowledge the correction, but
+            # cannot undo the durable HOLD or expose the contested version.
+            private.RequestHandlerClass.correction_purge = staticmethod(lambda *_: False)
+            status, _, denied = self.request(
+                "POST", "/intake/corrections", payload, self.auth_headers(),
+            )
+            self.assertEqual(status, 503)
+            self.assertEqual(denied, {"error": "PUBLIC_PROJECTION_UNAVAILABLE"})
+            self.assertTrue(statement_store.current_hold("statement:1", "statement-version:1"))
+            self.assertEqual(self.request("GET", "/api/v3/statements")[0], 503)
+            private.RequestHandlerClass.correction_purge = staticmethod(purge_with_origin_readback)
+
             status, _, state = self.request(
                 "GET", "/intake/corrections/" + request_id, headers=self.auth_headers(),
             )
