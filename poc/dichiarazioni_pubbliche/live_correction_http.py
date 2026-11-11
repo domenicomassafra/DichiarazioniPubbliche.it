@@ -118,7 +118,10 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
         if intake is None or self._own_v3_surface():
             return True
         pinned = getattr(self, "_v3_release_pin", None)
-        return isinstance(pinned, str) and pinned != "" and intake.published_release_pin() == pinned
+        try:
+            return isinstance(pinned, str) and pinned != "" and intake.published_release_pin() == pinned
+        except Exception:
+            return False
 
     def send_response(self, code, message=None) -> None:
         if (getattr(self, "_final_public_fence", False)
