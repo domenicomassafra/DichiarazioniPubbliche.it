@@ -83,7 +83,10 @@ try {
   assert.match(populatedHtml, /href="\/persone\/persona-a\/"/);
   assert.match(populatedHtml, /href="\/persone\/persona-b\/"/);
   assert.match(populatedHtml, /href="\/dichiarazioni\/statement-3\/"/);
-  assert.match(populatedHtml, /href="https:\/\/example\.test\/source-3"/);
+  const source3Url = populated.data.find((row) => row.statement_id === "statement:3")?.statement.source.url;
+  assert.equal(typeof source3Url, "string", "approved fixture must identify Statement 3's source");
+  assert.ok(populatedHtml.includes(`href="${source3Url}"`),
+    "Topic source link must match the approved Statement 3 source URL");
   assert.match(populatedHtml, /data-topic-v3-count/);
   assert.match(populatedHtml, /aria-live="polite"/);
   assert.match(populatedHtml, /type="date"/);
@@ -104,6 +107,21 @@ try {
   });
   assert.match(otherHtml, /Nessuna opinione pubblicata disponibile per questo Tema/);
   assert.doesNotMatch(otherHtml, /href="\/persone\/persona-a\/"/);
+
+  // Even a freshly signed collection must not conflate different documents
+  // under one Content id: the source index would silently drop a source URL.
+  const conflicting = structuredClone(populated);
+  const second = conflicting.data.find((row) => row.statement_id === "statement:2");
+  const third = conflicting.data.find((row) => row.statement_id === "statement:3");
+  assert.ok(second && third);
+  assert.notEqual(second.statement.source.url, third.statement.source.url);
+  third.statement.source.content_id = second.statement.source.content_id;
+  const material = {};
+  for (const key of ["schema_version", "source_dataset_sha256", "person_dataset_sha256",
+    "generated_at", "coverage_note", "status", "result_count", "data"]) material[key] = conflicting[key];
+  conflicting.dataset_sha256 = hash(material);
+  await rejects("same-content-conflicting-source", conflicting, economia,
+    {expectedCollectionSha256: conflicting.dataset_sha256});
 
   await rejects("opt-in-off", populated, economia, {allowTopicV3:false});
   await rejects("stale-release", revoked, economia); // held/withdrawn new release, OLD pin
