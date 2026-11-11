@@ -19,6 +19,7 @@ from dp441_screenshot_rights import dp441_screenshot_rows
 from dp349_visual_rights import dp349_visual_rows
 from dp79_visual_rights import dp79_visual_rows
 from fixture_rights import fixture_rows
+from corpus_fixture_rights import corpus_fixture_rows
 from dp238_bhl_gold_fixture_rights import dp238_bhl_gold_row
 from dp420_usability_fixture_rights import dp420_usability_fixture_row
 from fixture_inventory_candidates import is_candidate
@@ -42,6 +43,7 @@ ROW_DECISIONS: dict[str, dict] = {
     **dp349_visual_rows(FIXTURE_POLICY),
     **dp79_visual_rows(FIXTURE_POLICY),
     **fixture_rows(FIXTURE_POLICY, REVIEW_DATE, CODE_LICENSE),
+    **corpus_fixture_rows(FIXTURE_POLICY, REVIEW_DATE, CODE_LICENSE),
 }
 ROW_DECISIONS.update(dp312_gold_row(FIXTURE_POLICY) | dp238_bhl_gold_row())
 ROW_DECISIONS.update(dp420_usability_fixture_row(CODE_LICENSE))
