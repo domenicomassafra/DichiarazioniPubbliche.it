@@ -1,0 +1,34 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import UtilityDocument from "../components/UtilityDocument.astro";
+---
+
+<BaseLayout
+  title="Pagina non trovata"
+  description="La pagina richiesta non esiste o non è più pubblicata: torna all'archivio, cerca una dichiarazione o leggi il metodo."
+  privatePage
+  canonicalPath="/"
+>
+  <UtilityDocument eyebrow="Pagina non trovata" title="Questa pagina non esiste." lede="L'indirizzo richiesto non corrisponde a una pagina pubblicata. Un record ritirato, corretto o mai pubblicato è indistinguibile da un indirizzo sbagliato: il registro non conferma né smentisce l'esistenza di contenuti non pubblici.">
+    <p>Ripartire dall'archivio pubblico evita ipotesi: l'elenco mostra soltanto dichiarazioni già verificate, con fonte originale, attribuzione e cronologia delle correzioni.</p>
+    <nav aria-label="Dove andare adesso">
+      <ul>
+        <li><a href="/">Pagina iniziale dell'archivio</a></li>
+        <li><a href="/esplora/">Cerca nell'archivio pubblico</a></li>
+        <li><a href="/metodo/">Come funzionano verifica e pubblicazione</a></li>
+        <li><a href="/correzioni/">Correzioni e versioni pubblicate</a></li>
+      </ul>
+    </nav>
+    <p>Se il collegamento è arrivato da un'altra pagina del sito, segnalalo: il <a href="/segnalazioni/">modulo di segnalazione</a> richiede l'accesso al sito.</p>
+    <slot name="rail">
+      <nav aria-label="Documenti di fiducia">
+        <h2>Documenti di fiducia</h2>
+        <a href="/metodo/">Metodo</a>
+        <a href="/correzioni/">Correzioni</a>
+        <a href="/dati/">Dati &amp; API</a>
+        <a href="/progetto/">Progetto</a>
+        <a href="/privacy/">Privacy</a>
+      </nav>
+    </slot>
+  </UtilityDocument>
+</BaseLayout>

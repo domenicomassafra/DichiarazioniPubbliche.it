@@ -85,6 +85,14 @@ class InformationalPreviewPreflightTests(unittest.TestCase):
         sitemap = '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
         sitemap += "".join(f"<url><loc>https://dichiarazionipubbliche.it{route}</loc></url>" for route in routes)
         (self.dist / "sitemap.xml").write_text(sitemap + "</urlset>", encoding="utf-8")
+        # DP-544: the public server serves this bundled error document instead
+        # of an empty 404 body, so an approved bundle must ship it.
+        (self.dist / "404.html").write_text(
+            '<html lang="it"><head><meta name="robots" content="noindex,nofollow"></head>'
+            '<body><main id="main"><h1>Questa pagina non esiste.</h1>'
+            '<a href="/esplora/">Cerca nell archivio pubblico</a></main></body></html>',
+            encoding="utf-8",
+        )
 
     def check(self, **kwargs: object) -> object:
         return check_preview_bundle(self.dist, self.sha, environment={}, **kwargs)
