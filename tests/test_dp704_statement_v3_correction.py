@@ -1,5 +1,6 @@
 """#704/#468: a challenged v3 Statement fenced until a new release replaces it."""
 
+import http.client
 import json
 import sys
 import threading
@@ -39,12 +40,29 @@ class StatementV3CorrectionIntakeTests(unittest.TestCase):
         purges = []
         jobs = []
         service = self.server.RequestHandlerClass.account_service
+
+        def purge_with_origin_readback(target):
+            connection = http.client.HTTPConnection("127.0.0.1", private.server_port, timeout=0.5)
+            try:
+                connection.request("GET", "/api/v3/statements", headers={
+                    "Host": "dichiarazionipubbliche.it",
+                })
+                response = connection.getresponse()
+                status, cache = response.status, response.getheader("Cache-Control", "")
+                response.read()
+            finally:
+                connection.close()
+            if status != 503 or "no-store" not in cache:
+                return False
+            purges.append(target)
+            return True
+
         private = build_live_correction_server(
             str(root / "projection.json"), host="127.0.0.1", port=0,
             static_dir=str(root / "static"), account_service=service,
             correction_ledger=FakeLedger(),
             correction_enqueue=lambda *args: jobs.append(args) or True,
-            correction_purge=lambda target: purges.append(target) or True,
+            correction_purge=purge_with_origin_readback,
             correction_reserve=lambda *_: True,
             statement_projection_path=candidate,
             statement_current_fingerprint_path=current,

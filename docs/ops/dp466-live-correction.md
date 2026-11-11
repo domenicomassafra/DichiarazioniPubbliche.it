@@ -15,6 +15,16 @@ reasons and OIDC subject hashes remain private. The standalone, unindexed
 `/segnalazioni/` form remains reachable while the published correction
 register at `/correzioni/` is fenced with the rest of the projection.
 
+The correction listener commits the private HOLD and queues any v2 Finding
+reanalysis under its publication lock, then releases the lock before invoking
+the Cloudflare purge and public origin readback. The purge probes the same
+listener and would block if this lock were retained. The v3 Statement intake
+also persists its HOLD before the purge starts. Both paths return HTTP 202 only
+after complete public readback; failure returns 503 with the HOLD intact.
+The edge readback uses `DichiarazioniPubbliche-correction-readback/1.0` as its
+User-Agent because Cloudflare rejects Python's default `Python-urllib` User-Agent
+with HTTP 403 / Cloudflare 1010.
+
 Each authenticated account is limited to two attempts per minute, and the
 entire listener to four per minute. `SqliteCorrectionQuota` atomically reserves
 these counters in the existing private account SQLite `throttle` table across
