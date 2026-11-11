@@ -184,7 +184,6 @@ body:not(.is-studio) .source-story {
   fill: currentColor;
   stroke: none;
 }
-.source-story__play--static { opacity: .85; }
 .source-story__media-time {
   position: absolute;
   inset: auto var(--space-3) var(--space-3) auto;

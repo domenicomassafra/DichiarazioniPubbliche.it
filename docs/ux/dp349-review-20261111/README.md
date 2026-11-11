@@ -5,18 +5,30 @@ This is a **visual candidate**, awaiting the owner's aesthetic decision. The exa
 `DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION=1`. It is never a published
 statement, an approved source, or a claim about any actual person.
 
+The reference comparison and five Fonte screenshots were refreshed after the
+source-density change in PR #623 and the mobile search accessibility fix in PR
+#624, from an isolated Mac Studio Chrome build of `8d3ef5bf` (11 November).
+The original candidate screenshots were from PR #615, before those fixes.
+This refreshed local capture does not assert that the MiniPC preview was
+reinstalled or read back in the same session.
+
 ## Reference comparison
 
 ![Owner's source-page reference compared with the real Chrome preview at 950px](comparison-target-vs-preview-950.png)
 
-The left side is a crop of the supplied reference screenshot. The right side is a
-**real Chrome capture** at a 950px CSS viewport, before final owner review.
+The left side is the supplied 950 × 712 reference-page crop. The right side
+is the **top 712px of a real Chrome capture** at the same 950px CSS viewport
+([complete 950px capture](screenshots/fonte-950.png)). The explicit demo
+notice adds approximately 26px above the candidate's header; the reference
+does not contain a demo notice.
 The screenshot demonstrates the same editorial architecture: warm paper, serif
 type, blue accent, divided header, source media, three-column claim/excerpt/analysis
 reading workspace and timed markers. The preview intentionally includes an
 explicit demo warning, a disclosure for the fictional media and a preservation
 of the original public data safety boundaries. It is not a pixel-copy of the
-reference, especially in vertical density and below the fold.
+reference. The 950px local capture reaches the timeline below the three-column
+workspace; the reference displays the complete marker track sooner within the
+first 712px. Final aesthetic fidelity remains an owner decision.
 
 ### Screenshots from Chrome
 
@@ -36,6 +48,41 @@ All captures are from Chrome with a local static build, at device-scale factor 1
 Viewport measurements, captured documents and the interaction receipts
 are from the browser itself. The source page has no document overflow at 390,
 768, 950, 1280 and 1440 CSS pixels.
+Full-page capture heights on the refreshed build were respectively 3184, 2126,
+1257, 1296 and 1302 CSS pixels. Each page visibly identifies its fictional
+status. No image is evidence of a real, authorized public dossier.
+
+### Nine-family visual matrix
+
+The repository's existing Chrome QA generated viewport captures for all nine
+public route families from the **same isolated fictional data fixture**. The desktop
+captures use 1440 CSS pixels, phone uses 375 CSS pixels, and the 200% captures
+use **actual browser zoom** (1280px outer viewport, 640px CSS layout viewport).
+These are first-viewport review captures, not full-page screenshots or evidence
+that genuine public records have been authorized.
+
+| Public family | Desktop 1440 | Phone 375 | Browser zoom 200% |
+| --- | --- | --- | --- |
+| Home | [Desktop](route-matrix/home-desktop.png) | [Phone](route-matrix/home-phone.png) | [Zoom](route-matrix/home-zoom200.png) |
+| Esplora | [Desktop](route-matrix/explore-desktop.png) | [Phone](route-matrix/explore-phone.png) | [Zoom](route-matrix/explore-zoom200.png) |
+| Dichiarazione | [Desktop](route-matrix/statement-desktop.png) | [Phone](route-matrix/statement-phone.png) | [Zoom](route-matrix/statement-zoom200.png) |
+| Persona | [Desktop](route-matrix/person-desktop.png) | [Phone](route-matrix/person-phone.png) | [Zoom](route-matrix/person-zoom200.png) |
+| Tema | [Desktop](route-matrix/topic-desktop.png) | [Phone](route-matrix/topic-phone.png) | [Zoom](route-matrix/topic-zoom200.png) |
+| Contenuto | [Desktop](route-matrix/content-desktop.png) | [Phone](route-matrix/content-phone.png) | [Zoom](route-matrix/content-zoom200.png) |
+| Traccia | [Desktop](route-matrix/trace-desktop.png) | [Phone](route-matrix/trace-phone.png) | [Zoom](route-matrix/trace-zoom200.png) |
+| Metodo | [Desktop](route-matrix/method-desktop.png) | [Phone](route-matrix/method-phone.png) | [Zoom](route-matrix/method-zoom200.png) |
+| Correzioni (utility) | [Desktop](route-matrix/utility-desktop.png) | [Phone](route-matrix/utility-phone.png) | [Zoom](route-matrix/utility-zoom200.png) |
+
+An additional [grayscale phone capture](route-matrix/person-phone-grayscale.png)
+helps inspect the non-color reading cues. Chrome QA passed 24 route checks,
+with no external requests or overflow in the tested modes; manual screen-reader
+acceptance still needs its own human receipt.
+
+The Content route screenshots were refreshed after a small source-reader fix:
+without an explicitly approved `public_media_url`, its media panel and timeline
+no longer show an inert triangle that looks like a playable video. Approved
+media links and the fictional reference-page presentation are unchanged.
+The route-contract check now guards this distinction.
 
 ### Interaction acceptance
 

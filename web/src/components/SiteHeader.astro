@@ -35,7 +35,7 @@ const studioNav = [
       <nav class="main-nav" aria-label="Navigazione principale">
         <a class:list={[active("/esplora") && "is-active"]} aria-current={active("/esplora") ? "page" : undefined} href="/esplora/">Esplora</a>
         <a class:list={[active("/persone") && "is-active"]} aria-current={active("/persone") ? "page" : undefined} href="/esplora/?tipo=person">Persone</a>
-        <a class:list={[(active("/contenuti") || active("/contents") || active("/anteprima")) && "is-active"]} aria-current={active("/contenuti") || active("/contents") || active("/anteprima") ? "page" : undefined} href="/esplora/?tipo=content">Contenuti</a>
+        <a class:list={[active("/temi") && "is-active"]} aria-current={active("/temi") ? "page" : undefined} href="/esplora/?tipo=topic">Temi</a>
         <a class:list={[active("/metodo") && "is-active"]} aria-current={active("/metodo") ? "page" : undefined} href="/metodo/">Metodo</a>
       </nav>
     )}
@@ -56,7 +56,8 @@ const studioNav = [
           <>
             <a aria-current={active("/esplora") ? "page" : undefined} href="/esplora/">Esplora</a>
             <a aria-current={active("/persone") ? "page" : undefined} href="/esplora/?tipo=person">Persone</a>
-            <a aria-current={active("/contenuti") || active("/contents") || active("/anteprima") ? "page" : undefined} href="/esplora/?tipo=content">Contenuti</a>
+            <a aria-current={active("/temi") ? "page" : undefined} href="/esplora/?tipo=topic">Temi</a>
+            <a href="/esplora/?tipo=content">Contenuti</a>
             <a aria-current={active("/metodo") ? "page" : undefined} href="/metodo/">Metodo</a>
             <a aria-current={active("/progetto") ? "page" : undefined} href="/progetto/">Progetto</a>
             <a aria-current={active("/correzioni") ? "page" : undefined} href="/correzioni/">Correzioni</a>

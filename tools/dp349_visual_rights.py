@@ -25,6 +25,13 @@ CHROME_SCREENSHOTS = (
     "home-390.png",
     "persona-1280.png",
 )
+MATRIX_FAMILIES = (
+    "content", "explore", "home", "method", "person",
+    "statement", "topic", "trace", "utility",
+)
+FIGMA_FAMILIES = (
+    "statement", "home", "person", "topic", "explore", "content", "method",
+)
 
 
 def dp349_visual_rows(fixture_policy: str) -> dict[str, dict]:
@@ -52,6 +59,54 @@ def dp349_visual_rows(fixture_policy: str) -> dict[str, dict]:
             public_projection_status="DP-349 design review image only; not a public Content/Statement artifact.",
             blocker=UNRESOLVED if photo else None,
         )
+
+    # Chrome-only fictional fixtures: two documented 9-family matrices.
+    # The earlier matrix was committed with #629 but lacked licensing rows;
+    # include it here so contributor acceptance covers the entire PR.
+    for directory in (ROOT + "route-matrix/", "docs/ux/dp349-figma-20261111/after-matrix/"):
+        for family in MATRIX_FAMILIES:
+            for variant in ("desktop", "phone", "zoom200"):
+                filename = f"{family}-{variant}.png"
+                path = directory + filename
+                rows[path] = dict(
+                    artifact_kind="synthetic",
+                    origin="Dichiarazioni Pubbliche contributors (isolated Chrome CDP)",
+                    source_reference="web/src/data/demo-projection.json and web/scripts/check-browser-qa.mjs",
+                    retrieved_at=DATE,
+                    review_date=DATE,
+                    license_or_terms=fixture_policy,
+                    license_evidence="docs/licensing/README.md#synthetic-fixture-policy",
+                    attribution="Project-authored fictional record captures; no third-party portrait.",
+                    modifications=f"Captured {family} at {variant} viewport; contains only labelled demo projection.",
+                    personal_data="Fictional fixtures only; no real names, private data or source media.",
+                    redistribution_status="allowed",
+                    public_projection_status="PR visual review only; never a public dossier or runtime asset.",
+                    blocker=None,
+                )
+        path = directory + "person-phone-grayscale.png"
+        rows[path] = dict(rows[directory + "person-phone.png"])
+        rows[path]["modifications"] = "Fictional 375px person screenshot rendered in grayscale for contrast review."
+
+    # Figma owner-authored reference remains restricted even though the
+    # portrait was fully masked in the committed side-by-side comparisons.
+    for family in FIGMA_FAMILIES:
+        for state in ("pr629", "implementation"):
+            path = f"docs/ux/dp349-figma-20261111/{family}-figma-vs-{state}.png"
+            rows[path] = dict(
+                artifact_kind="derived",
+                origin="Owner-authored Figma frame + Dichiarazioni Pubbliche isolated Chrome capture",
+                source_reference="https://www.figma.com/design/emKLEdxy5o1R5e2tDOsafZ/ and docs/ux/dp349-figma-20261111/README.md",
+                retrieved_at=DATE,
+                review_date=DATE,
+                license_or_terms="UNKNOWN",
+                license_evidence="UNKNOWN",
+                attribution="Owner design excerpt; photograph fully masked in comparison.",
+                modifications=f"Side-by-side {family} Figma and {state} Chrome; original portrait area masked.",
+                personal_data="No portrait pixels; Figma example names are fictional.",
+                redistribution_status="pending-review",
+                public_projection_status="Design review evidence only, excluded from public site and projection.",
+                blocker="Owner/Figma reference redistribution rights require a release decision; do not ship in public runtime.",
+            )
 
     rows[ROOT + "reference-target-page.png"] = dict(
         artifact_kind="reference",

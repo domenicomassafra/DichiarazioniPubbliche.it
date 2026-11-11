@@ -73,6 +73,11 @@ const statementStructuredData = {
   <header class="dp-statement-header detail-349-hero detail-349-statement">
     <div class="shell">
       <nav class="detail-349-crumbs" aria-label="Percorso"><a href="/esplora/">Archivio pubblico</a><span aria-hidden="true">/</span><span>Dichiarazione verificata</span></nav>
+      <aside class="dp-statement-speaker" aria-label="Autore della dichiarazione">
+        <p class="eyebrow">PERSONA NEL REGISTRO</p>
+        <h2>{dossier.speaker.name}</h2>
+        <p>Le verifiche riguardano le singole affermazioni, senza attribuire un punteggio alla persona.</p>
+      </aside>
       <p class="dp-statement-wording-label">Formulazione normalizzata · parafrasi, non citazione testuale</p>
       <h1>{dossier.claim}</h1>
       <div class="dp-statement-meta">
@@ -120,7 +125,7 @@ const statementStructuredData = {
 
       <section class="dp-finding-summary" aria-labelledby="finding-heading">
         <div>
-          <div class="eyebrow" id="finding-heading">In breve</div>
+          <div class="eyebrow" id="finding-heading">La prova, in un colpo d'occhio</div>
           {isRetracted ? <strong>Valutazione ritirata</strong> : <Assessment code={dossier.finding.assessment} />}
         </div>
         <p>{isRetracted ? publicationNote : dossier.finding.rationale}</p>
@@ -129,6 +134,7 @@ const statementStructuredData = {
           {formatDate(dossier.finding.published_at)}
         </div>
       </section>
+
       {publicationNote && <p class="detail-349-publication-note" role="note">{publicationNote}</p>}
     </div>
   </header>
