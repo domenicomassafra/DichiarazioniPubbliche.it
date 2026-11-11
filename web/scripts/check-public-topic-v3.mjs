@@ -123,6 +123,32 @@ try {
   await rejects("same-content-conflicting-source", conflicting, economia,
     {expectedCollectionSha256: conflicting.dataset_sha256});
 
+  // One Statement may belong to multiple Topics, but its published source
+  // version and literal wording must be identical in every membership.
+  const splitStatement = structuredClone(populated);
+  const sameIdRows = splitStatement.data.filter((row) => row.statement_id === "statement:2");
+  assert.equal(sameIdRows.length, 2, "fixture must cover one Statement in two Topics");
+  sameIdRows[1].version_id = "statement-version:stale";
+  sameIdRows[1].statement.version_id = "statement-version:stale";
+  const splitMaterial = {};
+  for (const key of ["schema_version", "source_dataset_sha256", "person_dataset_sha256",
+    "generated_at", "coverage_note", "status", "result_count", "data"]) splitMaterial[key] = splitStatement[key];
+  splitStatement.dataset_sha256 = hash(splitMaterial);
+  await rejects("same-statement-conflicting-version", splitStatement, economia,
+    {expectedCollectionSha256: splitStatement.dataset_sha256});
+
+  const splitWording = structuredClone(populated);
+  const secondMembership = splitWording.data.filter((row) => row.statement_id === "statement:2")[1];
+  const alteredQuote = "costa 20 euro, non 10.";
+  secondMembership.statement.original.text = alteredQuote;
+  secondMembership.statement.original.quote_sha256 = createHash("sha256").update(alteredQuote).digest("hex");
+  const wordingMaterial = {};
+  for (const key of ["schema_version", "source_dataset_sha256", "person_dataset_sha256",
+    "generated_at", "coverage_note", "status", "result_count", "data"]) wordingMaterial[key] = splitWording[key];
+  splitWording.dataset_sha256 = hash(wordingMaterial);
+  await rejects("same-statement-conflicting-words", splitWording, economia,
+    {expectedCollectionSha256: splitWording.dataset_sha256});
+
   await rejects("opt-in-off", populated, economia, {allowTopicV3:false});
   await rejects("stale-release", revoked, economia); // held/withdrawn new release, OLD pin
   await rejects("expired-authority", populated, economia, {
@@ -136,7 +162,7 @@ try {
   const foreign = structuredClone(populated);
   foreign.data[0].person_route = "//evil.invalid/";
   await rejects("foreign-person-link", foreign, economia);
-  console.log("DP-406 actual Astro SSR opt-in Topic dossier: populated, empty, homonym, date/source/Person links, stale/withdrawn, forgery and unavailable fail-closed PASS");
+  console.log("DP-406 actual Astro SSR opt-in Topic dossier: populated, empty, homonym, date/source/Person links, same-Statement version/wording conflicts, stale/withdrawn, forgery and unavailable fail-closed PASS");
 } finally {
   await rm(temp, { recursive: true, force: true });
 }
