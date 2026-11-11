@@ -52,6 +52,32 @@ Full-page capture heights on the refreshed build were respectively 3184, 2126,
 1257, 1296 and 1302 CSS pixels. Each page visibly identifies its fictional
 status. No image is evidence of a real, authorized public dossier.
 
+### Nine-family visual matrix
+
+The repository's existing Chrome QA generated viewport captures for all nine
+public route families on the **same isolated fictional build**. The desktop
+captures use 1440 CSS pixels, phone uses 375 CSS pixels, and the 200% captures
+use **actual browser zoom** (1280px outer viewport, 640px CSS layout viewport).
+These are first-viewport review captures, not full-page screenshots or evidence
+that genuine public records have been authorized.
+
+| Public family | Desktop 1440 | Phone 375 | Browser zoom 200% |
+| --- | --- | --- | --- |
+| Home | [Desktop](route-matrix/home-desktop.png) | [Phone](route-matrix/home-phone.png) | [Zoom](route-matrix/home-zoom200.png) |
+| Esplora | [Desktop](route-matrix/explore-desktop.png) | [Phone](route-matrix/explore-phone.png) | [Zoom](route-matrix/explore-zoom200.png) |
+| Dichiarazione | [Desktop](route-matrix/statement-desktop.png) | [Phone](route-matrix/statement-phone.png) | [Zoom](route-matrix/statement-zoom200.png) |
+| Persona | [Desktop](route-matrix/person-desktop.png) | [Phone](route-matrix/person-phone.png) | [Zoom](route-matrix/person-zoom200.png) |
+| Tema | [Desktop](route-matrix/topic-desktop.png) | [Phone](route-matrix/topic-phone.png) | [Zoom](route-matrix/topic-zoom200.png) |
+| Contenuto | [Desktop](route-matrix/content-desktop.png) | [Phone](route-matrix/content-phone.png) | [Zoom](route-matrix/content-zoom200.png) |
+| Traccia | [Desktop](route-matrix/trace-desktop.png) | [Phone](route-matrix/trace-phone.png) | [Zoom](route-matrix/trace-zoom200.png) |
+| Metodo | [Desktop](route-matrix/method-desktop.png) | [Phone](route-matrix/method-phone.png) | [Zoom](route-matrix/method-zoom200.png) |
+| Correzioni (utility) | [Desktop](route-matrix/utility-desktop.png) | [Phone](route-matrix/utility-phone.png) | [Zoom](route-matrix/utility-zoom200.png) |
+
+An additional [grayscale phone capture](route-matrix/person-phone-grayscale.png)
+helps inspect the non-color reading cues. Chrome QA passed 24 route checks,
+with no external requests or overflow in the tested modes; manual screen-reader
+acceptance still needs its own human receipt.
+
 ### Interaction acceptance
 
 - Selecting a claim or timeline marker updates the selected claim styling,
