@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -34,6 +36,7 @@ def run(
     german_draft: str | None = None,
     italian_quote_span: tuple[int, int] | None = None,
     compare_relation: bool = False,
+    quote_pins: dict[int, tuple[int, int, str]] | None = None,
 ) -> dict[str, object]:
     if compare_relation and (
         len(ordinals) != 2 or ordinals[0] == ordinals[1]
@@ -42,6 +45,11 @@ def run(
         raise ValueError("DP333_TWO_DISTINCT_SPEECHES_REQUIRED")
     if german_draft is not None and len(ordinals) != 1:
         raise ValueError("DP331_ONE_SPEECH_PER_DERIVED_TRANSLATION")
+    if quote_pins is not None and (
+        not isinstance(quote_pins, dict) or set(quote_pins) != set(ordinals)
+        or german_draft is not None
+    ):
+        raise ValueError("DP468_QUOTE_PIN_SCOPE_INVALID")
     store = CapturePipelineStore(database_url=database_url)
     context = _context(store)
     subject = RightsSubject(
@@ -68,7 +76,7 @@ def run(
     # Both exact private scopes above require RESEARCH_CAPTURE_PRIVATE.
     # The generic source-use guard recognizes STORE_BODY for captured bytes.
     guard.require("STORE_BODY", content_sha256=BODY_SHA256)
-    if compare_relation:
+    if compare_relation or quote_pins is not None:
         guard.require("PARSE_TEXT", content_sha256=BODY_SHA256)
     found = store.find_capture(context["id"], BODY_SHA256)
     if not found or not found.get("body_ref"):
@@ -77,7 +85,7 @@ def run(
         found["body_ref"], expected_sha256=BODY_SHA256, max_bytes=450000,
     )
     guard.require("STORE_BODY", content_sha256=BODY_SHA256)
-    if compare_relation:
+    if compare_relation or quote_pins is not None:
         guard.require("PARSE_TEXT", content_sha256=BODY_SHA256)
     imported = import_senato_akoma_stenographic(
         body, source_raw_url=CURRENT_URL, expected_blob_sha1=CONTENT_BLOB_SHA1,
@@ -85,13 +93,32 @@ def run(
     if imported.source_sha256 != BODY_SHA256:
         raise RuntimeError("DP331_CAPTURE_SOURCE_REVISION_MISMATCH")
     # Ordinals are explicit to prevent an accidental bulk extraction.
-    observed = [
-        probe_private_speech(
+    observed = []
+    for ordinal in ordinals:
+        observation = probe_private_speech(
             imported, ordinal=ordinal, german_draft=german_draft,
             italian_quote_span=italian_quote_span,
         )
-        for ordinal in ordinals
-    ]
+        if quote_pins is not None:
+            pin = quote_pins[ordinal]
+            speech = next((item for item in imported.speeches if item.ordinal == ordinal), None)
+            if (speech is None or not isinstance(pin, tuple) or len(pin) != 3):
+                raise ValueError("DP468_QUOTE_PIN_INVALID")
+            start, end, digest = pin
+            if (type(start) is not int or type(end) is not int
+                    or not 0 <= start < end <= len(speech.review_text)
+                    or end - start > 300 or not isinstance(digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", digest) is None):
+                raise ValueError("DP468_QUOTE_PIN_INVALID")
+            if hashlib.sha256(speech.review_text[start:end].encode("utf-8")).hexdigest() != digest:
+                raise RuntimeError("DP468_QUOTE_PIN_MISMATCH")
+            observation["selected_quote"] = {
+                "start_char": start, "end_char": end, "sha256": digest,
+                "status": "VERIFIED_PRIVATE_SOURCE_ONLY",
+            }
+        observed.append(observation)
+    if quote_pins is not None:
+        guard.require("PARSE_TEXT", content_sha256=BODY_SHA256)
     result = {
         "source": "SenatoDellaRepubblica/AkomaNtosoBulkData",
         "capture_id": found["id"], "rights_record_id": current.id,
@@ -130,6 +157,8 @@ def main() -> int:
     parser.add_argument("--database-url", default=os.getenv("DICHIARAZIONI_PUBBLICHE_DATABASE_URL"))
     parser.add_argument("--storage-root", type=Path, default=Path("~/.local/share/dichiarazioni-pubbliche-captures").expanduser())
     parser.add_argument("--ordinal", type=int, action="append", required=True)
+    parser.add_argument("--quote-pin", action="append", metavar="ORDINAL:START:END:SHA256",
+                        help="verify an exact private source quote for every selected ordinal")
     parser.add_argument("--compare-relation", action="store_true")
     parser.add_argument("--german-draft-file", type=Path)
     parser.add_argument("--quote-start", type=int)
@@ -139,6 +168,19 @@ def main() -> int:
         parser.error("--database-url is required")
     if len(args.ordinal) > 3 or len(set(args.ordinal)) != len(args.ordinal):
         parser.error("only one to three unique speech ordinals are permitted")
+    quote_pins = None
+    if args.quote_pin is not None:
+        quote_pins = {}
+        for raw in args.quote_pin:
+            parts = raw.split(":")
+            if len(parts) != 4 or not all(re.fullmatch(r"\d+", part) for part in parts[:3]):
+                parser.error("--quote-pin must be ORDINAL:START:END:SHA256")
+            ordinal, start, end = map(int, parts[:3])
+            if ordinal in quote_pins:
+                parser.error("duplicate --quote-pin ordinal")
+            quote_pins[ordinal] = (start, end, parts[3])
+        if set(quote_pins) != set(args.ordinal):
+            parser.error("provide one --quote-pin per --ordinal")
     if args.compare_relation and (len(args.ordinal) != 2 or args.german_draft_file is not None):
         parser.error("--compare-relation requires exactly two ordinals and no translation")
     if args.german_draft_file is not None and (
@@ -159,6 +201,7 @@ def main() -> int:
         args.database_url, args.storage_root,
         ordinals=tuple(args.ordinal), german_draft=german_draft,
         compare_relation=args.compare_relation,
+        quote_pins=quote_pins,
         italian_quote_span=(
             (args.quote_start, args.quote_end) if german_draft is not None else None
         ),
