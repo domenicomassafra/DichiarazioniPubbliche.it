@@ -117,15 +117,18 @@ policy review.
 
 ### Publication and provenance
 
-**Superseding owner decision (25 October 2026, #413):** acceptance,
-independent review, and publication are autonomous, with no human in the loop.
-Publication requires the same source- and version-bound checks performed by
-two independent agents using distinct models. Failed or missing proofs leave
-the record in HOLD; new evidence triggers re-evaluation. A third agent audits
-samples nightly. Corrections or removal requests immediately omit the public
-record before autonomous re-examination. Legal, licence, copyright and privacy
-reviews are agent decisions with cited sources, not owner sign-offs. The
-mechanical safety, provenance and privacy gates below remain mandatory.
+**Superseding owner decisions (25 October and 10 November 2026, #413 and
+decision 49):** acceptance, review and publication are autonomous, with no
+human in the loop. After source-, rights-, privacy- and version-bound checks,
+one authenticated editorial agent review is required for an ordinary record.
+Explicitly documented uncertainty requires two distinct independent model
+reviews plus a third auditor before publication. A separate independent audit
+samples published records nightly. Failed or missing proofs leave the record
+in HOLD; new evidence triggers re-evaluation. Corrections or removal requests
+immediately omit the public record before autonomous re-examination. Legal,
+licence, copyright and privacy reviews are agent decisions with cited sources,
+not owner sign-offs. The mechanical safety, provenance and privacy gates below
+remain mandatory.
 
 - Research-corpus records are private by default. Discovery or capture does not create a
   public claim, finding, or dossier.

@@ -3,7 +3,9 @@
 Issue: [#464](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/464).
 The production seam is `PersistentRunner.run(record_id, now=..., provider_revision=...)`.
 It reuses `AutonomousOperations` and **requires** trusted capture,
-challenge, public surface, and two independent provider-review adapters.
+challenge, public surface and one authenticated editorial review adapter.
+Records with documented uncertainty require a second independent reviewer
+and a third auditor; the nightly sample always requires its independent auditor.
 It does not accept an operator-supplied JSON packet as publication authority.
 
 ## Storage and retry
@@ -20,8 +22,9 @@ restored provider availability. The caller must schedule the run when source,
 challenge or provider admission inputs change.
 
 Before applying a public PUBLISH decision, `AutonomousOperations` also requires
-`verify_provider_execution(review)` for **each** model and for the independent
-nightly auditor. Each reviewed completion must carry a unique provider request
+`verify_provider_execution(review)` for **every review actually required** by
+decision 49 and for the independent nightly auditor. Each reviewed completion
+must carry a unique provider request
 ID, an allowed exact returned model, prompt digest and token usage; missing
 or rejected witness yields HOLD and immediate withdrawal. The verifier must
 read independent, authenticated OmniRoute request history and enforce the
@@ -56,8 +59,9 @@ Never set the gate to an unverified constant in production.
 ## Durable review readback for Statement v3
 
 `JournalReviewPacketReader` in `autonomous_review_reader.py` reconstructs
-an `AutonomousProofPacket` only from two exact-model, distinct-agent receipts
-previously persisted by `OmniRouteAgentReview`. Bind it as the callable
+an `AutonomousProofPacket` from one witnessed editorial receipt for ordinary
+records, or two distinct-agent receipts plus the third auditor for explicit
+uncertainty, previously persisted by `OmniRouteAgentReview`. Bind it as the callable
 `read_current_autonomous_evidence` on `SenatoPublicV3Source`, supplying a
 separate authenticated `read_current_candidate(statement_id, version_id)`
 that rechecks the exact Capture, rights and identity before and after the
@@ -93,7 +97,7 @@ no packet and therefore HOLD.
   subject to independent entitlement verification. No DP-scoped
   `allowedConnections` key, authoritative quota or verified upstream execution
   witness has yet been demonstrated. An allowlist/test fixture is **not** a
-  live two-model review or third audit; HOLD until subscription, quota and
+  live editorial review or escalation/audit; HOLD until subscription, quota and
   no-fallback proofs exist.
 - The existing MiniPC public consumer is on v2. Bind these adapters to its
   separately authenticated DB/readback and withdrawal controls, and install
