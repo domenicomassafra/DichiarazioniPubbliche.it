@@ -196,7 +196,11 @@ export const datasetFingerprintOfNTriples = (text) => {
 
 /** Every surface must describe the same record set with the same bytes. */
 export const requireAgreement = (surfaces) => {
-  const maps = surfaces.map(({ name, rows }) => [name, new Map(rows.map((row) => [row.statement_id, row]))]);
+  const maps = surfaces.map(({ name, rows }) => {
+    const map = new Map(rows.map((row) => [row.statement_id, row]));
+    if (map.size !== rows.length) throw new Error(`${MISMATCH}: ${name} duplicate Statement ID`);
+    return [name, map];
+  });
   const ids = [...new Set(surfaces.flatMap(({ rows }) => rows.map((row) => row.statement_id)))].sort();
   for (const [name, map] of maps) {
     if (map.size !== ids.length || ids.some((id) => !map.has(id))) {
