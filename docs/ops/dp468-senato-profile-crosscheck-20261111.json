@@ -1,0 +1,186 @@
+{
+  "candidates": 16,
+  "checked_at": "2026-11-11T07:59:31.926861+00:00",
+  "identity_approved": false,
+  "matched": 16,
+  "observations": [
+    {
+      "did": 33022,
+      "html_sha256": "15d2d37fffd1ad8aad19ccc9dc24e9f2fc7aff5537cb52524278939c59918eb4",
+      "ordinal": 3,
+      "profile_url": "https://www.senato.it/composizione/senatori/elenco-alfabetico/scheda-attivita?did=00033022",
+      "publication_authorized": false,
+      "speaker_attribution_approved": false,
+      "status": "PROFILE_DOCUMENT_MATCH_ONLY",
+      "surname": "Potenti",
+      "title": "Scheda di attività di Manfredi POTENTI - XIX Legislatura | Senato della Repubblica"
+    },
+    {
+      "did": 32697,
+      "html_sha256": "1bc14ad184d700269c4e1554803ec15b013cf256ecf21425332e1e8238e497bc",
+      "ordinal": 6,
+      "profile_url": "https://www.senato.it/composizione/senatori/elenco-alfabetico/scheda-attivita?did=00032697",
+      "publication_authorized": false,
+      "speaker_attribution_approved": false,
+      "status": "PROFILE_DOCUMENT_MATCH_ONLY",
+      "surname": "Pucciarelli",
+      "title": "Scheda di attività di Stefania PUCCIARELLI - XIX Legislatura | Senato della Repubblica"
+    },
+    {
+      "did": 37739,
+      "html_sha256": "103c3b493562b1cfdcd9d6c1048a6d91b071de891032c6edce37659afbe05b4f",
+      "ordinal": 7,
+      "profile_url": "https://www.senato.it/composizione/senatori/elenco-alfabetico/scheda-attivita?did=00037739",
+      "publication_authorized": false,
+      "speaker_attribution_approved": false,
+      "status": "PROFILE_DOCUMENT_MATCH_ONLY",
+      "surname": "Tajani",
+      "title": "Scheda di attività di Cristina TAJANI - XIX Legislatura | Senato della Repubblica"
+    },
+    {
+      "did": 36447,
+      "html_sha256": "8a30af86c94d5cd0b1d4e4eff8c7cacb2c0265a4402c5956e0318f573366f997",
+      "ordinal": 8,
+      "profile_url": "https://www.senato.it/composizione/senatori/elenco-alfabetico/scheda-attivita?did=00036447",
+      "publication_authorized": false,
+      "speaker_attribution_approved": false,
+      "status": "PROFILE_DOCUMENT_MATCH_ONLY",
+      "surname": "Spinelli",
+      "title": "Scheda di attività di Domenica SPINELLI - XIX Legislatura | Senato della Repubblica"
+    },
+    {
+      "did": 32727,
+      "html_sha256": "2db55e692a4eb7cb646cbae1483730b0210f8e1fc0f04787a2e2e233fb8f7110",
+      "ordinal": 13,
+      "profile_url": "https://www.senato.it/composizione/senatori/elenco-alfabetico/scheda-attivita?did=00032727",
+      "publication_authorized": false,
+      "speaker_attribution_approved": false,
+      "status": "PROFILE_DOCUMENT_MATCH_ONLY",
+      "surname": "Unterberger",
+      "title": "Scheda di attività di Julia UNTERBERGER - XIX Legislatura | Senato della Repubblica"
+    },
+    {
+      "did": 36425,
+      "html_sha256": "c218b8284cb1dfdf3a5bbce894e24812e61e02d4473f7e4d3ef86e064ad45f7f",
+      "ordinal": 31,
+      "profile_url": "https://www.senato.it/composizione/senatori/elenco-alfabetico/scheda-attivita?did=00036425",
+      "publication_authorized": false,
+      "speaker_attribution_approved": false,
+      "status": "PROFILE_DOCUMENT_MATCH_ONLY",
+      "surname": "Sironi",
+      "title": "Scheda di attività di Elena SIRONI - XIX Legislatura | Senato della Repubblica"
+    },
+    {
+      "did": 32658,
+      "html_sha256": "5ad265fe88fdf412695c8f439d445401459c98b84c25d533689df6bd30e82a1e",
+      "ordinal": 33,
+      "profile_url": "https://www.senato.it/composizione/senatori/elenco-alfabetico/scheda-attivita?did=00032658",
+      "publication_authorized": false,
+      "speaker_attribution_approved": false,
+      "status": "PROFILE_DOCUMENT_MATCH_ONLY",
+      "surname": "Maiorino",
+      "title": "Scheda di attività di Alessandra MAIORINO - XIX Legislatura | Senato della Repubblica"
+    },
+    {
+      "did": 36426,
+      "html_sha256": "e2e58303796817179ecff4b075fad3624ca3bf8dd251ca4b9e43173c37bf57f2",
+      "ordinal": 42,
+      "profile_url": "https://www.senato.it/composizione/senatori/elenco-alfabetico/scheda-attivita?did=00036426",
+      "publication_authorized": false,
+      "speaker_attribution_approved": false,
+      "status": "PROFILE_DOCUMENT_MATCH_ONLY",
+      "surname": "Spagnolli",
+      "title": "Scheda di attività di Luigi SPAGNOLLI - XIX Legislatura | Senato della Repubblica"
+    },
+    {
+      "did": 36404,
+      "html_sha256": "225691c64e9ca8230cc0825da1bf93c2de17465bcac2b83b8af489370c43454f",
+      "ordinal": 50,
+      "profile_url": "https://www.senato.it/composizione/senatori/elenco-alfabetico/scheda-attivita?did=00036404",
+      "publication_authorized": false,
+      "speaker_attribution_approved": false,
+      "status": "PROFILE_DOCUMENT_MATCH_ONLY",
+      "surname": "Lopreiato",
+      "title": "Scheda di attività di Ada LOPREIATO - XIX Legislatura | Senato della Repubblica"
+    },
+    {
+      "did": 27622,
+      "html_sha256": "e6e1075a6ad4888d4ed396761f53592bc6affc186067b94d6f1c2f269b10dda5",
+      "ordinal": 57,
+      "profile_url": "https://www.senato.it/composizione/senatori/elenco-alfabetico/scheda-attivita?did=00027622",
+      "publication_authorized": false,
+      "speaker_attribution_approved": false,
+      "status": "PROFILE_DOCUMENT_MATCH_ONLY",
+      "surname": "Sensi",
+      "title": "Scheda di attività di Filippo SENSI - XIX Legislatura | Senato della Repubblica"
+    },
+    {
+      "did": 36409,
+      "html_sha256": "852aa314455b2db296cfa3c916dc917e339ea53ac1bbf1452f5e1c740f3cd7c2",
+      "ordinal": 82,
+      "profile_url": "https://www.senato.it/composizione/senatori/elenco-alfabetico/scheda-attivita?did=00036409",
+      "publication_authorized": false,
+      "speaker_attribution_approved": false,
+      "status": "PROFILE_DOCUMENT_MATCH_ONLY",
+      "surname": "Musolino",
+      "title": "Scheda di attività di Dafne MUSOLINO - XIX Legislatura | Senato della Repubblica"
+    },
+    {
+      "did": 22871,
+      "html_sha256": "36a470ae5efc7da8333d5860b65d7b5516269da080ca43213b00414e9361971e",
+      "ordinal": 83,
+      "profile_url": "https://www.senato.it/composizione/senatori/elenco-alfabetico/scheda-attivita?did=00022871",
+      "publication_authorized": false,
+      "speaker_attribution_approved": false,
+      "status": "PROFILE_DOCUMENT_MATCH_ONLY",
+      "surname": "Biancofiore",
+      "title": "Scheda di attività di Michaela BIANCOFIORE - XIX Legislatura | Senato della Repubblica"
+    },
+    {
+      "did": 36390,
+      "html_sha256": "1b5d721cb9e5d3099bbbb9dc9ea940ca9f4c59773469e20272bfa9b548d92a0e",
+      "ordinal": 85,
+      "profile_url": "https://www.senato.it/composizione/senatori/elenco-alfabetico/scheda-attivita?did=00036390",
+      "publication_authorized": false,
+      "speaker_attribution_approved": false,
+      "status": "PROFILE_DOCUMENT_MATCH_ONLY",
+      "surname": "Cucchi",
+      "title": "Scheda di attività di Ilaria CUCCHI - XIX Legislatura | Senato della Repubblica"
+    },
+    {
+      "did": 17811,
+      "html_sha256": "2a2a721a4134a40bc4c7e7c709e39933ca859f2a4342b99d0a946aed9cd35990",
+      "ordinal": 86,
+      "profile_url": "https://www.senato.it/composizione/senatori/elenco-alfabetico/scheda-attivita?did=00017811",
+      "publication_authorized": false,
+      "speaker_attribution_approved": false,
+      "status": "PROFILE_DOCUMENT_MATCH_ONLY",
+      "surname": "Zanettin",
+      "title": "Scheda di attività di Pierantonio ZANETTIN - XIX Legislatura | Senato della Repubblica"
+    },
+    {
+      "did": 32851,
+      "html_sha256": "09c44a5809cee94ff0417905b55e0c9eac5f5ff2556c855e26cf653780f32841",
+      "ordinal": 87,
+      "profile_url": "https://www.senato.it/composizione/senatori/elenco-alfabetico/scheda-attivita?did=00032851",
+      "publication_authorized": false,
+      "speaker_attribution_approved": false,
+      "status": "PROFILE_DOCUMENT_MATCH_ONLY",
+      "surname": "Bilotti",
+      "title": "Scheda di attività di Anna BILOTTI - XIX Legislatura | Senato della Repubblica"
+    },
+    {
+      "did": 29185,
+      "html_sha256": "14b907142102535576a2f00e9ae067c08e675db2234036735a95b420ffb2092e",
+      "ordinal": 88,
+      "profile_url": "https://www.senato.it/composizione/senatori/elenco-alfabetico/scheda-attivita?did=00029185",
+      "publication_authorized": false,
+      "speaker_attribution_approved": false,
+      "status": "PROFILE_DOCUMENT_MATCH_ONLY",
+      "surname": "Stefani",
+      "title": "Scheda di attività di Erika STEFANI - XIX Legislatura | Senato della Repubblica"
+    }
+  ],
+  "original_source_sha256": "1cb2b5fc3cbc96701e52f06c34c3ae3cd494eb622aa3f124fb1a93a223e27476",
+  "publication_authorized": false
+}

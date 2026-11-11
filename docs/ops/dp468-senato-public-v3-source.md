@@ -284,3 +284,14 @@ the publication pipeline as approvals and do not alter `launch-set-v1.json`.
 
 The [11 November MiniPC readback](dp468-16-live-private-readback-20261111.md)
 verifies all 16 source/role candidates, still without publication authority.
+
+## Second official document cross-check (11 November 2026)
+
+`tools/dp468_senato_profile_crosscheck.py` rereads the 16 selected Person
+IDs from this manifest and fetches each separate Senato activity card over
+HTTPS. It validates the redirected `did`, expected surname and XIX legislature,
+then emits URL, title and response SHA-256. The actual 16/16 result is
+[recorded here](dp468-senato-profile-crosscheck-20261111.json).
+This establishes a source-document identity cross-check only. The cards
+come from the same institution as the AKN text, and neither attest that
+a particular speech was delivered nor grant rights, GDPR approval or public GO.
