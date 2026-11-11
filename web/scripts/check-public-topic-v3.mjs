@@ -24,6 +24,13 @@ assert.equal(producer.status, 0, `DP439 fixture failed: ${producer.stderr}`);
 const { populated, empty, one, revoked, topics, source_sha, people_sha } = JSON.parse(producer.stdout);
 const [economia, economica] = topics;
 const hash = (input) => createHash("sha256").update(canonicalJson(input)).digest("hex");
+const repin = (model) => {
+  const material = {};
+  for (const key of ["schema_version", "source_dataset_sha256", "person_dataset_sha256",
+    "generated_at", "coverage_note", "status", "result_count", "data"]) material[key] = model[key];
+  model.dataset_sha256 = hash(material);
+  return {expectedCollectionSha256: model.dataset_sha256};
+};
 assert.equal(populated.result_count, 4);
 assert.equal(one.result_count, 1);
 assert.equal(empty.result_count, 0);
@@ -66,9 +73,11 @@ async function succeeds(name, model, topic = economia, options = {}) {
   assert.equal(result.status, 0, `Astro SSR ${name} failed:\n${result.stdout}\n${result.stderr}`);
   return readFile(join(temp, name, "index.html"), "utf8");
 }
-async function rejects(name, model, topic = economia, options = {}) {
+async function rejects(name, model, topic = economia, options = {}, code) {
   const result = await render(name, model, topic, options);
   assert.notEqual(result.status, 0, `Unsafe ${name} unexpectedly built and exposed a Topic`);
+  if (code) assert.ok((result.stdout + result.stderr).includes(code),
+    `${name}: expected ${code}, got:\n${result.stdout}\n${result.stderr}`);
 }
 try {
   await mkdir(join(temp, "src/pages"), { recursive: true });
@@ -76,22 +85,25 @@ try {
   await writeFile(join(temp, "astro.config.mjs"),
     'import {defineConfig} from "astro/config";export default defineConfig({output:"static"})');
 
-  // Two Statements from one stable Person must resolve to the same identity.
-  // The Topic sidebar otherwise silently uses the last name and route.
+  // Stable Person routes must agree even when a public speaker's caption
+  // legitimately changes between statements.
   const siblingIndex = populated.data.findIndex((row) => row.statement_id === "statement:1");
   assert.ok(siblingIndex >= 0 && populated.data.some((row) =>
     row.statement_id === "statement:2" && row.person_id === populated.data[siblingIndex].person_id),
     "fixture needs two different Statements from one Person");
-  for (const [name, mutate] of [
-    ["person-name-conflict", (row) => { row.statement.person.name = "Altered Person"; }],
-    ["person-route-conflict", (row) => { row.person_route = "/persone/another-person/"; }],
-  ]) {
+  const historicCaption = structuredClone(populated);
+  historicCaption.data[siblingIndex].statement.person.name = "Alias storico";
+  const captionHtml = await succeeds("historic-speaker-caption", historicCaption, economia, repin(historicCaption));
+  assert.match(captionHtml, /Alias storico/);
+  assert.doesNotMatch(captionHtml.slice(captionHtml.indexOf("Persone presenti nel record pubblico")),
+    /Alias storico/, "Person index must use the most recent public caption");
+  for (const statementId of ["statement:1", "statement:2"]) {
     const mismatched = structuredClone(populated);
-    mutate(mismatched.data[siblingIndex]);
-    const { dataset_sha256, provider_calls, ...material } = mismatched;
-    mismatched.dataset_sha256 = hash(material);
-    await rejects(name, mismatched, economia,
-      { expectedCollectionSha256: mismatched.dataset_sha256 });
+    for (const row of mismatched.data) {
+      if (row.statement_id === statementId) row.person_route = "/persone/another-person/";
+    }
+    await rejects(`person-route-conflict-${statementId}`, mismatched, economia,
+      repin(mismatched), "PUBLIC_TOPIC_V3_PERSON_ROUTE_CONFLICT");
   }
 
   const populatedHtml = await succeeds("published", populated);

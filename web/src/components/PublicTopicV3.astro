@@ -109,7 +109,7 @@ type Item = {
 const rows: Item[] = [];
 const seen = new Set<string>();
 const sourceByContent = new Map<string, { title: string; url: string }>();
-const personById = new Map<string, { name: string; route: string }>();
+const personRouteById = new Map<string, string>();
 const statementById = new Map<string, string>();
 for (const value of collection.data as unknown[]) {
   exact(value, ["statement_id", "version_id", "statement_route", "statement_date",
@@ -156,10 +156,10 @@ for (const value of collection.data as unknown[]) {
   if (previousStatement !== undefined && previousStatement !== statementSnapshot) reject("STATEMENT_MEMBERSHIP_CONFLICT");
   statementById.set(statementId, statementSnapshot);
   const personId = String(value.person_id);
-  const previousPerson = personById.get(personId);
-  if (previousPerson && (previousPerson.name !== s.person.name ||
-    previousPerson.route !== value.person_route)) reject("PERSON_IDENTITY_CONFLICT");
-  personById.set(personId, {name: String(s.person.name), route: String(value.person_route)});
+  const previousRoute = personRouteById.get(personId);
+  // Speaker captions may change over time; a stable Person route must not.
+  if (previousRoute !== undefined && previousRoute !== value.person_route) reject("PERSON_ROUTE_CONFLICT");
+  personRouteById.set(personId, String(value.person_route));
   // A Content node has one canonical source identity across every membership.
   // Otherwise the source index silently drops one URL under the shared id.
   const contentId = String(s.source.content_id);
@@ -177,8 +177,12 @@ for (const value of collection.data as unknown[]) {
 }
 rows.sort((a, b) => b.statement_date.localeCompare(a.statement_date) ||
   a.statement_id.localeCompare(b.statement_id) || a.version_id.localeCompare(b.version_id));
-const people = [...new Map(rows.map((row) => [row.person_id,
-  { name: row.statement.person.name, route: row.person_route, id: row.person_id }])).values()]
+const peopleById = new Map<string, {name: string; route: string; id: string}>();
+for (const row of rows) {
+  if (!peopleById.has(row.person_id)) peopleById.set(row.person_id,
+    {name: row.statement.person.name, route: row.person_route, id: row.person_id});
+}
+const people = [...peopleById.values()]
   .sort((a, b) => a.name.localeCompare(b.name, "it") || a.id.localeCompare(b.id));
 const sources = [...new Map(rows.map((row) => [row.statement.source.content_id,
   { title: row.statement.source.title, url: row.statement.source.url,
