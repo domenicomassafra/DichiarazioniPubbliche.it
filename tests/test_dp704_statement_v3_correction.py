@@ -80,6 +80,28 @@ class StatementV3CorrectionIntakeTests(unittest.TestCase):
         try:
             self.assertEqual(self.request("GET", "/api/v3/statements")[0], 200)
             self.assertEqual(self.request("GET", "/")[0], 200)
+            # The ledger can fail after the first fence succeeds but before
+            # the final public response headers are sent.
+            intake = private.RequestHandlerClass.statement_correction_intake
+            original_pin = intake.published_release_pin
+            pin_calls = 0
+
+            def pin_then_fail():
+                nonlocal pin_calls
+                pin_calls += 1
+                if pin_calls == 2:
+                    raise RuntimeError("TRANSIENT_LEDGER_DISCONNECT")
+                return original_pin()
+
+            try:
+                intake.published_release_pin = pin_then_fail
+                status, headers, blocked = self.request("GET", "/")
+                self.assertEqual(status, 503)
+                self.assertEqual(blocked, {"error": "PUBLIC_PROJECTION_UNAVAILABLE"})
+                self.assertIn("no-store", headers["Cache-Control"])
+            finally:
+                intake.published_release_pin = original_pin
+
             status, _, receipt = self.request(
                 "POST", "/intake/corrections", payload, self.auth_headers(),
             )
