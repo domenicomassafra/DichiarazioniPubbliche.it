@@ -108,6 +108,7 @@ type Item = {
 };
 const rows: Item[] = [];
 const seen = new Set<string>();
+const sourceByContent = new Map<string, { title: string; url: string }>();
 for (const value of collection.data as unknown[]) {
   exact(value, ["statement_id", "version_id", "statement_route", "statement_date",
     "person_id", "person_route", "topic_id", "topic_route", "statement"], "ROW_FIELDS_INVALID");
@@ -143,6 +144,13 @@ for (const value of collection.data as unknown[]) {
         !ID.test(String(locator.segment_id)) || !Number.isSafeInteger(locator.start_ms) ||
         !Number.isSafeInteger(locator.end_ms) || (locator.start_ms as number) < 0 ||
         (locator.end_ms as number) <= (locator.start_ms as number)))) reject("LOCATOR_INVALID");
+  // A Content node has one canonical source identity across every membership.
+  // Otherwise the source index silently drops one URL under the shared id.
+  const contentId = String(s.source.content_id);
+  const previousSource = sourceByContent.get(contentId);
+  if (previousSource && (previousSource.title !== s.source.title ||
+    previousSource.url !== s.source.url)) reject("CONTENT_SOURCE_CONFLICT");
+  sourceByContent.set(contentId, {title: String(s.source.title), url: String(s.source.url)});
   const unique = `${value.statement_id}\u001f${value.version_id}\u001f${value.topic_id}`;
   if (seen.has(unique)) reject("DUPLICATE_ROW");
   seen.add(unique);

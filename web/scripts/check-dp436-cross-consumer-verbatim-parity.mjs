@@ -79,31 +79,22 @@ def rebuild(source, previous_bundle, previous_decisions, content_ids=None):
     return bundle, decisions, make(bundle, people, decisions)
 
 source, bundle, people, roster, decisions = published()
-# The synthetic source reuses content:B for two *different* source documents.
-# A public content resource has exactly one canonical URL (content_item.url), so
-# give the third Statement its own content id: a real release cannot serve two
-# source URLs for one content node.
-def one_source_per_content(source):
-    # Give the third Statement its own content id (see note above).
-    third = source.subjects[2]
-    third.row["content_id"] = "content:C"
-    for gate in third.gates.values():
-        gate["content_id"] = "content:C"
-
-one_source_per_content(source)
-bundle, decisions, full_join = rebuild(
-    source, bundle, decisions, {"statement:3": "content:C"})
+bundle, decisions, full_join = rebuild(source, bundle, decisions)
 
 # Withdrawal: one Statement's rights are revoked; the release must drop it from
 # every surface at once, never only from the reader that happens to re-check.
 source.subjects[1].gates["rights"]["status"] = "REVOKED"
 withdrawn_bundle, _, withdrawn_join = rebuild(source, bundle, decisions)
 
-# The un-corrected synthetic release keeps two source URLs on one content node.
-# N-Triples cannot state which URL a Statement came from, so the gate must
-# refuse it instead of silently choosing one.
+# A deliberately conflicting release reuses one content identity for two URLs.
+# N-Triples cannot state which document the Statement came from, so refuse it.
 shared_source, shared_bundle, _, _, shared_decisions = published()
-shared_bundle, _, _ = rebuild(shared_source, shared_bundle, shared_decisions)
+shared_third = shared_source.subjects[2]
+shared_third.row["content_id"] = "content:B"
+for gate in shared_third.gates.values():
+    gate["content_id"] = "content:B"
+shared_bundle, _, _ = rebuild(
+    shared_source, shared_bundle, shared_decisions, {"statement:3": "content:B"})
 try:
     get_public_statement_v3(
         withdrawn_bundle, "statement:2", allow_statement_v3=True,
@@ -115,7 +106,6 @@ except PublicApiError as exc:
 # Byte fidelity: tabs, newlines and edge spaces inside an approved verbatim span
 # must never be trimmed by one consumer and preserved by another.
 special_source, original_special_bundle, _, _, special_decisions = published()
-one_source_per_content(special_source)
 owner = special_source.subjects[0]
 quote = " «Café»\tora\n "
 owner.source_text = "Contesto: " + quote + "Fine."
@@ -132,7 +122,6 @@ special_bundle["topics"] = copy.deepcopy(original_special_bundle["topics"])
 special_bundle["dataset_sha256"] = projection_dataset_sha256(special_bundle)
 special_decisions = tuple(
     replace(item, public_dataset_sha256=special_bundle["dataset_sha256"],
-            **({"content_id": "content:C"} if item.statement_id == "statement:3" else {}),
             **({"quote_sha256": SHA(quote), "source_sha256": SHA(owner.source_text)}
                if item.statement_id == "statement:1" else {}))
     for item in special_decisions)

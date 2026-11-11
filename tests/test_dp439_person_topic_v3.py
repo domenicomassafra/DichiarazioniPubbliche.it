@@ -34,6 +34,11 @@ def topic(topic_id: str, slug: str, name: str) -> dict:
 
 def fixture():
     source = ReviewedSyntheticOpinions()
+    # Distinct documents need distinct Content IDs.
+    third = source.subjects[2]
+    third.row["content_id"] = "content:C"
+    for gate in third.gates.values():
+        gate["content_id"] = "content:C"
     # Two people with the same display name but distinct reviewed stable IDs.
     first = person("person:A", slug="persona-a", name="Alex Demo")
     second = person("person:B", slug="persona-b", name="Alex Demo")
