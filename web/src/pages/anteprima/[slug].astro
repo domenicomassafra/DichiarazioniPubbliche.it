@@ -1,0 +1,95 @@
+---
+import SourceEditorial349 from "../../components/SourceEditorial349.astro";
+import demoProjection from "../../data/demo-projection.json";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import type { PublicContent, PublicDossier } from "../../lib/types";
+
+// No route is generated in a real public build. This is an explicitly opted-in,
+// unindexed visual review fixture, never a publication or a source assertion.
+export function getStaticPaths() {
+  if (process.env.DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION !== "1") return [];
+  const contentId = "content:visual-preview-349";
+  const url = "https://example.test/visual-preview-349";
+  const claims = [
+    "Abbiamo raddoppiato le piste ciclabili in due anni.",
+    "Oggi la rete ciclabile raggiunge 21 chilometri.",
+    "Nel 2026 arriveremo a 36 chilometri di piste ciclabili.",
+  ];
+  const starts = [134000, 517000, 902000];
+  const endings = [154000, 537000, 922000];
+  const verdicts = ["FACTUALLY_FALSE", "SUPPORTED", "INSUFFICIENT_EVIDENCE"] as const;
+  const dossiers: PublicDossier[] = demoProjection.dossiers.map((original, index) => {
+    const findingId = `finding:visual-preview-349:${index + 1}`;
+    return {
+      ...original,
+      finding_id: findingId,
+      claim_id: `claim:visual-preview-349:${index + 1}`,
+      claim: claims[index],
+      speaker: { id: "person:preview:marta-ferri", name: "Marta Ferri", public_role: "Ministra della Mobilità (personaggio inventato)" },
+      source: {
+        content_id: contentId,
+        title: "Intervista con Marta Ferri",
+        url,
+        published_at: "2024-03-12",
+        segments: [{ segment_id: `segment:visual-preview:${index + 1}`, segment_index: index, start_ms: starts[index], end_ms: endings[index] }]
+      },
+      finding: {
+        ...original.finding,
+        assessment: verdicts[index],
+        publication_status: "PUBLISH",
+        published_at: "2024-03-12",
+        rationale: index === 0
+          ? "Esempio inventato: la crescita dichiarata sarebbe confrontata con l'estensione documentata della rete ciclabile."
+          : index === 1
+            ? "Esempio inventato: un dato sulla lunghezza della rete troverebbe riscontro nella documentazione."
+            : "Esempio inventato: non ci sono documenti sufficienti per concludere.",
+      },
+      evidence: [],
+      relations: [],
+      corrections: [],
+      rights_of_reply: [],
+      wording: undefined,
+    } as PublicDossier;
+  });
+  const content: PublicContent = {
+    content_id: contentId,
+    slug: "intervista-marta-ferri",
+    title: dossiers[0].source.title,
+    url,
+    published_at: "2024-03-12",
+    content_kind: "VIDEO",
+    duration_ms: 1447000,
+    public_media_url: null,
+    publication_version: "public-content-v1",
+    review_event_ids: ["review:visual-preview-only"],
+    finding_ids: dossiers.map((dossier) => dossier.finding_id),
+  };
+  const demo = {
+    summary: "La ministra parla di mobilità urbana, piste ciclabili e obiettivi dei prossimi anni. Testo e personaggio fittizi.",
+    portrait: `data:image/jpeg;base64,${readFileSync(resolve(process.cwd(), "src/data/preview-portrait-349.jpg")).toString("base64")}`,
+    excerpts: Object.fromEntries(dossiers.map((dossier, index) => [
+      dossier.finding_id,
+      index === 0
+        ? "Abbiamo raddoppiato le piste ciclabili in due anni: siamo passati da 18 a 21 chilometri, e il piano prevede di arrivare a 36 chilometri entro il 2026, con nuovi interventi già finanziati."
+        : index === 1
+          ? "Oggi la rete ciclabile raggiunge 21 chilometri. È una misura che compare nel rendiconto annuale della città immaginaria."
+          : "Nel 2026 arriveremo a 36 chilometri di piste ciclabili, aggiungendo collegamenti fra i quartieri.",
+    ])),
+    fullTranscript: [
+      "02:14 – 02:34 · Abbiamo raddoppiato le piste ciclabili in due anni: siamo passati da 18 a 21 chilometri, e il piano prevede di arrivare a 36 chilometri entro il 2026.",
+      "08:37 – 08:57 · Oggi la rete ciclabile raggiunge 21 chilometri. È la situazione che abbiamo misurato nel rendiconto annuale.",
+      "15:02 – 15:22 · Nel 2026 arriveremo a 36 chilometri di piste ciclabili, aggiungendo collegamenti fra i quartieri.",
+    ],
+  };
+  return [{ params: { slug: "fonte" }, props: { content, dossiers, demo } }];
+}
+
+interface Props {
+  content: PublicContent;
+  dossiers: PublicDossier[];
+  demo: { summary: string; portrait: string; excerpts: Record<string, string>; fullTranscript: string[] };
+}
+const { content, dossiers, demo } = Astro.props;
+---
+<SourceEditorial349 content={content} dossiers={dossiers} demo={demo} />

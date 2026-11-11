@@ -65,6 +65,11 @@ try {
   const approvedShape = build(emptyProjection, "empty");
   assert.equal(approvedShape.status, 0, `explicit empty-projection build failed: ${output(approvedShape)}`);
   const homepage = await readFile(join(directory, "empty/index.html"), "utf8");
+  await assert.rejects(
+    readFile(join(directory, "empty/anteprima/fonte/index.html"), "utf8"),
+    /ENOENT/,
+    "fictional DP-349 source preview must not appear in any public build",
+  );
   assert.match(homepage, /Nessuna dichiarazione ancora pubblicata\./);
   assert.match(homepage, /<meta name="robots" content="index,follow"/);
   const explore = await readFile(join(directory, "empty/esplora/index.html"), "utf8");

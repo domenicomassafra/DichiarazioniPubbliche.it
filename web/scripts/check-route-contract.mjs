@@ -103,6 +103,14 @@ const legacyToCanonical = new Map([
 // not additional primary public-record templates.
 function assertKnownPublicPageFamilies(routes) {
   const staticPages = new Set([...requiredStatic, "/accedi/", "/account/", "/privacy/", "/segnalazioni/"]);
+  // A deliberately opted-in, unindexed DP-349 visual fixture is a review
+  // surface, never an independently approved public-record page family.
+  if (demoSnapshot && pages.has("/anteprima/fonte/")) {
+    const preview = pages.get("/anteprima/fonte/");
+    assert.match(preview, /<meta name="robots" content="noindex,nofollow"/);
+    assert.match(preview, /Ambiente dimostrativo: i contenuti visibili sono fittizi/);
+    staticPages.add("/anteprima/fonte/");
+  }
   const dynamicFamilies = [...kindToPrefix.values(), "/tracce/", ...legacyToCanonical.keys()];
   for (const route of routes) {
     assert(
@@ -172,15 +180,15 @@ if (demoSnapshot) assert(contentPages.length > 0, "demo Content routes required 
 let timedLocatorPages = 0;
 let writtenLocatorPages = 0;
 for (const [route, html] of contentPages) {
-  if (/con locator temporale/i.test(html)) {
+  if (/class="source-story__timeline-marker"/.test(html)) {
     timedLocatorPages += 1;
-    assert.match(html, /Locator pubblico/i, `${route}: timed locator lacks public-locator disclosure`);
+    assert.match(html, /aria-label="Momenti selezionabili nella fonte"/i, `${route}: timed locator lacks navigable source timeline`);
+    assert.match(html, /data-content-select="[^"]+"/, `${route}: timed locator lacks a selectable public finding`);
   }
-  if (/con locator testuale/i.test(html) || /Passaggio testuale/i.test(html)) {
+  if (/Passaggio (?:testuale verificato|\d+–\d+)/i.test(html)) {
     writtenLocatorPages += 1;
     assert.match(html, /(?:Passaggio \d+–\d+|Passaggio testuale verificato)/i, `${route}: written locator lacks textual selector`);
-    assert.match(html, /Passaggio selezionato/i, `${route}: written locator is mislabeled as a timed moment`);
-    assert.equal(/Passaggio selezionato[^<]*(?:\d{1,2}:\d{2})/i.test(html), false, `${route}: written locator fabricated a timestamp`);
+    assert.match(html, /data-content-detail="[^"]+"/, `${route}: written locator cannot be selected in the source`);
   }
 }
 if (demoSnapshot) assert(timedLocatorPages > 0, "demo Content fixture must exercise at least one timed locator");

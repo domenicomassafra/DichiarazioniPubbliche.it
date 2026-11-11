@@ -1,0 +1,254 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import SourceRow from "./SourceRow.astro";
+import Assessment from "./Assessment.astro";
+import AtlasRoute from "./AtlasRoute.astro";
+import { assessmentLabel, dossierSlug, formatDate, publicIdSlug, relationSlug } from "../lib/format";
+import "../styles/source-349.css";
+import type { PublicContent, PublicDossier } from "../lib/types";
+
+interface DemoPresentation {
+  summary: string;
+  portrait?: string;
+  excerpts: Record<string, string>;
+  fullTranscript: string[];
+}
+interface Props {
+  content?: PublicContent | null;
+  dossiers: PublicDossier[];
+  demo?: DemoPresentation;
+}
+
+const { content = null, dossiers, demo } = Astro.props;
+const previewMode = process.env.DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION === "1";
+if (demo && !previewMode) throw new Error("Preview content is forbidden outside explicit demo builds.");
+
+// A published content ID never licenses a different revision or an unreviewed
+// statement: both source URL and the approved finding ID set must agree.
+const publicStatuses = new Set(["PUBLISH", "DISPUTED", "CORRECTED", "RETRACTED"]);
+const publicAssessments = new Set(["SUPPORTED", "FACTUALLY_FALSE", "OUTDATED_DATA"]);
+const published = dossiers.filter((dossier) =>
+  publicStatuses.has(dossier.finding.publication_status) &&
+  (publicAssessments.has(dossier.finding.assessment) || (previewMode && demo))
+);
+const source = content ?? published[0]?.source;
+if (!source) throw new Error("A published source or approved dossier is required.");
+const allowedIds = content ? new Set(content.finding_ids) : null;
+const approved = published.filter((dossier) =>
+  dossier.source.content_id === source.content_id &&
+  dossier.source.url === source.url &&
+  (!allowedIds || allowedIds.has(dossier.finding_id))
+);
+const canonical = demo ? "/anteprima/fonte/" : `/contenuti/${content?.slug ?? publicIdSlug(source.content_id)}/`;
+const timeLabel = (ms?: number | null) => {
+  if (ms === null || ms === undefined || !Number.isFinite(ms)) return null;
+  const secs = Math.max(0, Math.floor(ms / 1000));
+  return secs >= 3600
+    ? `${Math.floor(secs / 3600)}:${String(Math.floor(secs % 3600 / 60)).padStart(2, "0")}:${String(secs % 60).padStart(2, "0")}`
+    : `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+};
+const locatorFor = (dossier: PublicDossier) => {
+  const timed = (dossier.source.segments ?? []).filter((seg) =>
+    Number.isFinite(seg.start_ms) && Number.isFinite(seg.end_ms)
+  );
+  if (timed.length) {
+    const start = Math.min(...timed.map((s) => Number(s.start_ms)));
+    const end = Math.max(...timed.map((s) => Number(s.end_ms)));
+    const url = new URL(source.url);
+    url.hash = `t=${Math.floor(start / 1000)}`;
+    return { start, end, label: `${timeLabel(start)} – ${timeLabel(end)}`, href: url.href };
+  }
+  const provenance = dossier.source.text_provenance?.[0];
+  if (provenance) {
+    const positioned = provenance.start_char != null && provenance.end_char != null;
+    return {
+      start: null,
+      end: null,
+      label: positioned ? `Passaggio ${provenance.start_char}–${provenance.end_char}` : "Passaggio testuale verificato",
+      href: source.url,
+    };
+  }
+  return { start: null, end: null, label: "Posizione non disponibile", href: source.url };
+};
+const moments = approved.map((dossier) => ({ dossier, locator: locatorFor(dossier) }))
+  .sort((a, b) => (a.locator.start ?? Number.MAX_SAFE_INTEGER) - (b.locator.start ?? Number.MAX_SAFE_INTEGER)
+    || a.dossier.finding_id.localeCompare(b.dossier.finding_id));
+const timed = moments.filter((moment) => moment.locator.start != null);
+const duration = content?.duration_ms ?? (timed.length
+  ? Math.max(...timed.map((moment) => moment.locator.end ?? 0))
+  : null);
+const kind = content?.content_kind === "AUDIO" ? "Audio" : content?.content_kind === "VIDEO" ? "Intervista video"
+  : content?.content_kind === "WRITTEN" ? "Testo" : "Fonte";
+const role = [...new Set(moments.map((moment) => moment.dossier.speaker.public_role).filter(Boolean))].join(", ");
+const person = [...new Set(moments.map((moment) => moment.dossier.speaker.name))].join(", ");
+const counts = {
+  true: moments.filter(({ dossier }) => dossier.finding.assessment === "SUPPORTED" && dossier.finding.publication_status !== "RETRACTED").length,
+  false: moments.filter(({ dossier }) => dossier.finding.assessment === "FACTUALLY_FALSE" && dossier.finding.publication_status !== "RETRACTED").length,
+  other: moments.filter(({ dossier }) => !["SUPPORTED", "FACTUALLY_FALSE"].includes(dossier.finding.assessment) && dossier.finding.publication_status !== "RETRACTED").length,
+};
+const verdict = (dossier: PublicDossier) => demo
+  ? dossier.finding.assessment === "SUPPORTED" ? "Vero" : dossier.finding.assessment === "FACTUALLY_FALSE" ? "Falso" : "Da verificare"
+  : dossier.finding.publication_status === "RETRACTED" ? "Valutazione ritirata"
+    : assessmentLabel(dossier.finding.assessment);
+const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
+  (dossier.relations ?? []).filter((relation) => relation.status === "APPROVED" && relation.review_event_id).map((relation) => relation.id)
+))];
+---
+
+<BaseLayout title={source.title} description={demo ? demo.summary : `Fonte originale e dichiarazioni pubblicate: ${source.title}.`} canonicalPath={canonical}>
+  <div class="source-story" data-source-story>
+    <div class="shell source-story__breadcrumb">
+      <nav aria-label="Percorso">
+        <a href="/esplora/?tipo=content">Contenuti</a><span aria-hidden="true">›</span>
+        <a href="/esplora/?tipo=content">Fonti</a><span aria-hidden="true">›</span>
+        <span aria-current="page">{source.title}</span>
+      </nav>
+    </div>
+    <header class="shell source-story__hero">
+      <div class="source-story__intro">
+        <span class="source-story__type">FONTE</span>
+        <h1>{source.title}</h1>
+        <p class="source-story__summary">{demo?.summary ?? "Fonte primaria e contesto delle dichiarazioni esaminate. Ogni elemento conduce alla posizione e alle verifiche effettivamente pubblicate."}</p>
+        <div class="source-story__metadata">
+          <span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m10 9 5 3-5 3z"></path></svg>{kind}</span>
+          {source.published_at && <span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M7 3v4m10-4v4M3 10h18"></path></svg>{formatDate(source.published_at)}</span>}
+          {duration != null && <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6l4 2"></path></svg>{timeLabel(duration)}</span>}
+          {person && <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-5 3-8 8-8s8 3 8 8"></path></svg>{person}{role ? ` · ${role}` : ""}</span>}
+        </div>
+        <a class="source-story__original" href={demo ? "#preview-original" : source.url} rel="noreferrer">Fonte originale: {content?.content_kind === "VIDEO" ? "video integrale" : source.title}<span aria-hidden="true"> ↗</span></a>
+      </div>
+      <aside class:list={["source-story__media", !demo?.portrait && "source-story__media--typographic"]} aria-label="Media della fonte">
+        {demo?.portrait ? <img src={demo.portrait} alt="Ritratto illustrativo, persona fittizia" loading="eager" /> : (
+          <div class="source-story__media-type"><span>ARCHIVIO</span><strong>{kind}</strong><small>Il documento originale fa fede</small></div>
+        )}
+        {demo && <a href="#preview-original" class="source-story__demo-media-link" aria-label="Il filmato è fittizio. Leggi la nota sulla fonte inventata."></a>}
+        {content?.public_media_url && !demo ? (
+          <a class="source-story__play" href={content.public_media_url} aria-label="Apri il media pubblico autorizzato" rel="noreferrer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"></path></svg>
+          </a>
+        ) : !demo ? (
+          <span class="source-story__play source-story__play--static" aria-label="Riproduzione non disponibile nell'anteprima" role="img">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"></path></svg>
+          </span>
+        ) : null}
+        {duration != null && !demo && <span class="source-story__media-time">{timeLabel(duration)}</span>}
+      </aside>
+    </header>
+
+    <div class="shell source-story__content">
+      <div class="source-story__tabs" role="tablist" aria-label="Viste della fonte">
+        <button id="source-tab-claims" type="button" role="tab" aria-controls="source-panel-claims" aria-selected="true" tabindex="0" data-source-tab="claims">Dichiarazioni ({moments.length})</button>
+        <button id="source-tab-transcript" type="button" role="tab" aria-controls="source-panel-transcript" aria-selected="false" tabindex="-1" data-source-tab="transcript">Trascrizione</button>
+      </div>
+      <p class="source-story__sr-only" role="status" aria-live="polite" data-source-selection>Prima dichiarazione selezionata.</p>
+
+      <section id="source-panel-claims" role="tabpanel" aria-labelledby="source-tab-claims" data-source-panel="claims">
+        <div class="source-story__workspace" data-content-workspace>
+          <section class="source-story__claims" aria-labelledby="content-moments-heading">
+            <h2 id="content-moments-heading">Dichiarazioni estratte dalla fonte</h2>
+            {moments.length === 0 ? (
+              <p class="source-story__empty">Per questa fonte non risultano dichiarazioni verificate pubblicate.</p>
+            ) : (
+              <ol class="source-story__claim-list">
+                {moments.map(({ dossier, locator }, index) => (
+                  <li class:list={["source-story__claim", index === 0 && "is-current"]} data-content-event>
+                    <button type="button" data-content-select={dossier.finding_id} aria-current={index === 0 ? "true" : undefined} aria-controls={`source-detail-${dossierSlug(dossier)}`} aria-expanded={index === 0 ? "true" : "false"}>
+                      <span class="source-story__time">{locator.start != null ? timeLabel(locator.start) : locator.label}</span>
+                      <span class="source-story__claim-text">{demo ? `“${dossier.claim}”` : dossier.claim}</span>
+                      {!demo && <span class="source-story__paraphrase">Sintesi normalizzata · non citazione testuale</span>}
+                      <span class="source-story__verdict-label">VERDETTO</span>
+                      <span class:list={["source-story__verdict", `source-story__verdict--${dossier.finding.assessment.toLowerCase()}`]}>{verdict(dossier)}</span>
+                      <span class="source-story__arrow" aria-hidden="true">→</span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+          <section class="source-story__excerpts" aria-labelledby="source-excerpt-heading">
+            <h2 id="source-excerpt-heading">Estratto dalla trascrizione</h2>
+            {moments.length === 0 && <p class="source-story__empty">Nessun estratto pubblicato.</p>}
+            {moments.map(({ dossier, locator }, index) => {
+              const retracted = dossier.finding.publication_status === "RETRACTED";
+              const state = retracted ? "La valutazione è stata ritirata." : dossier.finding.publication_status === "DISPUTED" ? "Valutazione contestata." : dossier.finding.publication_status === "CORRECTED" ? "Valutazione corretta." : null;
+              return (
+                <article id={`source-detail-${dossierSlug(dossier)}`} class="source-story__excerpt" data-content-detail={dossier.finding_id} hidden={index !== 0}>
+                  <span class="source-story__excerpt-time">{locator.label}</span>
+                  {demo?.excerpts[dossier.finding_id] ? (
+                    <blockquote>{demo.excerpts[dossier.finding_id]}</blockquote>
+                  ) : (
+                    <p class="source-story__transcript-unavailable">Il testo originale della trascrizione non fa parte della proiezione pubblica approvata. Puoi consultare la posizione temporale sulla fonte.</p>
+                  )}
+                  <p class="source-story__excerpt-note">{demo ? "Trascrizione illustrativa inventata per questa anteprima." : "La posizione è revisionata; la sintesi della dichiarazione non sostituisce le parole originali."}</p>
+                  <a href={demo ? "#preview-original" : locator.href} rel="noreferrer">{demo ? "Informazioni sulla fonte dimostrativa" : "Vai al passaggio nella fonte"} <span aria-hidden="true">↗</span></a>
+                  <details class="source-story__evidence">
+                    <summary>Valutazione e documenti</summary>
+                    {state && <p role="note">{state}</p>}
+                    {!retracted && <><Assessment code={dossier.finding.assessment} /><p>{dossier.finding.rationale}</p></>}
+                    {retracted ? <p>Le evidenze della versione ritirata non sostengono alcuna valutazione attuale.</p> :
+                      dossier.evidence.length ? <div class="source-stack">{dossier.evidence.map((evidence, i) => <SourceRow evidence={evidence} index={i + 1} />)}</div>
+                        : <p>Nessuna evidenza approvata esposta per questa versione.</p>}
+                    <a href={demo ? "#preview-original" : `/dichiarazioni/${dossierSlug(dossier)}/`}>{demo ? "Questa è una dichiarazione dimostrativa" : "Scheda della dichiarazione"} →</a>
+                    {(dossier.corrections.length > 0 || dossier.rights_of_reply.length > 0) && <a href={`/dichiarazioni/${dossierSlug(dossier)}/#storia`}>Correzioni e repliche →</a>}
+                  </details>
+                </article>
+              );
+            })}
+          </section>
+          <aside class="source-story__analysis" aria-labelledby="source-analysis-heading">
+            <h2 id="source-analysis-heading">ANALISI DELLA FONTE</h2>
+            <strong><span>{moments.length}</span> dichiarazioni analizzate</strong>
+            <ul>
+              <li><span class="source-story__analysis-symbol source-story__analysis-symbol--true" aria-hidden="true">✓</span><span>{counts.true} {demo ? "vera" : "supportata"}</span></li>
+              <li><span class="source-story__analysis-symbol source-story__analysis-symbol--false" aria-hidden="true">×</span><span>{counts.false} {demo ? "falsa" : "fattualmente falsa"}</span></li>
+              <li><span class="source-story__analysis-symbol source-story__analysis-symbol--other" aria-hidden="true">○</span><span>{counts.other} {demo ? "da verificare" : "con altro esito"}</span></li>
+            </ul>
+            <a href="/metodo/">Vedi metodo di analisi <span aria-hidden="true">→</span></a>
+          </aside>
+        </div>
+      </section>
+
+      <section id="source-panel-transcript" class="source-story__full-transcript" role="tabpanel" aria-labelledby="source-tab-transcript" data-source-panel="transcript" hidden>
+        <h2>Trascrizione della fonte</h2>
+        {demo ? (
+          <><p>Testo interamente fittizio, mostrato esclusivamente in questo ambiente dimostrativo.</p>
+            {demo.fullTranscript.map((line) => <p>{line}</p>)}
+          </>
+        ) : (
+          <p>La trascrizione integrale non è disponibile nella proiezione pubblica autorizzata. La fonte originale e le posizioni dei passaggi verificati restano consultabili.</p>
+        )}
+        <a href={demo ? "#preview-original" : source.url} rel="noreferrer">{demo ? "Informazioni sulla fonte dimostrativa" : "Consulta la fonte originale"} ↗</a>
+      </section>
+
+      <section class="source-story__timeline" aria-labelledby="source-timeline-heading">
+        <h2 id="source-timeline-heading">Dove nella fonte si trovano le dichiarazioni</h2>
+        {timed.length && duration ? (
+          <div class="source-story__timeline-player">
+            {content?.public_media_url && !demo ? <a class="source-story__timeline-play" aria-label="Apri il media originale" href={content.public_media_url} rel="noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"></path></svg></a>
+              : <span class="source-story__timeline-play source-story__timeline-play--static" aria-label="Video non riproducibile qui" role="img"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"></path></svg></span>}
+            <span class="source-story__timeline-end">0:00</span>
+            <ol class="source-story__timeline-track" aria-label="Momenti selezionabili nella fonte">
+              {timed.map(({ dossier, locator }, index) => (
+                <li style={`--moment-progress:${Math.max(1, Math.min(98, (locator.start ?? 0) / duration * 100))}%`}>
+                  <button type="button" data-content-select={dossier.finding_id} aria-current={index === 0 ? "true" : undefined} aria-controls={`source-detail-${dossierSlug(dossier)}`} aria-label={`Seleziona la dichiarazione delle ${timeLabel(locator.start)}: ${dossier.claim}`}>
+                    <span class="source-story__timeline-marker" aria-hidden="true"></span><span class="source-story__timeline-bubble">{timeLabel(locator.start)}</span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+            <span class="source-story__timeline-end">{timeLabel(duration)}</span>
+          </div>
+        ) : <p class="source-story__empty">Non sono disponibili più posizioni temporali approvate per questa fonte.</p>}
+      </section>
+      <AtlasRoute steps={[
+        { label: "Fonte originale", href: demo ? "#preview-original" : source.url },
+        { label: "Dichiarazioni e passaggi", href: "#content-moments-heading" },
+        { label: "Metodo e correzioni", href: "/metodo/" },
+      ]} />
+      {moments.some(({ locator }) => locator.label === "Posizione non disponibile") && <p class="source-story__boundary">Alcuni passaggi pubblicati non includono una posizione pubblica approvata; non viene ricostruita artificialmente.</p>}
+      {demo && <p class="source-story__boundary" id="preview-original" role="note">Anteprima grafica: l'intervista, la persona, i virgolettati, la fotografia e le valutazioni sono elementi illustrativi. Non esiste un video originale collegato.</p>}
+      {allRelations.length > 0 && <nav class="source-story__related" aria-label="Tracce nel tempo">{allRelations.map((id) => <a href={`/tracce/${relationSlug(id)}/`}>Apri la traccia revisionata →</a>)}</nav>}
+    </div>
+  </div>
+  <script>import "../scripts/source-story-349.ts";</script>
+</BaseLayout>

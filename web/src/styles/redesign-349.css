@@ -24,27 +24,27 @@ body:not(.is-studio) .masthead-note {
 }
 
 body:not(.is-studio) .header-inner {
-  min-height: 5.5rem;
-  gap: var(--space-6);
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  min-height: 4.75rem;
+  gap: clamp(var(--space-4), 2.8vw, var(--space-7));
+  grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
 body:not(.is-studio) .brand {
   justify-self: start;
   gap: var(--space-3);
-  font-size: clamp(1.35rem, 1.35vw, 1.6rem);
+  font-size: clamp(1.16rem, 1.48vw, 1.5rem);
   letter-spacing: -0.025em;
 }
 
 body:not(.is-studio) .brand-mark {
-  width: 1.125rem;
-  height: 1.125rem;
+  width: 2rem;
+  height: 2rem;
   flex: none;
-  transform: rotate(-12deg);
+  transform: none;
 }
 
 body:not(.is-studio) .brand-name {
-  line-height: 0.93;
+  line-height: 1;
   white-space: nowrap;
 }
 
@@ -53,14 +53,29 @@ body:not(.is-studio) .brand-name__break {
 }
 
 body:not(.is-studio) .main-nav {
-  gap: var(--space-7);
-  justify-self: center;
+  gap: clamp(var(--space-3), 2.4vw, var(--space-7));
+  justify-self: start;
+  padding-left: clamp(var(--space-4), 2.5vw, var(--space-7));
+  border-left: 1px solid var(--rule-hairline-strong);
 }
 
 body:not(.is-studio) .main-nav a {
+  position: relative;
   font-size: var(--text-label);
   min-height: var(--target-min);
   letter-spacing: 0.005em;
+}
+
+body:not(.is-studio) .main-nav a.is-active {
+  color: var(--cobalt-700);
+}
+
+body:not(.is-studio) .main-nav a.is-active::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -.08rem;
+  height: 3px;
+  background: var(--cobalt-700);
 }
 
 body:not(.is-studio) .header-search {
@@ -567,8 +582,8 @@ body:not(.is-studio) .dp-home-explore__item:hover .dp-home-explore__arrow {
     gap: var(--space-2);
   }
   body:not(.is-studio) .brand-mark {
-    width: 0.85rem;
-    height: 0.85rem;
+    width: 1.5rem;
+    height: 1.5rem;
   }
   body:not(.is-studio) .header-search {
     gap: var(--space-1);
@@ -641,5 +656,114 @@ body:not(.is-studio) .dp-home-explore__item:hover .dp-home-explore__arrow {
 @media (max-width: 23rem) {
   body:not(.is-studio) .mobile-nav summary span:last-child {
     display: none;
+  }
+}
+
+/* The homepage demonstrates the reading grammar without inventing a record. */
+body:not(.is-studio) .dp-home-visual {
+  max-width: 30rem;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+}
+body:not(.is-studio) .dp-home-visual__document {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-height: 23rem;
+  padding: clamp(var(--space-5), 3vw, var(--space-7));
+  background: var(--ink-inverse);
+  color: var(--ink-inverse-100);
+  border-top: 4px solid var(--cobalt-600);
+  overflow: hidden;
+}
+.dp-home-visual__top {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--ink-inverse-300);
+  font-size: var(--text-meta);
+  letter-spacing: .06em;
+}
+.dp-home-visual__title {
+  font-family: var(--font-claim);
+  font-size: clamp(2.5rem, 3.4vw, 3.5rem);
+  font-weight: 500;
+  line-height: 1.03;
+  letter-spacing: -.03em;
+}
+.dp-home-visual__title em {
+  color: var(--cobalt-200);
+  font-weight: 440;
+}
+.dp-home-visual__quote {
+  padding: var(--space-4) 0 var(--space-4) var(--space-4);
+  border-left: 2px solid var(--cobalt-200);
+}
+.dp-home-visual__quote span {
+  color: var(--ink-inverse-300);
+  font-size: var(--text-meta);
+  letter-spacing: .07em;
+}
+.dp-home-visual__line {
+  height: .7rem;
+  width: 87%;
+  margin-top: var(--space-3);
+  background: var(--ink-inverse-300);
+  opacity: .4;
+}
+.dp-home-visual__line--short { width: 62%; }
+.dp-home-visual__trace {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  justify-items: center;
+  gap: var(--space-3);
+  margin-top: auto;
+  color: var(--ink-inverse-300);
+  font-size: var(--text-meta);
+}
+.dp-home-visual__track {
+  position: relative;
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding-inline: var(--space-2);
+}
+.dp-home-visual__track::before {
+  content: "";
+  position: absolute;
+  inset: 50% var(--space-2) auto;
+  height: 2px;
+  background: var(--cobalt-200);
+}
+.dp-home-visual__track i {
+  position: relative;
+  width: .8rem;
+  height: .8rem;
+  border-radius: 50%;
+  background: var(--cobalt-200);
+}
+body:not(.is-studio) .dp-home-visual > h2 {
+  margin: var(--space-5) 0 var(--space-2);
+  font-family: var(--font-claim);
+  font-weight: 520;
+  font-size: var(--text-headline);
+}
+body:not(.is-studio) .dp-home-visual > p {
+  margin: 0 0 var(--space-3);
+  color: var(--ink-700);
+  line-height: 1.55;
+}
+body:not(.is-studio) .dp-home-visual > a {
+  display: inline-flex;
+  min-height: var(--target-min);
+  align-items: center;
+}
+@media (max-width: 56rem) {
+  body:not(.is-studio) .dp-home-visual {
+    width: 100%;
+    max-width: 38rem;
   }
 }

@@ -16,6 +16,7 @@ from pathlib import Path
 
 from dp312_gold_fixture_rights import dp312_gold_row
 from dp441_screenshot_rights import dp441_screenshot_rows
+from dp349_visual_rights import dp349_visual_rows
 from dp238_bhl_gold_fixture_rights import dp238_bhl_gold_row
 from dp420_usability_fixture_rights import dp420_usability_fixture_row
 from fixture_inventory_candidates import is_candidate
@@ -36,6 +37,7 @@ FIXTURE_POLICY = "DICHIARAZIONI-PUBBLICHE-FIXTURE-POLICY-1.0"
 ROW_DECISIONS: dict[str, dict] = {
     **web_project_asset_rows(CODE_LICENSE, FIXTURE_POLICY, REVIEW_DATE),
     **dp441_screenshot_rows(FIXTURE_POLICY),
+    **dp349_visual_rows(FIXTURE_POLICY),
     # Synthetic fixtures
     "poc/fixtures/italian_cases.json": dict(
         artifact_kind="synthetic",
@@ -447,10 +449,7 @@ def build_rows() -> list[dict]:
         ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, text=True, check=True,
     ).stdout.split("\0")
     tracked = [p for p in tracked if p]
-    # Contributor acceptance runs before commit. Include only explicitly curated
-    # ROW_DECISIONS files that already exist in the candidate working tree so a
-    # newly-authored fixture and its inventory row can be validated without
-    # mutating the shared Git index. Arbitrary untracked files remain ignored.
+    # Include curated new rows before commit without changing Git's index.
     tracked_set = set(tracked)
     tracked.extend(
         path
