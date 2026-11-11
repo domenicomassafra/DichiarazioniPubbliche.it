@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import secrets
 import urllib.error
 import urllib.request
 from dataclasses import asdict
@@ -193,9 +194,11 @@ class OmniRouteAgentReview:
             }},
         }
         prompt_digest = hashlib.sha256(_json(payload).encode()).hexdigest()
+        session_tag = "dp413-" + secrets.token_hex(16)
         status, response = self.http_post(
             self.base_url + "/v1/chat/completions",
-            {"Authorization": "Bearer " + self.api_key, "Content-Type": "application/json"},
+            {"Authorization": "Bearer " + self.api_key, "Content-Type": "application/json",
+             "X-OmniRoute-Session-Id": session_tag},
             payload,
         )
         if status != 200:
@@ -267,6 +270,7 @@ class OmniRouteAgentReview:
         # prompt digest, even when the agent disagrees. No raw private text.
         self.journal.append_review({
             "provider_request_id": request_id,
+            "session_tag": session_tag,
             "agent_id": self.agent_id,
             "provider": "omniroute",
             "requested_model": self.model_id,
@@ -301,4 +305,5 @@ class OmniRouteAgentReview:
                 "prompt_tokens": usage["prompt_tokens"],
                 "completion_tokens": usage["completion_tokens"],
             },
+            session_tag=session_tag,
         )

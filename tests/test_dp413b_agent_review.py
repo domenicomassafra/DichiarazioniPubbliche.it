@@ -145,6 +145,13 @@ class GatewayReviewTests(TestCase):
                           self.journal.review_executions(self.binding)],
                          ["completion-1", "completion-2"])
         self.assertEqual(len(self.calls), 2)
+        tags = [headers["X-OmniRoute-Session-Id"] for _, headers, _ in self.calls]
+        self.assertEqual(len(set(tags)), 2)
+        self.assertTrue(all(tag.startswith("dp413-") and len(tag) == 38 for tag in tags))
+        self.assertEqual(
+            [r["session_tag"] for r in self.journal.review_executions(self.binding)],
+            tags,
+        )
         for url, headers, payload in self.calls:
             self.assertEqual(url, "http://127.0.0.1:20128/v1/chat/completions")
             self.assertEqual(payload["model"], MODEL)

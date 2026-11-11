@@ -145,6 +145,7 @@ class PersistedReviewReaderTests(unittest.TestCase):
         self.assertIsNotNone(proof)
         self.assertEqual(proof.candidate, self.current)
         self.assertEqual(proof.primary.model_id, PRIMARY)
+        self.assertTrue(proof.primary.session_tag.startswith("dp413-"))
         self.assertIsNone(proof.independent)
         self.assertEqual(self.calls, [PRIMARY, SECOND])
 
@@ -217,6 +218,7 @@ class PersistedReviewReaderTests(unittest.TestCase):
             ("prompt_version", "unverified-prompt"),
             ("returned_model", "openrouter/paid-model"),
             ("accepted", False),
+            ("session_tag", "fake-session"),
         ):
             with self.subTest(field=field):
                 from dichiarazioni_pubbliche.autonomous_review_reader import (

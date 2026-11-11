@@ -56,6 +56,28 @@ A gateway model substitution, missing provider completion ID, duplicate ID,
 missing usage or unacceptable source/rights citations also prevents approval.
 Never set the gate to an unverified constant in production.
 
+The review adapter sends a unique \`X-OmniRoute-Session-Id\` for each completion
+and persists the tag with the provider response ID. The read-only
+\`OmniRouteExecutionAuthority\` validates journal receipts against independently
+authenticated OmniRoute management \`/api/keys\`,
+\`/api/usage/call-logs\` (including stored request and response bodies), and
+\`/api/usage/route-explain\`. It requires one matching session, the DP key's
+restricted models and connections, an exact request digest, actual response
+ID/verdict/usage, the direct selected route and authenticated attribution of
+nearby fallback entries. Unreadable, incomplete or ambiguous management
+history is HOLD. Provide a separate management credential and an eligible
+connection allowlist obtained from the upstream subscription authority; never
+use a credential embedded in a publication record.
+
+This witness verifies an **execution**, not the Google subscription entitlement,
+remaining upstream quota, non-billing or legal rights. The quota gate stays
+mandatory and closed until those provider facts are independently attested.
+On MiniPC (11 November), \`omniroute quota status --json\` reported
+\`quotaMonitoring.status=unknown\`, \`authoritative=0\`, \`configured=0\`,
+\`pools.count=0\`; the read-only \`/api/usage/quota\` had 31 Antigravity
+connections with no reported quota total, and no DP-named scoped key was
+present. These observations permit no provider POST or publication.
+
 ## Durable review readback for Statement v3
 
 `JournalReviewPacketReader` in `autonomous_review_reader.py` reconstructs

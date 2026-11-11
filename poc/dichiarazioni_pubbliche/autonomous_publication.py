@@ -111,6 +111,7 @@ class AgentReview:
     returned_model: str | None = None
     prompt_sha256: str | None = None
     usage: dict[str, int] | None = None
+    session_tag: str | None = None
 
 
 @dataclass(frozen=True)
