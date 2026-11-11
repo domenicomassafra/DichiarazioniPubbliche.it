@@ -133,6 +133,8 @@ class JournalReviewPacketReader:
             and receipt.get("provider") == "omniroute"
             and type(receipt.get("provider_request_id")) is str
             and bool(receipt["provider_request_id"].strip())
+            and type(receipt.get("session_tag")) is str
+            and re.fullmatch(r"dp413-[a-f0-9]{32}", receipt["session_tag"]) is not None
             and receipt.get("policy_version") == POLICY_VERSION
             and receipt.get("prompt_version") == PROMPT_VERSION
             and type(receipt.get("prompt_sha256")) is str
@@ -196,6 +198,8 @@ class JournalReviewPacketReader:
             and receipt.get("provider") == "omniroute"
             and type(receipt.get("provider_request_id")) is str
             and bool(receipt["provider_request_id"].strip())
+            and type(receipt.get("session_tag")) is str
+            and re.fullmatch(r"dp413-[a-f0-9]{32}", receipt["session_tag"]) is not None
             and receipt.get("policy_version") == POLICY_VERSION
             and receipt.get("prompt_version") == AUTHORITY_PROMPT_VERSION
             and receipt.get("authority_kind") == authority_kind
@@ -263,6 +267,8 @@ class JournalReviewPacketReader:
                     returned_model=matching[0]["returned_model"],
                     prompt_sha256=matching[0]["prompt_sha256"],
                     usage=dict(matching[0]["usage"]),
+                    session_tag=matching[0]["session_tag"],
+                    stage_citations={k: list(v) for k, v in matching[0]["stage_citations"].items()},
                 ))
             if self.read_current_candidate(record_id, version_id) != candidate:
                 return None
@@ -319,6 +325,8 @@ class JournalReviewPacketReader:
                     returned_model=matching[0]["returned_model"],
                     prompt_sha256=matching[0]["prompt_sha256"],
                     usage=dict(matching[0]["usage"]),
+                    session_tag=matching[0]["session_tag"],
+                    stage_citations={k: list(v) for k, v in matching[0]["stage_citations"].items()},
                 ))
             # Refuse a mid-read revocation, version change or rights change.
             if self.read_current_candidate(record_id, version_id) != candidate:
