@@ -323,6 +323,11 @@ def rehearse(source: Path, static: Path, projection: Path, *, git_sha: str,
         finally:
             stop(fresh, fresh_thread)
         activate(root, prior["release_id"], expected=safe["release_id"])
+        restored, restored_thread = start(root)
+        try:
+            restored_proof = verify(root, origin=f"http://127.0.0.1:{restored.server_port}")
+        finally:
+            stop(restored, restored_thread)
         activate(root, safe["release_id"], expected=prior["release_id"])
         rollback, rollback_thread = start(root)
         try:
@@ -331,6 +336,8 @@ def rehearse(source: Path, static: Path, projection: Path, *, git_sha: str,
             stop(rollback, rollback_thread)
         return {"status": "PASS_PRIVATE_REHEARSAL", "initial_release_id": prior["release_id"],
                 "safe_release_id": safe["release_id"], "rollback_release_id": verified["release_id"],
+                "restored_release_id": restored_proof["release_id"],
+                "restored_origin_verified": restored_proof["http_origin_verified"],
                 "live_public_service_changed": False, "stale_pointer_rejected": True,
                 "withdrawn_old_listener_http": 404,
                 "safe_origin_verified": proof["http_origin_verified"],
