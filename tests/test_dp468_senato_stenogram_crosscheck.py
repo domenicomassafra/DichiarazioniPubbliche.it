@@ -61,7 +61,7 @@ class OfficialStenogramTests(unittest.TestCase):
         p = _TocLinks()
         p.feed(
             '<a class="toc-link" href="/show-doc?id=1457617&amp;leg=19&amp;'
-            'part=doc_dc-ressten_rs-potenti&amp;tipodoc=Resaula">POTENTI, relatore</a>'
+            'part=doc_dc-ressten_rs-intervento_potenti&amp;tipodoc=Resaula">POTENTI, relatore</a>'
             '<a class="toc-link" href="/show-doc?id=1457617&amp;leg=19&amp;'
             'part=doc_dc-ressten_rs-verini&amp;tipodoc=Resaula">VERINI</a>'
         )
@@ -71,6 +71,20 @@ class OfficialStenogramTests(unittest.TestCase):
             _candidate_links(p.links, "Maiorino")
         with self.assertRaisesRegex(ValueError, "LINK_INVALID"):
             _candidate_links([("POTENTI", "https://example.net/show-doc")], "Potenti")
+
+    def test_toc_discards_heading_containing_surname_as_common_word(self):
+        actual = (
+            "/show-doc?id=1457617&leg=19&part=doc_dc-ressten_rs-"
+            "ddltit_deadddl1308rcga-trattazione_eda-intervento_sensipdidp&tipodoc=Resaula"
+        )
+        unrelated = (
+            "/show-doc?id=1457617&leg=19&part=doc_dc-ressten_rs-"
+            "gentit_rdsdiariasda151bdr&tipodoc=Resaula"
+        )
+        self.assertEqual(_candidate_links([
+            ("SENSI (PD-IDP)", actual),
+            ("Ripresa dello svolgimento di interrogazioni a risposta immediata, ai sensi dell'articolo 151-bis", unrelated),
+        ], "Sensi"), ["https://www.senato.it" + actual])
 
     def test_html_parser_excludes_outer_content(self):
         p = _OfficialSpeech()

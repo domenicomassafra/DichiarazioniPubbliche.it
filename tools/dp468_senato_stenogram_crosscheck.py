@@ -130,7 +130,8 @@ def _require_official_intervention_url(url: str) -> None:
             or parsed.path != "/show-doc" or set(qs) != {"id", "leg", "part", "tipodoc"}
             or qs["id"] != ["1457617"] or qs["leg"] != ["19"]
             or qs["tipodoc"] != ["Resaula"]
-            or not qs["part"][0].startswith("doc_dc-ressten_rs-")):
+            or not qs["part"][0].startswith("doc_dc-ressten_rs-")
+            or not re.search(r"[-_]intervento_", qs["part"][0])):
         raise ValueError("DP468_STENOGRAM_LINK_INVALID")
 
 
@@ -146,7 +147,7 @@ def validate_intervention(url: str, body: bytes, did: int, quote: str) -> str:
 def _candidate_links(links: list[tuple[str, str]], surname: str) -> list[str]:
     matched = []
     for label, href in links:
-        if re.search(rf"(?<!\w){re.escape(surname)}(?!\w)", label, flags=re.IGNORECASE):
+        if re.match(rf"^{re.escape(surname)}(?!\w)", label, flags=re.IGNORECASE):
             url = urljoin(TOC_URL, href)
             _require_official_intervention_url(url)
             if url not in matched:
