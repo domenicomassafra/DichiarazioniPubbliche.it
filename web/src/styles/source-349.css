@@ -557,6 +557,89 @@ body:not(.is-studio) .source-story {
   border-block: 1px solid var(--rule-hairline);
   opacity: .9;
 }
+/* Match the supplied 950px editorial source reference's reading density.
+   Keep mobile reflow and the 44px keyboard/touch target floor unchanged. */
+@media (min-width: 56.01rem) {
+  /* Compact chrome is scoped to the source reader; the demo notice stays visible. */
+  body:has(.source-story) .demo-banner { padding-block: .25rem; }
+  body:has(.source-story) .header-inner { min-height: 3.2rem; }
+  body:has(.source-story) .brand-mark { width: 1.35rem; height: 1.35rem; }
+  .source-story__breadcrumb { padding-block: .75rem .45rem; }
+  .source-story__hero {
+    gap: clamp(1rem, 3vw, 2rem);
+    padding-block: .35rem .65rem;
+  }
+  .source-story__type { padding: .2rem .5rem; }
+  .source-story__hero h1 {
+    margin-block: .45rem;
+    font-size: clamp(2.3rem, 3.75vw, 3rem);
+  }
+  .source-story__summary {
+    margin-bottom: .5rem;
+    font-size: 1rem;
+    line-height: 1.4;
+  }
+  .source-story__metadata {
+    gap: .75rem 1.25rem;
+    margin-block: .5rem;
+    line-height: 1.35;
+  }
+  .source-story__original { padding-block: .2rem; }
+  .source-story__media { min-height: 0; border-radius: .2rem; }
+  .source-story__tabs button {
+    min-height: 2.75rem;
+    padding: .5rem 0 .75rem;
+  }
+  .source-story__workspace {
+    grid-template-columns: minmax(0, 1.27fr) minmax(0, .92fr) minmax(10.5rem, .7fr);
+    gap: clamp(.85rem, 2vw, 1.5rem);
+    padding-block: 1rem 1.5rem;
+  }
+  .source-story__workspace h2 {
+    margin-bottom: .75rem;
+    font-size: clamp(1.15rem, 1.4vw, 1.4rem);
+  }
+  .source-story__claim button {
+    grid-template-columns: 2.75rem minmax(0, 1fr) minmax(3.4rem, .35fr) 1rem;
+    min-height: 4rem;
+    padding: .35rem .4rem;
+  }
+  .source-story__claim-text { font-size: clamp(1rem, 1.25vw, 1.15rem); }
+  .source-story__excerpt-time { padding: .25rem .4rem; }
+  .source-story__excerpt blockquote {
+    margin-top: .75rem;
+    padding-inline-start: .75rem;
+    font-size: clamp(1.03rem, 1.3vw, 1.3rem);
+    line-height: 1.28;
+  }
+  .source-story__analysis { padding-inline-start: .75rem; }
+  .source-story__analysis h2 {
+    margin-bottom: .75rem;
+    letter-spacing: .02em;
+    white-space: nowrap;
+  }
+  .source-story__analysis > strong { font-size: 1rem; }
+  .source-story__analysis > strong span { display: inline; font-size: 2.4rem; }
+  .source-story__analysis ul {
+    gap: .25rem;
+    padding-block: .35rem;
+    margin-block: .4rem .25rem;
+  }
+  .source-story__analysis li { font-size: .9rem; }
+  .source-story__timeline { padding-top: .5rem; }
+  .source-story__timeline h2 { margin-bottom: .75rem; font-size: 1.4rem; }
+  .source-story__timeline-player { min-height: 4rem; }
+  .source-story__content { padding-bottom: var(--space-6); }
+  .source-story__workspace { padding-bottom: .55rem; }
+  .source-story__related { padding-top: .5rem; }
+  .source-story__content > .atlas-route { margin-top: 1rem; }
+  /* The demo already has an explicit top banner and a full note after the
+     timeline. Hide duplicate explanatory controls only in that fixture so
+     the design comparison follows the owner's supplied composition. */
+  .source-story--demo .source-story__excerpt-note,
+  .source-story--demo .source-story__excerpt > a,
+  .source-story--demo .source-story__evidence { display: none; }
+}
 @media (max-width: 56rem) {
   .source-story__hero {
     grid-template-columns: minmax(0, 1.4fr) minmax(14rem, .8fr);

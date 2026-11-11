@@ -96,7 +96,7 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
 ---
 
 <BaseLayout title={source.title} description={demo ? demo.summary : `Fonte originale e dichiarazioni pubblicate: ${source.title}.`} canonicalPath={canonical}>
-  <div class="source-story" data-source-story>
+  <div class:list={["source-story", demo && "source-story--demo"]} data-source-story>
     <div class="shell source-story__breadcrumb">
       <nav aria-label="Percorso">
         <a href="/esplora/?tipo=content">Contenuti</a><span aria-hidden="true">›</span>
