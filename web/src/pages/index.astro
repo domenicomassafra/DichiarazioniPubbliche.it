@@ -16,6 +16,7 @@ const hasPublicRecords = projection.dossiers.length > 0 ||
   (projection.topics?.length ?? 0) > 0 ||
   (projection.contents?.length ?? 0) > 0 ||
   (peopleRelease?.people.length ?? 0) > 0;
+const explicitDemo = process.env.DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION === "1";
 
 const explorePaths = [
   { label: "Dichiarazioni", href: "/esplora/?tipo=finding", description: "Leggi le formulazioni pubblicate, gli esiti e le evidenze." },
@@ -48,16 +49,24 @@ const explorePaths = [
           </aside>
         )}
       </div>
-      <aside class="atlas-reading-path dp-home-path" aria-labelledby="atlas-reading-heading">
+      <aside class="atlas-reading-path dp-home-path dp-home-visual" aria-labelledby="atlas-reading-heading">
+        <div class="dp-home-visual__document" aria-hidden="true">
+          <div class="dp-home-visual__top"><span>IL RECORD PUBBLICO</span><span>01 / 03</span></div>
+          <div class="dp-home-visual__title">Una fonte.<br /><em>Più prospettive.</em></div>
+          <div class="dp-home-visual__quote">
+            <span>LA DICHIARAZIONE</span>
+            <div class="dp-home-visual__line"></div><div class="dp-home-visual__line dp-home-visual__line--short"></div>
+          </div>
+          <div class="dp-home-visual__trace">
+            <span>FONTE</span><span>ATTRIBUZIONE</span><span>VERIFICA</span>
+            <div class="dp-home-visual__track"><i></i><i></i><i></i></div>
+          </div>
+        </div>
         <h2 id="atlas-reading-heading">Ogni affermazione ha un contesto.</h2>
-        <p>Una scheda pubblicata conduce dalle parole alla loro documentazione, senza trasformare un esito in un giudizio sulla persona.</p>
-        <ol>
-          <li><span aria-hidden="true">01</span><span>La dichiarazione e la sua attribuzione.</span></li>
-          <li><span aria-hidden="true">02</span><span>La fonte originale e la data.</span></li>
-          <li><span aria-hidden="true">03</span><span>Le prove e i limiti della verifica.</span></li>
-          <li><span aria-hidden="true">04</span><span>Le repliche, le revisioni e le correzioni.</span></li>
-        </ol>
-        <a class="text-link" href="/metodo/">Leggi il metodo <span aria-hidden="true">↗</span></a>
+        <p>Ritrova le parole, la fonte e le prove nella stessa lettura.</p>
+        <a class="text-link" href={explicitDemo ? "/anteprima/fonte/" : "/metodo/"}>
+          {explicitDemo ? "Guarda la fonte dimostrativa" : "Scopri come leggere una fonte"} <span aria-hidden="true">↗</span>
+        </a>
       </aside>
     </section>
 
