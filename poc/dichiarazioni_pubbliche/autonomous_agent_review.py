@@ -306,4 +306,5 @@ class OmniRouteAgentReview:
                 "completion_tokens": usage["completion_tokens"],
             },
             session_tag=session_tag,
+            stage_citations={stage: list(values) for stage, values in citation_map.items()},
         )

@@ -32,6 +32,7 @@ def fixture():
         returned_model="gemini-3.8-flash-tiered", prompt_sha256=prompt_hash,
         usage={"prompt_tokens": 50, "completion_tokens": 10},
         session_tag=TAG,
+        stage_citations={"PROVENANCE": ["source-record"]},
     )
     detail = {
         "id": CALL_ID, "status": 200, "active": False,
@@ -104,6 +105,13 @@ class OmniRouteExecutionAuthorityTests(unittest.TestCase):
     def test_authenticated_direct_gateway_execution_is_verified(self):
         self.assertTrue(self.verifier(self.receipt))
         self.assertIn("/api/usage/route-explain/" + CALL_ID, self.reads)
+
+    def test_accepted_review_without_provider_stage_citations_is_not_witnessed(self):
+        detail = self.values["/api/usage/call-logs/" + CALL_ID]
+        verdict = json.loads(detail["responseBody"]["choices"][0]["message"]["content"])
+        verdict["stage_citations"] = {}
+        detail["responseBody"]["choices"][0]["message"]["content"] = json.dumps(verdict)
+        self.assertFalse(self.verifier(self.receipt))
 
     def test_forged_journal_receipt_cannot_reuse_another_gateway_call(self):
         altered = {**vars(self.receipt), "session_tag": "dp413-" + "b" * 32}

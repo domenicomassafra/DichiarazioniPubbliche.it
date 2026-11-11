@@ -188,8 +188,11 @@ class OmniRouteExecutionAuthority:
                 or (receipt.get("accepted") is True
                     and verdict["accepted"] is not True)
                 or not isinstance(verdict.get("stage_citations"), dict)
-                or ("stage_citations" in receipt and
-                    verdict["stage_citations"] != receipt["stage_citations"])):
+                or verdict["stage_citations"] != receipt.get("stage_citations")
+                or set(verdict["stage_citations"]) != set(receipt["checked_stages"])
+                or any(not isinstance(values, list) or not values
+                       or any(type(value) is not str or not value for value in values)
+                       for values in verdict["stage_citations"].values())):
             return False
 
         explain = self._read("/api/usage/route-explain/" + urllib.parse.quote(

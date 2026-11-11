@@ -112,6 +112,7 @@ class AgentReview:
     prompt_sha256: str | None = None
     usage: dict[str, int] | None = None
     session_tag: str | None = None
+    stage_citations: dict[str, list[str]] | None = None
 
 
 @dataclass(frozen=True)

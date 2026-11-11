@@ -268,6 +268,7 @@ class JournalReviewPacketReader:
                     prompt_sha256=matching[0]["prompt_sha256"],
                     usage=dict(matching[0]["usage"]),
                     session_tag=matching[0]["session_tag"],
+                    stage_citations={k: list(v) for k, v in matching[0]["stage_citations"].items()},
                 ))
             if self.read_current_candidate(record_id, version_id) != candidate:
                 return None
@@ -325,6 +326,7 @@ class JournalReviewPacketReader:
                     prompt_sha256=matching[0]["prompt_sha256"],
                     usage=dict(matching[0]["usage"]),
                     session_tag=matching[0]["session_tag"],
+                    stage_citations={k: list(v) for k, v in matching[0]["stage_citations"].items()},
                 ))
             # Refuse a mid-read revocation, version change or rights change.
             if self.read_current_candidate(record_id, version_id) != candidate:
