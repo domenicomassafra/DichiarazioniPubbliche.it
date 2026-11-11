@@ -17,6 +17,7 @@ import dp331_senato_private_speech_readback as consumer
 from dichiarazioni_pubbliche.dp331_private_speech_probe import probe_private_statement_relation
 from dichiarazioni_pubbliche.capture_pipeline import CapturePipelineError
 from dichiarazioni_pubbliche.private_capture_rights import SourceUseBlocked
+from dichiarazioni_pubbliche.senato_akoma_stenographic import import_senato_akoma_stenographic
 from dichiarazioni_pubbliche.rights_registry import (
     PrivateRightsRecord, RightsSubject, rights_subject_fingerprint,
 )
@@ -55,7 +56,8 @@ class PrivateSpeechReadbackRightsTests(unittest.TestCase):
         self.capture_reads = 0
         self.revoke_during_read = False
 
-    def _readback(self, *, german_draft=None, ordinals=(1,), compare_relation=False):
+    def _readback(self, *, german_draft=None, ordinals=(1,), compare_relation=False,
+                  quote_pins=None):
         suite = self
 
         class CaptureStore:
@@ -84,7 +86,53 @@ class PrivateSpeechReadbackRightsTests(unittest.TestCase):
                 german_draft=german_draft,
                 italian_quote_span=(0, 12) if german_draft is not None else None,
                 compare_relation=compare_relation,
+                quote_pins=quote_pins,
             )
+
+    def _quote_pin(self, ordinal=1):
+        imported = import_senato_akoma_stenographic(
+            self.raw, source_raw_url=URL, expected_blob_sha1=blob_sha(self.raw),
+        )
+        speech = next(s for s in imported.speeches if s.ordinal == ordinal)
+        start, end = 0, min(40, len(speech.review_text))
+        return (start, end, hashlib.sha256(
+            speech.review_text[start:end].encode("utf-8")
+        ).hexdigest())
+
+    def test_pinned_quote_is_verified_against_private_capture_and_stays_hold(self):
+        self.current = replace(
+            self.original, permitted_uses=tuple(sorted((
+                *self.original.permitted_uses, "PARSE_TEXT",
+            ))),
+        )
+        pin = self._quote_pin()
+        result = self._readback(quote_pins={1: pin})
+        self.assertEqual(result["observations"][0]["selected_quote"], {
+            "start_char": pin[0], "end_char": pin[1], "sha256": pin[2],
+            "status": "VERIFIED_PRIVATE_SOURCE_ONLY",
+        })
+        self.assertEqual(result["status"], "PRIVATE_HOLD")
+        self.assertFalse(result["publication_authorized"])
+
+    def test_quote_pin_requires_private_parse_right_and_exact_source_span(self):
+        pin = self._quote_pin()
+        with self.assertRaisesRegex(SourceUseBlocked, "SOURCE_USE_NOT_PERMITTED"):
+            self._readback(quote_pins={1: pin})
+        self.current = replace(
+            self.original, permitted_uses=tuple(sorted((
+                *self.original.permitted_uses, "PARSE_TEXT",
+            ))),
+        )
+        with self.assertRaisesRegex(RuntimeError, "DP468_QUOTE_PIN_MISMATCH"):
+            self._readback(quote_pins={1: (pin[0], pin[1], "0" * 64)})
+        for invalid in ((pin[1], pin[0], pin[2]),
+                        (pin[0], pin[1], "not-a-sha")):
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(
+                ValueError, "DP468_QUOTE_PIN_INVALID"
+            ):
+                self._readback(quote_pins={1: invalid})
+        with self.assertRaisesRegex(ValueError, "DP468_QUOTE_PIN_SCOPE_INVALID"):
+            self._readback(quote_pins={0: pin})
 
     def test_private_same_take_readback_of_distinct_official_speakers_stays_hold(self):
         self.current = replace(
