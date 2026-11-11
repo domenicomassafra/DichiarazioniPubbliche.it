@@ -98,10 +98,10 @@ execution witness. The reader also requires current source/quote/rights hashes, 
 prompt versions, model-response identity, per-stage citations and real
 gateway completion IDs, and rejects ambiguous or tampered receipts.
 
-This is an available **fail-closed reader component**, not a wired production
-caller or an implementation of the authenticated OmniRoute execution authority.
-It cannot authenticate an owner-defined DP key, create upstream completions,
-approve privacy, clear a challenge or issue a release pin. The journal's
+The fail-closed reader and the authenticated OmniRoute execution authority
+are available components, but neither is wired into the production caller.
+They cannot attest an upstream Pro grant or quota, create authorized upstream
+completions, approve privacy, clear a challenge or issue a release pin. The journal's
 private write authority must be limited to the genuine OmniRoute adapter;
 test fixtures are not release evidence. A missing upstream service yields
 no packet and therefore HOLD.
