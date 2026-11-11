@@ -295,3 +295,8 @@ then emits URL, title and response SHA-256. The actual 16/16 result is
 This establishes a source-document identity cross-check only. The cards
 come from the same institution as the AKN text, and neither attest that
 a particular speech was delivered nor grant rights, GDPR approval or public GO.
+
+## Official HTML stenogram cross-check (11 November 2026)
+
+The [independent HTML readback](dp468-senato-stenogram-crosscheck-20261111.json)
+matches 16/16 source quotes and official Person DIDs; public rights, GDPR and GO remain HOLD.

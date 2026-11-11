@@ -1,0 +1,188 @@
+{
+  "candidates": 16,
+  "checked_at": "2026-11-11T13:43:58.166851+00:00",
+  "identity_approved": false,
+  "matched": 16,
+  "observations": [
+    {
+      "did": 33022,
+      "html_sha256": "e6274b005d6c07eb62506db5ef4b2cb279e9b3fceab0a5326497809ebddd6edd",
+      "intervention_url": "https://www.senato.it/show-doc?id=1457617&leg=19&part=doc_dc-ressten_rs-ddltit_deadddl1308rcga-intervento_potentirelatore&tipodoc=Resaula",
+      "ordinal": 3,
+      "publication_authorized": false,
+      "source_quote_sha256": "10e853dc569025edd00423b653bd68f85cc11de9e0a1d09fb49ac17e3948176d",
+      "speaker_attribution_approved": false,
+      "status": "OFFICIAL_STENOGRAM_TEXT_DID_MATCH_ONLY",
+      "surname": "Potenti"
+    },
+    {
+      "did": 32697,
+      "html_sha256": "02f01b0c821ccb94164e55efd5a63628cd03ee0a0433e1beeaa84a3b3de7fefc",
+      "intervention_url": "https://www.senato.it/show-doc?id=1457617&leg=19&part=doc_dc-ressten_rs-ddltit_deadddl1308rcga-trattazione_dg-intervento_pucciarellilsppsdaz&tipodoc=Resaula",
+      "ordinal": 6,
+      "publication_authorized": false,
+      "source_quote_sha256": "33dfddb7fad615bf6d06359410e43028af6d20ab6fdc59bdfed76465d0545826",
+      "speaker_attribution_approved": false,
+      "status": "OFFICIAL_STENOGRAM_TEXT_DID_MATCH_ONLY",
+      "surname": "Pucciarelli"
+    },
+    {
+      "did": 37739,
+      "html_sha256": "0984c61ff3bfc68ab3dd12fe25a18c747e4dea0a81d9f64a12eab09254229d6b",
+      "intervention_url": "https://www.senato.it/show-doc?id=1457617&leg=19&part=doc_dc-ressten_rs-ddltit_deadddl1308rcga-trattazione_dg-intervento_tajanipdidp&tipodoc=Resaula",
+      "ordinal": 7,
+      "publication_authorized": false,
+      "source_quote_sha256": "fa70cb7bf6a2e8e854ed806c1e128da87b698a6786ffc608fa1233daf840668d",
+      "speaker_attribution_approved": false,
+      "status": "OFFICIAL_STENOGRAM_TEXT_DID_MATCH_ONLY",
+      "surname": "Tajani"
+    },
+    {
+      "did": 36447,
+      "html_sha256": "8307ced939a8e6815350d68bc26c94ff24c09a630dd60cb841fec1d56af5781e",
+      "intervention_url": "https://www.senato.it/show-doc?id=1457617&leg=19&part=doc_dc-ressten_rs-ddltit_deadddl1308rcga-trattazione_dg-intervento_spinellifdi&tipodoc=Resaula",
+      "ordinal": 8,
+      "publication_authorized": false,
+      "source_quote_sha256": "8af431ff7299a9d7be94170840e7e0fd57b4f3c3dc39056bed003bea36622769",
+      "speaker_attribution_approved": false,
+      "status": "OFFICIAL_STENOGRAM_TEXT_DID_MATCH_ONLY",
+      "surname": "Spinelli"
+    },
+    {
+      "did": 32727,
+      "html_sha256": "6c85edd59699dcfd8c69e72480521cc7acb7e86beabd5686fddd1419ab7f4e6c",
+      "intervention_url": "https://www.senato.it/show-doc?id=1457617&leg=19&part=doc_dc-ressten_rs-ddltit_deadddl1308rcga-trattazione_eda-intervento_unterbergerautsvppattcb&tipodoc=Resaula",
+      "ordinal": 13,
+      "publication_authorized": false,
+      "source_quote_sha256": "a345b8031d18d89e01aeca8d1469f7f1c58dbb394ade4d1597805dd44755110b",
+      "speaker_attribution_approved": false,
+      "status": "OFFICIAL_STENOGRAM_TEXT_DID_MATCH_ONLY",
+      "surname": "Unterberger"
+    },
+    {
+      "did": 36425,
+      "html_sha256": "ca83789baf1cee72d90b8bfc7a8a2ce8a1628acdc7a648d9ea9764df9d5f2da2",
+      "intervention_url": "https://www.senato.it/show-doc?id=1457617&leg=19&part=doc_dc-ressten_rs-ddltit_deadddl1308rcga-trattazione_eda-intervento_sironim5s&tipodoc=Resaula",
+      "ordinal": 31,
+      "publication_authorized": false,
+      "source_quote_sha256": "3ebf26c92c613baab8f1e98becdcbe99c5547e6d00d8a3f12e74651d521fa5b3",
+      "speaker_attribution_approved": false,
+      "status": "OFFICIAL_STENOGRAM_TEXT_DID_MATCH_ONLY",
+      "surname": "Sironi"
+    },
+    {
+      "did": 32658,
+      "html_sha256": "799033a178b49d5d7b0313825b6f6162836653837cd9694f17aef5e75c33105d",
+      "intervention_url": "https://www.senato.it/show-doc?id=1457617&leg=19&part=doc_dc-ressten_rs-ddltit_deadddl1308rcga-trattazione_eda-intervento_maiorinom5s&tipodoc=Resaula",
+      "ordinal": 33,
+      "publication_authorized": false,
+      "source_quote_sha256": "f50615eeb17e041db4edb7bbfad5e3c3b1582fd43ca400a58cc423f12a30ad34",
+      "speaker_attribution_approved": false,
+      "status": "OFFICIAL_STENOGRAM_TEXT_DID_MATCH_ONLY",
+      "surname": "Maiorino"
+    },
+    {
+      "did": 36426,
+      "html_sha256": "8c656418888991e7a4f2fb9a25b2ef353ee592f4e36410846ce9c7a5dca2cd65",
+      "intervention_url": "https://www.senato.it/show-doc?id=1457617&leg=19&part=doc_dc-ressten_rs-ddltit_deadddl1308rcga-trattazione_eda-intervento_spagnolliautsvppattcb&tipodoc=Resaula",
+      "ordinal": 42,
+      "publication_authorized": false,
+      "source_quote_sha256": "a5378d432caed4654a76c193716e298f6ecae94bf9d1c6d6bd6b675f493abd04",
+      "speaker_attribution_approved": false,
+      "status": "OFFICIAL_STENOGRAM_TEXT_DID_MATCH_ONLY",
+      "surname": "Spagnolli"
+    },
+    {
+      "did": 36404,
+      "html_sha256": "5e96b0d51e567976e561be8bdcee06c13bf6b1a959e54868e10990c106f298c0",
+      "intervention_url": "https://www.senato.it/show-doc?id=1457617&leg=19&part=doc_dc-ressten_rs-ddltit_deadddl1308rcga-trattazione_eda-intervento_lopreiatom5s&tipodoc=Resaula",
+      "ordinal": 50,
+      "publication_authorized": false,
+      "source_quote_sha256": "f04375ff43dd0f8496ccf83f13da2c24d63a11da846d111bc875e5583335a071",
+      "speaker_attribution_approved": false,
+      "status": "OFFICIAL_STENOGRAM_TEXT_DID_MATCH_ONLY",
+      "surname": "Lopreiato"
+    },
+    {
+      "did": 27622,
+      "html_sha256": "1359a0e1148e84d1786fac5e0a00e860508d210f8dec8e627f6da1f4d24a6cba",
+      "intervention_url": "https://www.senato.it/show-doc?id=1457617&leg=19&part=doc_dc-ressten_rs-ddltit_deadddl1308rcga-trattazione_eda-intervento_sensipdidp&tipodoc=Resaula",
+      "ordinal": 57,
+      "publication_authorized": false,
+      "source_quote_sha256": "b5c8b2a78112e00120f92444e5010fde8a308902eab2dcc09ef51637dc067118",
+      "speaker_attribution_approved": false,
+      "status": "OFFICIAL_STENOGRAM_TEXT_DID_MATCH_ONLY",
+      "surname": "Sensi"
+    },
+    {
+      "did": 36409,
+      "html_sha256": "d5d966d7364950f83cca3d33acc8c3f63968d7a95899a609413a4e3f7319d819",
+      "intervention_url": "https://www.senato.it/show-doc?id=1457617&leg=19&part=doc_dc-ressten_rs-ddltit_deadddl1308rcga-trattazione_ddvf-intervento_musolinoivcre&tipodoc=Resaula",
+      "ordinal": 82,
+      "publication_authorized": false,
+      "source_quote_sha256": "fac88ca00ed523f308947ccde07437c527fc109bfb39ce35553cf1bd25ee1d3e",
+      "speaker_attribution_approved": false,
+      "status": "OFFICIAL_STENOGRAM_TEXT_DID_MATCH_ONLY",
+      "surname": "Musolino"
+    },
+    {
+      "did": 22871,
+      "html_sha256": "544bcadf95c28b35b24397cdb5d182ffb4efed4d1a4e8211d15bbb839a8bf938",
+      "intervention_url": "https://www.senato.it/show-doc?id=1457617&leg=19&part=doc_dc-ressten_rs-ddltit_deadddl1308rcga-trattazione_ddvf-intervento_biancofiorecdiudcnmnciciiacmaiecp&tipodoc=Resaula",
+      "ordinal": 83,
+      "publication_authorized": false,
+      "source_quote_sha256": "ccf4744a14af0428b28390d72f4e095349c70585eb2de2785894bf9d65f3ec01",
+      "speaker_attribution_approved": false,
+      "status": "OFFICIAL_STENOGRAM_TEXT_DID_MATCH_ONLY",
+      "surname": "Biancofiore"
+    },
+    {
+      "did": 36390,
+      "html_sha256": "494e744802c382e34fb709d851f5b15544795896e5d0fac67789ebad6c7ba579",
+      "intervention_url": "https://www.senato.it/show-doc?id=1457617&leg=19&part=doc_dc-ressten_rs-ddltit_deadddl1308rcga-trattazione_ddvf-intervento_cucchimistoavs&tipodoc=Resaula",
+      "ordinal": 85,
+      "publication_authorized": false,
+      "source_quote_sha256": "b57049e1e462988b3027a7b26aaf7c8c95b88797dd1ca5f5535cfcf897ba2ab6",
+      "speaker_attribution_approved": false,
+      "status": "OFFICIAL_STENOGRAM_TEXT_DID_MATCH_ONLY",
+      "surname": "Cucchi"
+    },
+    {
+      "did": 17811,
+      "html_sha256": "508cc75f905e0daf42bbe61f4446e36f8d98065826068896596535cb3ddaf812",
+      "intervention_url": "https://www.senato.it/show-doc?id=1457617&leg=19&part=doc_dc-ressten_rs-ddltit_deadddl1308rcga-trattazione_ddvf-intervento_zanettinfibpppe&tipodoc=Resaula",
+      "ordinal": 86,
+      "publication_authorized": false,
+      "source_quote_sha256": "2f6df176c4dc463a2e1bf74d983f76a106e828c7a447129ef43197f031d2c07b",
+      "speaker_attribution_approved": false,
+      "status": "OFFICIAL_STENOGRAM_TEXT_DID_MATCH_ONLY",
+      "surname": "Zanettin"
+    },
+    {
+      "did": 32851,
+      "html_sha256": "201de99fb320b8642b6bf2c6217702153475ec24edb6a69f7d92d6da4e475b9e",
+      "intervention_url": "https://www.senato.it/show-doc?id=1457617&leg=19&part=doc_dc-ressten_rs-ddltit_deadddl1308rcga-trattazione_ddvf-intervento_bilottim5s&tipodoc=Resaula",
+      "ordinal": 87,
+      "publication_authorized": false,
+      "source_quote_sha256": "50b477306fe9a7d69d4a7dc5bb54345090e368931595fbad78dde989e1c0e0ee",
+      "speaker_attribution_approved": false,
+      "status": "OFFICIAL_STENOGRAM_TEXT_DID_MATCH_ONLY",
+      "surname": "Bilotti"
+    },
+    {
+      "did": 29185,
+      "html_sha256": "ad9a799dca4543d3ed96b928ffbc69cccd1f7b2a203e5184e06e02a436e4764d",
+      "intervention_url": "https://www.senato.it/show-doc?id=1457617&leg=19&part=doc_dc-ressten_rs-ddltit_deadddl1308rcga-trattazione_ddvf-intervento_stefanilsppsdaz&tipodoc=Resaula",
+      "ordinal": 88,
+      "publication_authorized": false,
+      "source_quote_sha256": "22e538c7a8ab357dc01f74aef561bccd6664f3aca5b55da7a1e8cad4b246cf05",
+      "speaker_attribution_approved": false,
+      "status": "OFFICIAL_STENOGRAM_TEXT_DID_MATCH_ONLY",
+      "surname": "Stefani"
+    }
+  ],
+  "official_toc_html_sha256": "7d674f91fe806ac96bacd4de31a9262c5da5805af536186f00ed7c9e0858c291",
+  "official_toc_url": "https://www.senato.it/show-doc?id=1457617&leg=19&part=doc_dc-allegatoa_aa-ddltit_ddl1308-oggetto_a6ntadcdd&tipodoc=Resaula",
+  "original_source_sha256": "1cb2b5fc3cbc96701e52f06c34c3ae3cd494eb622aa3f124fb1a93a223e27476",
+  "publication_authorized": false
+}
