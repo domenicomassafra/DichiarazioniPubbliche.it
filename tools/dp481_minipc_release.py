@@ -11,6 +11,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import tempfile
 import threading
 from pathlib import Path
@@ -273,6 +274,8 @@ def rehearse(source: Path, static: Path, projection: Path, *, git_sha: str,
         root = Path(temp) / "authority"
         candidate_static = Path(temp) / "candidate-static"
         shutil.copytree(static, candidate_static)
+        # The immutable release root is read-only; mutate only its private copy.
+        candidate_static.chmod(candidate_static.stat().st_mode | stat.S_IWUSR)
         marker = candidate_static / "dp481-rehearsal-withdrawn.txt"
         if marker.exists():
             fail("REHEARSAL_COLLISION")
