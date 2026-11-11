@@ -109,6 +109,7 @@ type Item = {
 const rows: Item[] = [];
 const seen = new Set<string>();
 const sourceByContent = new Map<string, { title: string; url: string }>();
+const statementById = new Map<string, string>();
 for (const value of collection.data as unknown[]) {
   exact(value, ["statement_id", "version_id", "statement_route", "statement_date",
     "person_id", "person_route", "topic_id", "topic_route", "statement"], "ROW_FIELDS_INVALID");
@@ -144,6 +145,15 @@ for (const value of collection.data as unknown[]) {
         !ID.test(String(locator.segment_id)) || !Number.isSafeInteger(locator.start_ms) ||
         !Number.isSafeInteger(locator.end_ms) || (locator.start_ms as number) < 0 ||
         (locator.end_ms as number) <= (locator.start_ms as number)))) reject("LOCATOR_INVALID");
+  // Each Topic membership must point to one current version and one original
+  // for the same canonical Statement route.
+  const statementId = String(value.statement_id);
+  const statementSnapshot = canonicalJson({version_id: value.version_id,
+    statement_date: value.statement_date, statement_route: value.statement_route,
+    person_id: value.person_id, person_route: value.person_route, statement: s});
+  const previousStatement = statementById.get(statementId);
+  if (previousStatement !== undefined && previousStatement !== statementSnapshot) reject("STATEMENT_MEMBERSHIP_CONFLICT");
+  statementById.set(statementId, statementSnapshot);
   // A Content node has one canonical source identity across every membership.
   // Otherwise the source index silently drops one URL under the shared id.
   const contentId = String(s.source.content_id);
