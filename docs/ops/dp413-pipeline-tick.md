@@ -64,10 +64,8 @@ escalation reviewers when the record is uncertain, the runtime's separate
 `verify_provider_execution`, the public publish/withdraw/readback surface and
 the third auditor. A local journal, a fixture witness or a hardcoded `True` is
 not production evidence; without them the tick reports HOLD and publishes
-nothing. The DP key scope, authoritative quota and three upstream execution
-witnesses from ControlCenter
-[#1496](https://github.com/domenicomassafra/ControlCenter/issues/1496), source
-rights from
+nothing. The DP key scope, authoritative quota and authenticated upstream
+execution witnesses for the review path required by decision 49, source rights from
 [#468](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/468)
 and the public v3 consumer from
 [#98](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/98)
