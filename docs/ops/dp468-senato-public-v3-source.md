@@ -45,8 +45,9 @@ representation; they are **not XML byte offsets**.
 
 `read_current_attestations`, `read_current_autonomous_evidence` and
 `read_current_challenge_hold` must independently replay current persistent
-rights/privacy/wording/identity/publication reviews, two real different
-authorized-model completion receipts and the challenge status. The autonomous
+rights/privacy/wording/identity/publication reviews, the authenticated
+editorial completion receipts required by the current autopublish contract,
+and the challenge status. The autonomous
 receipt reader `JournalReviewPacketReader` is now available as a component,
 but still requires a separately authenticated current-candidate source and
 genuine OmniRoute completion receipts. The attestation and challenge readers
@@ -70,7 +71,7 @@ If approved corpus wording and immutable source wording differ, the candidate
 is omitted rather than silently replaced during projection.
 `senato_v3_binding.bind_senato_public_v3(...)` now composes the existing
 Capture, PostgreSQL candidate, private authority/challenge and persisted
-two-model-review readers into one `SenatoPublicV3Source`. It requires the
+editorial-review readers into one `SenatoPublicV3Source`. It requires the
 independently authenticated `read_current_candidate`,
 `verify_provider_execution`, `verify_authority_review`, and
 `processing_family_approved` callbacks. Missing callbacks fail at construction;
@@ -92,8 +93,11 @@ is **HOLD**, not an eligible public release.
 - The existing private rights registry always denies `EXCERPT_PUBLIC`;
   source-specific, version-bound public quotation/privacy/retention/correction
   authority with legal citations and revocation readback is still required.
-- Distinct authorized model identities, genuine completion IDs and independent
-  review proof remain required. Synthetic test overrides are never usable here.
+- Genuine OmniRoute completion IDs and independently authenticated execution
+  witnesses remain required for the selected editorial path. Under owner
+  decision 49 (`config/autopublish.v1.json`, 10 November), an ordinary ready
+  Statement requires one editor; documented uncertainty requires two distinct
+  models plus a third audit. Synthetic test overrides are never usable here.
 - Production candidate, current proof, challenge and correction adapters
   require authenticated durable implementations; the current system has
   only their boundaries. There is no public release pin issuer in this change.
@@ -222,7 +226,8 @@ steps are current Capture/wording/offset readback; two independently sourced,
 non-biometric identity signals; a dated, source-and-passage-bound rights
 decision with revocation and attribution; actual per-family GDPR necessity,
 notice, access, retention and independent-review receipts; then the genuine
-three distinct model executions (#413) and public v3 release/correction
+editorial execution witness (or the escalated 2+1 path on recorded uncertainty;
+#413) and public v3 release/correction
 readback (#98). None was minted by the read-only assessment.
 
 ## New first-batch text selection (10 November 2026; private-candidate status)
@@ -269,10 +274,13 @@ name comes from the original `TLCPerson`, not from a second identity witness.
 
 **Status: 16 selected / 0 authorized for publication.** The 16 excerpts
 have a source-integrity and literal-match check only; they have **zero**
-genuine per-item OmniRoute 2+1 execution receipts, zero independently
+genuine per-item OmniRoute editorial execution receipts, zero independently
 established dual speaker-identity signals, and zero public source-specific
 rights grants. The six required GDPR processing families remain `BLOCKED`.
 Product review must independently establish these authorities for **each**
 record, then #98 must prove a persistent v3 correction, withdrawal and
 CDN readback before public release. These metadata rows cannot be passed to
 the publication pipeline as approvals and do not alter `launch-set-v1.json`.
+
+The [11 November MiniPC readback](dp468-16-live-private-readback-20261111.md)
+verifies all 16 source/role candidates, still without publication authority.
