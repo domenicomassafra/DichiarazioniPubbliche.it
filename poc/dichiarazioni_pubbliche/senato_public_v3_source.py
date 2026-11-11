@@ -4,7 +4,7 @@ This is a read-only ProjectionSource adapter, not a rights, identity, agent
 review, challenge or release authority. Callers must provide separate live,
 authenticated readers for each; an absent reader never fabricates a receipt.
 The existing public_projection builder independently checks all five lanes and
-the autonomous two-model gate before emitting any Statement.
+the current witnessed editorial review path before emitting any Statement.
 """
 
 from __future__ import annotations
