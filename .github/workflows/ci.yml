@@ -4,8 +4,8 @@ name: ci
 #
 # This workflow never publishes, releases, deploys, or contacts production
 # databases, paid providers, or MiniPC hosts. Tests and builds use package
-# registries, a public JFK
-# media URL, and disposable PostgreSQL/localhost services in isolated CI jobs.
+# registries, a public JFK media URL, a checksum-pinned FFmpeg release asset,
+# and disposable PostgreSQL/localhost services in isolated CI jobs.
 # Static repository-contract checks remain offline and credential-free.
 #
 # Every branch push still gets the lightweight DP-602 repository contract.
@@ -87,23 +87,19 @@ jobs:
           .venv-ci/bin/dichiarazioni-pubbliche-review-admin --help > /dev/null
           echo "console script ok"
 
-      # DP-419 tests decode original captured audio; hosted images do not
-      # guarantee ffmpeg/ffprobe. Run the full decoder assertions on each OS.
-      - name: Install original-media test decoder
-        shell: bash
+      # DP-419 requires both binaries; hosted Ubuntu APT mirrors can stall
+      # before tests run. Install the checksum-pinned decoder on Linux.
+      - name: Install original-media test decoder (Linux)
+        if: runner.os == 'Linux'
+        run: bash .github/scripts/install-original-media-decoder.sh
+      - name: Install original-media test decoder (macOS)
+        if: runner.os == 'macOS'
         run: |
           if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
-            if [[ "$RUNNER_OS" == "macOS" ]]; then
-              brew install ffmpeg
-            else
-              # Avoid the repeatedly stalled Azure mirror on hosted Ubuntu.
-              # Hosted images may use a mirror+file indirection to apt-mirrors.txt.
-              sudo find /etc/apt -type f \( -name '*.list' -o -name '*.sources' -o -name 'apt-mirrors.txt' \) \
-                -exec sed -i 's@azure.archive.ubuntu.com@archive.ubuntu.com@g' {} +
-              timeout --kill-after=10s 120s sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
-              timeout --kill-after=10s 120s sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 install -y --no-install-recommends ffmpeg
-            fi
+            brew install ffmpeg
           fi
+      - name: Verify original-media test decoder
+        run: |
           command -v ffmpeg
           command -v ffprobe
           ffprobe -version | head -1
@@ -335,15 +331,12 @@ jobs:
         run: python -m pip install --upgrade "pip>=24,<26" "build>=1.2,<2.0" "packaging>=24,<26" "setuptools>=68,<81" "wheel>=0.44,<0.46"
 
       - name: Install original-media test decoder
+        run: bash .github/scripts/install-original-media-decoder.sh
+      - name: Verify original-media test decoder
         run: |
-          if ! command -v ffmpeg || ! command -v ffprobe; then
-            sudo find /etc/apt -type f \( -name '*.list' -o -name '*.sources' -o -name 'apt-mirrors.txt' \) \
-              -exec sed -i 's@azure.archive.ubuntu.com@archive.ubuntu.com@g' {} +
-            timeout --kill-after=10s 120s sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
-            timeout --kill-after=10s 120s sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 install -y --no-install-recommends ffmpeg
-          fi
           command -v ffmpeg
           command -v ffprobe
+          ffprobe -version | head -1
 
       - name: Clone to a scratch directory and run the backend/package profile
         # This job also runs DP-514's disposable PostgreSQL tests in a fresh
