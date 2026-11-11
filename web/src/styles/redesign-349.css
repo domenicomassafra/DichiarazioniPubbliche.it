@@ -24,21 +24,21 @@ body:not(.is-studio) .masthead-note {
 }
 
 body:not(.is-studio) .header-inner {
-  min-height: 4.75rem;
+  min-height: 3.5rem;
   gap: clamp(var(--space-4), 2.8vw, var(--space-7));
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
 body:not(.is-studio) .brand {
   justify-self: start;
-  gap: var(--space-3);
-  font-size: clamp(1.16rem, 1.48vw, 1.5rem);
+  gap: var(--space-2);
+  font-size: clamp(1rem, 1.3vw, 1.2rem);
   letter-spacing: -0.025em;
 }
 
 body:not(.is-studio) .brand-mark {
-  width: 2rem;
-  height: 2rem;
+  width: .8rem;
+  height: .8rem;
   flex: none;
   transform: none;
 }
@@ -53,10 +53,10 @@ body:not(.is-studio) .brand-name__break {
 }
 
 body:not(.is-studio) .main-nav {
-  gap: clamp(var(--space-3), 2.4vw, var(--space-7));
+  gap: clamp(var(--space-3), 2vw, var(--space-6));
   justify-self: start;
   padding-left: clamp(var(--space-4), 2.5vw, var(--space-7));
-  border-left: 1px solid var(--rule-hairline-strong);
+  border-left: 0;
 }
 
 body:not(.is-studio) .main-nav a {
@@ -125,9 +125,9 @@ body:not(.is-studio) .section-title {
 
 /* Home: print-like hierarchy, a real search, and a readable source path. */
 body:not(.is-studio) .dp-home-hero {
-  grid-template-columns: minmax(0, 1.2fr) minmax(16rem, 0.8fr);
-  gap: clamp(2rem, 6vw, 6rem);
-  padding-block: clamp(4rem, 7vw, 7.5rem) var(--space-9);
+  grid-template-columns: minmax(0, 1fr) minmax(0, .95fr);
+  gap: clamp(2rem, 4vw, 4.5rem);
+  padding-block: clamp(2.5rem, 5vw, 5rem) var(--space-7);
   align-items: start;
   border-bottom-color: var(--ink-900);
 }
@@ -137,31 +137,30 @@ body:not(.is-studio) .dp-home-intro {
 }
 
 body:not(.is-studio) .dp-home-intro .display-title {
-  max-width: 13ch;
+  max-width: 17ch;
   margin: 0;
-  font-size: clamp(3.4rem, 6vw, 5.8rem);
-  line-height: 0.97;
+  font-size: clamp(2.9rem, 4.6vw, 5rem);
+  line-height: 1.01;
   font-weight: 550;
   letter-spacing: -0.035em;
   text-wrap: pretty;
 }
 
-body:not(.is-studio) .dp-home-intro .display-title em {
+body:not(.is-studio) .dp-home-intro .display-title span {
   display: block;
-  color: var(--cobalt-700);
-  font-weight: 460;
+  font-weight: inherit;
 }
 
 body:not(.is-studio) .dp-home-intro .lede {
   margin-top: var(--space-6);
   max-width: 35rem;
-  font-size: clamp(1.15rem, 1.7vw, 1.4rem);
+  font-size: clamp(1rem, 1.35vw, 1.15rem);
   line-height: 1.48;
   color: var(--ink-700);
 }
 
 body:not(.is-studio) .dp-home-search {
-  margin-top: var(--space-8);
+  margin-top: var(--space-7);
   max-width: 43rem;
   border-top-color: var(--rule-hairline-strong);
 }
@@ -190,38 +189,6 @@ body:not(.is-studio) .dp-home-search .search-field button {
 
 body:not(.is-studio) .dp-home-search .search-field button:hover {
   background: var(--cobalt-800);
-}
-
-body:not(.is-studio) .dp-home-path {
-  border-inline-start: 0;
-  border-top: 2px solid var(--cobalt-700);
-  padding: var(--space-6) 0 0;
-}
-
-body:not(.is-studio) .dp-home-path h2 {
-  max-width: 19ch;
-  margin: 0 0 var(--space-4);
-  font-size: clamp(1.8rem, 2.45vw, 2.5rem);
-  font-weight: 520;
-}
-
-body:not(.is-studio) .dp-home-path > p {
-  font-size: var(--text-label);
-  color: var(--ink-700);
-  line-height: 1.6;
-  margin-bottom: var(--space-6);
-}
-
-body:not(.is-studio) .dp-home-path li {
-  grid-template-columns: 2rem minmax(0, 1fr);
-  gap: var(--space-3);
-  padding-block: var(--space-4);
-  line-height: 1.5;
-}
-
-body:not(.is-studio) .dp-home-path li > span:first-child {
-  color: var(--cobalt-700);
-  font-size: var(--text-meta);
 }
 
 body:not(.is-studio) .dp-home-empty {
@@ -345,7 +312,7 @@ body:not(.is-studio) .dp-home-method nav a:hover {
 
 body:not(.is-studio) .dp-home-explore {
   position: relative;
-  padding-block: var(--space-8) var(--space-9);
+  padding-block: var(--space-7) var(--space-8);
 }
 
 body:not(.is-studio) .dp-home-explore::before {
@@ -363,7 +330,7 @@ body:not(.is-studio) .dp-home-explore__heading {
   align-items: end;
   justify-content: space-between;
   gap: var(--space-6);
-  margin-bottom: var(--space-7);
+  margin-bottom: var(--space-5);
 }
 
 body:not(.is-studio) .dp-home-explore__heading h2 {
@@ -380,17 +347,17 @@ body:not(.is-studio) .dp-home-explore__grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   border-top: 1px solid var(--rule-hairline-strong);
-  border-bottom: 1px solid var(--rule-hairline-strong);
+  border-bottom: 0;
 }
 
 body:not(.is-studio) .dp-home-explore__item {
   position: relative;
   display: flex;
   min-width: 0;
-  min-height: 14rem;
+  min-height: 8.5rem;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-6) var(--space-5);
+  padding: var(--space-4) var(--space-3);
   color: var(--ink-900);
   text-decoration: none;
   transition: background var(--duration-fast) var(--ease-exit);
@@ -407,7 +374,7 @@ body:not(.is-studio) .dp-home-explore__item:focus-visible {
 
 body:not(.is-studio) .dp-home-explore__item strong {
   font-family: var(--font-claim);
-  font-size: clamp(1.6rem, 2.4vw, 2.25rem);
+  font-size: clamp(1.35rem, 2vw, 1.9rem);
   font-weight: 520;
   line-height: 1.08;
 }
@@ -553,9 +520,6 @@ body:not(.is-studio) .dp-home-explore__item:hover .dp-home-explore__arrow {
     gap: var(--space-8);
     padding-block: var(--space-8);
   }
-  body:not(.is-studio) .dp-home-path {
-    max-width: var(--width-reading);
-  }
   body:not(.is-studio) .dp-home-method {
     gap: var(--space-6);
   }
@@ -659,111 +623,75 @@ body:not(.is-studio) .dp-home-explore__item:hover .dp-home-explore__arrow {
   }
 }
 
-/* The homepage demonstrates the reading grammar without inventing a record. */
-body:not(.is-studio) .dp-home-visual {
-  max-width: 30rem;
-  padding: 0;
-  margin: 0;
-  border: 0;
-  background: transparent;
-}
-body:not(.is-studio) .dp-home-visual__document {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  min-height: 23rem;
-  padding: clamp(var(--space-5), 3vw, var(--space-7));
-  background: var(--ink-inverse);
-  color: var(--ink-inverse-100);
-  border-top: 4px solid var(--cobalt-600);
-  overflow: hidden;
-}
-.dp-home-visual__top {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-3);
-  color: var(--ink-inverse-300);
+/* The approved Figma layout uses an editorial excerpt, sourced only from the public projection. */
+body:not(.is-studio) .dp-home-kicker,
+body:not(.is-studio) .dp-home-highlight__label {
+  width: fit-content;
+  margin: 0 0 var(--space-5);
+  padding: .35rem .6rem;
+  background: var(--paper-1);
+  font-family: var(--font-data);
   font-size: var(--text-meta);
-  letter-spacing: .06em;
+  letter-spacing: .04em;
 }
-.dp-home-visual__title {
-  font-family: var(--font-claim);
-  font-size: clamp(2.5rem, 3.4vw, 3.5rem);
-  font-weight: 500;
-  line-height: 1.03;
-  letter-spacing: -.03em;
+body:not(.is-studio) .dp-home-highlight {
+  min-width: 0;
+  padding: 0 0 0 clamp(var(--space-5), 3vw, var(--space-7));
+  border-left: 1px solid var(--rule-hairline-strong);
 }
-.dp-home-visual__title em {
-  color: var(--cobalt-200);
-  font-weight: 440;
-}
-.dp-home-visual__quote {
-  padding: var(--space-4) 0 var(--space-4) var(--space-4);
-  border-left: 2px solid var(--cobalt-200);
-}
-.dp-home-visual__quote span {
-  color: var(--ink-inverse-300);
-  font-size: var(--text-meta);
-  letter-spacing: .07em;
-}
-.dp-home-visual__line {
-  height: .7rem;
-  width: 87%;
-  margin-top: var(--space-3);
-  background: var(--ink-inverse-300);
-  opacity: .4;
-}
-.dp-home-visual__line--short { width: 62%; }
-.dp-home-visual__trace {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  justify-items: center;
-  gap: var(--space-3);
-  margin-top: auto;
-  color: var(--ink-inverse-300);
-  font-size: var(--text-meta);
-}
-.dp-home-visual__track {
-  position: relative;
-  grid-column: 1 / -1;
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  padding-inline: var(--space-2);
-}
-.dp-home-visual__track::before {
-  content: "";
-  position: absolute;
-  inset: 50% var(--space-2) auto;
-  height: 2px;
-  background: var(--cobalt-200);
-}
-.dp-home-visual__track i {
-  position: relative;
-  width: .8rem;
-  height: .8rem;
-  border-radius: 50%;
-  background: var(--cobalt-200);
-}
-body:not(.is-studio) .dp-home-visual > h2 {
-  margin: var(--space-5) 0 var(--space-2);
-  font-family: var(--font-claim);
-  font-weight: 520;
-  font-size: var(--text-headline);
-}
-body:not(.is-studio) .dp-home-visual > p {
-  margin: 0 0 var(--space-3);
+body:not(.is-studio) .dp-home-highlight__context {
+  margin: 0 0 var(--space-5);
   color: var(--ink-700);
-  line-height: 1.55;
+  font-size: var(--text-label);
 }
-body:not(.is-studio) .dp-home-visual > a {
-  display: inline-flex;
-  min-height: var(--target-min);
+body:not(.is-studio) .dp-home-highlight h2 {
+  margin: 0 0 var(--space-6);
+  font-family: var(--font-claim);
+  font-size: clamp(2.15rem, 3.2vw, 3.6rem);
+  font-weight: var(--weight-medium);
+  line-height: 1.07;
+  letter-spacing: -.025em;
+  overflow-wrap: anywhere;
+}
+body:not(.is-studio) .dp-home-highlight h2 a {
+  color: inherit;
+  text-decoration: none;
+}
+body:not(.is-studio) .dp-home-highlight h2 a:hover {
+  color: var(--cobalt-700);
+  text-decoration: underline;
+}
+body:not(.is-studio) .dp-home-highlight__disclosure {
+  color: var(--ink-700);
+  font-size: var(--text-meta);
+}
+body:not(.is-studio) .dp-home-highlight__action {
+  display: flex;
   align-items: center;
+  min-height: var(--target-min);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--rule-hairline);
+  color: var(--cobalt-700);
+  font-weight: var(--weight-semibold);
+}
+body:not(.is-studio) .dp-home-explore__index {
+  font-family: var(--font-data);
+  color: var(--cobalt-700);
+  font-size: var(--text-meta);
 }
 @media (max-width: 56rem) {
-  body:not(.is-studio) .dp-home-visual {
-    width: 100%;
-    max-width: 38rem;
+  body:not(.is-studio) .dp-home-highlight {
+    max-width: 40rem;
+  }
+}
+@media (max-width: 40rem) {
+  body:not(.is-studio) .dp-home-highlight {
+    padding: var(--space-5) 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--rule-hairline-strong);
+  }
+  body:not(.is-studio) .dp-home-highlight h2 {
+    font-size: clamp(1.9rem, 8vw, 2.75rem);
   }
 }

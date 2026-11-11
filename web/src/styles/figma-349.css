@@ -1,0 +1,343 @@
+/* DP-349: owner Figma editorial V1, 11 November. Public-only composition.
+   Rendering, rights and publication semantics continue to come from the projection. */
+
+body:not(.is-studio) .dp-home-explore__heading {
+  display: block;
+}
+body:not(.is-studio) .dp-home-explore__heading h2 {
+  max-width: none;
+  font-size: clamp(1.7rem, 2.7vw, 2.5rem);
+}
+body:not(.is-studio) .dp-home-explore__heading p {
+  max-width: 60ch;
+  margin-top: var(--space-2);
+  font-size: var(--text-label);
+}
+body:not(.is-studio) .dp-home-explore__item + .dp-home-explore__item {
+  border-inline-start: 0;
+}
+body:not(.is-studio) .dp-home-explore__item {
+  padding-inline: 0 var(--space-4);
+}
+body:not(.is-studio) .dp-home-explore__item strong {
+  margin-top: 0;
+}
+body:not(.is-studio) .dp-home-explore__description {
+  font-size: var(--text-meta);
+}
+
+/* The desktop reading pages use the compact document typography in the Figma reference. */
+body:not(.is-studio) .detail-349-hero {
+  padding-block: var(--space-5);
+}
+body:not(.is-studio) .detail-349-hero .page-title {
+  font-size: clamp(2.15rem, 3.2vw, 3.1rem);
+  line-height: 1.1;
+}
+body:not(.is-studio) .detail-349-hero .lede {
+  font-size: var(--text-body);
+}
+body:not(.is-studio) .detail-349-hero .atlas-route {
+  margin-top: var(--space-4);
+}
+body:not(.is-studio) .detail-349-read {
+  padding-block: var(--space-5) var(--space-7);
+}
+body:not(.is-studio) .detail-349-read :is(.person-record-item, .topic-record-item) > .claim-row {
+  padding-block: var(--space-3);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+body:not(.is-studio) .detail-349-read :is(.person-record-item, .topic-record-item) .claim-row-claim {
+  font-size: clamp(1.15rem, 1.65vw, 1.65rem);
+  line-height: 1.2;
+}
+body:not(.is-studio) .detail-349-read :is(.person-record-item, .topic-record-item) .claim-row-meta {
+  font-size: var(--text-meta);
+}
+body:not(.is-studio) .detail-349-statement > .shell {
+  display: grid;
+  grid-template-columns: minmax(11rem, .28fr) minmax(0, 1fr);
+  column-gap: clamp(2rem, 4vw, 4.5rem);
+}
+body:not(.is-studio) .detail-349-statement > .shell > .detail-349-crumbs {
+  grid-column: 1 / -1;
+  margin-bottom: var(--space-5);
+}
+body:not(.is-studio) .detail-349-statement > .shell > .dp-statement-speaker {
+  grid-column: 1;
+  grid-row: 2 / 9;
+  align-self: start;
+  padding-right: var(--space-5);
+  border-right: 1px solid var(--rule-hairline);
+}
+body:not(.is-studio) .dp-statement-speaker h2 {
+  margin: var(--space-5) 0 var(--space-3);
+  font-family: var(--font-claim);
+  font-size: clamp(1.6rem, 2.3vw, 2.4rem);
+  font-weight: var(--weight-medium);
+  line-height: 1.14;
+}
+body:not(.is-studio) .dp-statement-speaker p:last-child {
+  max-width: 27ch;
+  font-size: var(--text-label);
+  line-height: 1.55;
+  color: var(--ink-700);
+}
+body:not(.is-studio) .detail-349-statement > .shell > .dp-statement-wording-label { grid-column: 2; grid-row: 2; }
+body:not(.is-studio) .detail-349-statement > .shell > h1 {
+  grid-column: 2;
+  grid-row: 3;
+  max-width: 22ch;
+  margin-block: var(--space-2);
+  font-size: clamp(2rem, 3.5vw, 3.65rem);
+}
+body:not(.is-studio) .detail-349-statement > .shell > .dp-statement-meta { grid-column: 2; grid-row: 4; }
+body:not(.is-studio) .detail-349-statement > .shell > .atlas-route { grid-column: 2; grid-row: 5; }
+body:not(.is-studio) .detail-349-statement > .shell > .dp-finding-summary { grid-column: 2; grid-row: 7; }
+body:not(.is-studio) .detail-349-statement > .shell > .dp-provenance-disclosure {
+  grid-column: 2;
+  grid-row: 6;
+  max-width: none;
+}
+body:not(.is-studio) .detail-349-statement > .shell > .detail-349-publication-note { grid-column: 2; grid-row: 8; }
+body:not(.is-studio) .detail-349-statement .dp-finding-summary {
+  grid-template-columns: minmax(10rem, .35fr) minmax(0, 1fr);
+  gap: var(--space-3) var(--space-5);
+}
+body:not(.is-studio) .detail-349-statement .dp-finding-summary__version {
+  grid-column: 1 / -1;
+  font-size: var(--text-meta);
+}
+body:not(.is-studio) .detail-349-statement .dp-finding-summary > p {
+  font-size: clamp(1rem, 1.5vw, 1.3rem);
+  line-height: 1.5;
+}
+@media (max-width: 60rem) {
+  body:not(.is-studio) .detail-349-statement > .shell {
+    display: block;
+  }
+  body:not(.is-studio) .detail-349-statement > .shell > .dp-statement-speaker {
+    padding: var(--space-3) 0;
+    margin-bottom: var(--space-5);
+    border-right: 0;
+    border-block: 1px solid var(--rule-hairline);
+  }
+  body:not(.is-studio) .detail-349-statement .dp-finding-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+body:not(.is-studio) .person-header .record-header-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+body:not(.is-studio) .person-header .record-header-grid > .search-field {
+  max-width: 21rem;
+}
+body:not(.is-studio) .topic-header-grid {
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, .8fr);
+}
+body:not(.is-studio) .topic-header .atlas-route {
+  max-width: 48rem;
+}
+body:not(.is-studio) .topic-dossier {
+  gap: var(--space-6);
+}
+
+@media (min-width: 68rem) {
+  body:not(.is-studio) #main:has(> .person-header) {
+    display: grid;
+    grid-template-columns: minmax(14rem, .33fr) minmax(0, 1fr);
+    column-gap: clamp(2rem, 4vw, 4rem);
+    max-width: var(--width-shell);
+    padding: var(--space-7) var(--page-inset);
+    margin-inline: auto;
+  }
+  body:not(.is-studio) #main > .person-header {
+    width: auto;
+    min-width: 0;
+    border-right: 1px solid var(--rule-hairline);
+    border-bottom: 0;
+    padding: 0 var(--space-5) 0 0;
+  }
+  body:not(.is-studio) #main > .person-header .shell {
+    width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+  body:not(.is-studio) #main > .person-header .page-title {
+    font-size: clamp(2rem, 3vw, 2.8rem);
+    overflow-wrap: anywhere;
+  }
+  body:not(.is-studio) #main > .person-header .atlas-route {
+    display: none;
+  }
+  body:not(.is-studio) #main > .person-chronology {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    padding: 0;
+    margin: 0;
+  }
+  body:not(.is-studio) #main > .person-chronology .record-filter-toolbar {
+    margin-bottom: var(--space-2);
+  }
+  body:not(.is-studio) #main > .person-chronology .person-section-heading {
+    margin-top: var(--space-4);
+  }
+}
+
+/* Esplora: a short search-and-filter index, with result dividers rather than cards. */
+body:not(.is-studio) .explore-editorial-intro {
+  padding-block: var(--space-5) var(--space-2);
+}
+body:not(.is-studio) .explore-editorial-intro .page-title {
+  margin-block: var(--space-2);
+  font-size: clamp(2.15rem, 3.4vw, 3.3rem);
+}
+body:not(.is-studio) .explore-editorial-intro .lede {
+  max-width: 66ch;
+  font-size: var(--text-label);
+}
+body:not(.is-studio) .explore-editorial-intro .atlas-route {
+  display: none;
+}
+body:not(.is-studio) .explore-search-bar {
+  min-height: 3rem;
+  margin-block: var(--space-3);
+}
+body:not(.is-studio) .explore-client .explore-list {
+  gap: 0;
+  border-top: 1px solid var(--rule-hairline);
+}
+body:not(.is-studio) .explore-client .explore-row {
+  padding: var(--space-3) 0;
+  border: 0;
+  border-bottom: 1px solid var(--rule-hairline);
+  border-radius: 0;
+  background: transparent;
+}
+body:not(.is-studio) .explore-client .explore-row:hover {
+  background: var(--paper-1);
+  transform: none;
+}
+body:not(.is-studio) .explore-client .explore-row .assessment {
+  padding: 0;
+  background: transparent;
+}
+body:not(.is-studio) .explore-client .explore-row .claim-row-claim {
+  font-size: clamp(1.1rem, 1.5vw, 1.55rem);
+}
+
+/* Metodo: four steps before the long-form explanations; keep the original prose. */
+body:not(.is-studio) #main:has(.dp-method-overview) .dp-utility-document {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "intro" "content" "rail";
+  padding-block: var(--space-6);
+}
+body:not(.is-studio) #main:has(.dp-method-overview) .dp-utility-document__header {
+  grid-column: 1;
+  padding-bottom: var(--space-5);
+}
+body:not(.is-studio) #main:has(.dp-method-overview) .dp-utility-document__header h1 {
+  max-width: none;
+  margin: var(--space-4) 0;
+  font-size: clamp(2.2rem, 3.2vw, 3.4rem);
+}
+body:not(.is-studio) #main:has(.dp-method-overview) .dp-utility-document__header .lede {
+  font-size: var(--text-body);
+}
+body:not(.is-studio) #main:has(.dp-method-overview) .dp-utility-document__body {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+}
+body:not(.is-studio) #main:has(.dp-method-overview) .dp-utility-document__rail {
+  grid-column: 1;
+  grid-row: 3;
+  max-width: 44rem;
+}
+body:not(.is-studio) #main:has(.dp-method-overview) .dp-method-overview {
+  margin-block: var(--space-5);
+  width: min(calc(100vw - (var(--page-inset) * 2)), var(--width-shell));
+}
+body:not(.is-studio) #main:has(.dp-method-overview) .dp-method-overview h2 {
+  margin-bottom: var(--space-4);
+}
+body:not(.is-studio) #main:has(.dp-method-overview) .dp-method-overview ol {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+body:not(.is-studio) #main:has(.dp-method-overview) .dp-method-overview li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+body:not(.is-studio) #main:has(.dp-method-overview) .dp-method-overview strong {
+  font-size: clamp(1.1rem, 1.45vw, 1.4rem);
+}
+
+/* Fonte: the approved media and selected excerpt sit together, with statements below. */
+body:not(.is-studio) .source-story__hero {
+  display: block;
+  padding-block: var(--space-1) var(--space-4);
+}
+body:not(.is-studio) .source-story__hero h1 {
+  font-size: clamp(2rem, 3vw, 3.1rem);
+}
+body:not(.is-studio) .source-story__summary {
+  max-width: 75ch;
+}
+body:not(.is-studio) .source-story__workspace {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-5) var(--space-7);
+  padding-top: var(--space-5);
+}
+body:not(.is-studio) .source-story__workspace > .source-story__media {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: start;
+  aspect-ratio: 16 / 9;
+  border-radius: 2px;
+}
+body:not(.is-studio) .source-story__workspace > .source-story__excerpts {
+  grid-column: 2;
+  grid-row: 1;
+}
+body:not(.is-studio) .source-story__workspace > .source-story__claims {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+body:not(.is-studio) .source-story__workspace > .source-story__analysis {
+  grid-column: 1 / -1;
+  grid-row: 3;
+}
+body:not(.is-studio) .source-story__claim-list {
+  border-top: 1px solid var(--rule-hairline);
+}
+body:not(.is-studio) .source-story__claim {
+  border-bottom: 1px solid var(--rule-hairline);
+}
+body:not(.is-studio) .source-story__analysis {
+  border-top: 1px solid var(--rule-hairline);
+  padding-top: var(--space-4);
+}
+
+@media (max-width: 60rem) {
+  body:not(.is-studio) .source-story__workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  body:not(.is-studio) .source-story__workspace > :is(.source-story__media, .source-story__excerpts, .source-story__claims, .source-story__analysis) {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  body:not(.is-studio) #main:has(.dp-method-overview) .dp-method-overview ol {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 40rem) {
+  body:not(.is-studio) #main:has(.dp-method-overview) .dp-method-overview ol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -2,6 +2,8 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import SearchField from "../components/SearchField.astro";
 import ClaimRow from "../components/ClaimRow.astro";
+import Assessment from "../components/Assessment.astro";
+import { dossierSlug } from "../lib/format";
 import { loadPublicProjection } from "../lib/projection";
 import { loadPublishedPeopleV3 } from "../lib/publishedPeopleV3";
 
@@ -16,7 +18,6 @@ const hasPublicRecords = projection.dossiers.length > 0 ||
   (projection.topics?.length ?? 0) > 0 ||
   (projection.contents?.length ?? 0) > 0 ||
   (peopleRelease?.people.length ?? 0) > 0;
-const explicitDemo = process.env.DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION === "1";
 
 const explorePaths = [
   { label: "Dichiarazioni", href: "/esplora/?tipo=finding", description: "Leggi le formulazioni pubblicate, gli esiti e le evidenze." },
@@ -30,8 +31,9 @@ const explorePaths = [
   <div class="dp-home">
     <section class="shell home-hero home-hero-v4 atlas-hero dp-home-hero" aria-labelledby="home-title">
       <div class="hero-copy hero-copy-v4 dp-home-intro">
-        <h1 id="home-title" class="display-title">Le parole restano.<em>Le fonti contano.</em></h1>
-        <p class="lede">Cosa è stato detto, da chi e in quale contesto. Un archivio pubblico per ritrovare le dichiarazioni, leggere le verifiche e tornare alle fonti originali.</p>
+        <p class="dp-home-kicker">DATI · FONTI · CONTESTO</p>
+        <h1 id="home-title" class="display-title">Le parole contano.<span>Le prove anche.</span></h1>
+        <p class="lede">Dichiarazioni pubbliche nel loro contesto, con fonti originali e spiegazioni accessibili.</p>
         {hasPublicRecords ? (
           <div class="hero-search hero-search-v4 dp-home-search" aria-label="Ricerca principale">
             <strong>Cerca nell'archivio pubblico</strong>
@@ -49,25 +51,41 @@ const explorePaths = [
           </aside>
         )}
       </div>
-      <aside class="atlas-reading-path dp-home-path dp-home-visual" aria-labelledby="atlas-reading-heading">
-        <div class="dp-home-visual__document" aria-hidden="true">
-          <div class="dp-home-visual__top"><span>IL RECORD PUBBLICO</span><span>01 / 03</span></div>
-          <div class="dp-home-visual__title">Una fonte.<br /><em>Più prospettive.</em></div>
-          <div class="dp-home-visual__quote">
-            <span>LA DICHIARAZIONE</span>
-            <div class="dp-home-visual__line"></div><div class="dp-home-visual__line dp-home-visual__line--short"></div>
-          </div>
-          <div class="dp-home-visual__trace">
-            <span>FONTE</span><span>ATTRIBUZIONE</span><span>VERIFICA</span>
-            <div class="dp-home-visual__track"><i></i><i></i><i></i></div>
-          </div>
-        </div>
-        <h2 id="atlas-reading-heading">Ogni affermazione ha un contesto.</h2>
-        <p>Ritrova le parole, la fonte e le prove nella stessa lettura.</p>
-        <a class="text-link" href={explicitDemo ? "/anteprima/fonte/" : "/metodo/"}>
-          {explicitDemo ? "Guarda la fonte dimostrativa" : "Scopri come leggere una fonte"} <span aria-hidden="true">↗</span>
-        </a>
+      <aside class="dp-home-highlight" aria-labelledby="home-highlight-heading">
+        <p class="dp-home-highlight__label">{featured ? "DAL REGISTRO PUBBLICO" : "ARCHIVIO IN PREPARAZIONE"}</p>
+        {featured ? (
+          <>
+            <p class="dp-home-highlight__context">{featured.speaker.name} · {featured.source.title}</p>
+            <h2 id="home-highlight-heading"><a href={`/dichiarazioni/${dossierSlug(featured)}/`}>{featured.claim}</a></h2>
+            <p class="dp-home-highlight__disclosure">Formulazione normalizzata · non citazione testuale</p>
+            <Assessment code={featured.finding.assessment} compact />
+            <a class="dp-home-highlight__action" href={`/dichiarazioni/${dossierSlug(featured)}/`}>Esamina la dichiarazione →</a>
+          </>
+        ) : (
+          <>
+            <h2 id="home-highlight-heading">Le dichiarazioni arriveranno con le fonti verificate.</h2>
+            <p>Il registro mostrerà solo contenuti approvati per la pubblicazione.</p>
+            <a class="dp-home-highlight__action" href="/metodo/">Scopri il metodo →</a>
+          </>
+        )}
       </aside>
+    </section>
+
+    <section class="shell dp-home-explore" aria-labelledby="home-explore-heading">
+      <div class="dp-home-explore__heading">
+        <h2 id="home-explore-heading">Dalla dichiarazione alla prova.</h2>
+        <p>{hasPublicRecords ? "Esplora i contenuti del registro pubblico." : "Questi percorsi si popoleranno con i primi contenuti approvati."}</p>
+      </div>
+      <nav class="dp-home-explore__grid" aria-label="Esplora il registro">
+        {explorePaths.map((item, index) => (
+          <a href={item.href} class="dp-home-explore__item">
+            <span class="dp-home-explore__index">{String(index + 1).padStart(2, "0")}</span>
+            <strong>{item.label}</strong>
+            <span class="dp-home-explore__description">{item.description}</span>
+            <span class="dp-home-explore__arrow" aria-hidden="true">↗</span>
+          </a>
+        ))}
+      </nav>
     </section>
 
     {featured && (
@@ -110,20 +128,5 @@ const explorePaths = [
       </nav>
     </section>
 
-    <section class="shell dp-home-explore" aria-labelledby="home-explore-heading">
-      <div class="dp-home-explore__heading">
-        <h2 id="home-explore-heading">Da dove vuoi cominciare?</h2>
-        <p>{hasPublicRecords ? "Scegli un percorso nel registro pubblico." : "Questi percorsi si popoleranno con i primi contenuti approvati."}</p>
-      </div>
-      <nav class="dp-home-explore__grid" aria-label="Esplora il registro">
-        {explorePaths.map((item) => (
-          <a href={item.href} class="dp-home-explore__item">
-            <strong>{item.label}</strong>
-            <span class="dp-home-explore__description">{item.description}</span>
-            <span class="dp-home-explore__arrow" aria-hidden="true">↗</span>
-          </a>
-        ))}
-      </nav>
-    </section>
   </div>
 </BaseLayout>

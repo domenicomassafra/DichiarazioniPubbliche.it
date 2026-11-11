@@ -117,18 +117,6 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
         </div>
         <a class="source-story__original" href={demo ? "#preview-original" : source.url} rel="noreferrer">Fonte originale: {content?.content_kind === "VIDEO" ? "video integrale" : source.title}<span aria-hidden="true"> ↗</span></a>
       </div>
-      <aside class:list={["source-story__media", !demo?.portrait && "source-story__media--typographic"]} aria-label="Media della fonte">
-        {demo?.portrait ? <img src={demo.portrait} alt="Ritratto illustrativo, persona fittizia" loading="eager" /> : (
-          <div class="source-story__media-type"><span>ARCHIVIO</span><strong>{kind}</strong><small>Il documento originale fa fede</small></div>
-        )}
-        {demo && <a href="#preview-original" class="source-story__demo-media-link" aria-label="Il filmato è fittizio. Leggi la nota sulla fonte inventata."></a>}
-        {content?.public_media_url && !demo && (
-          <a class="source-story__play" href={content.public_media_url} aria-label="Apri il media pubblico autorizzato" rel="noreferrer">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"></path></svg>
-          </a>
-        )}
-        {duration != null && !demo && <span class="source-story__media-time">{timeLabel(duration)}</span>}
-      </aside>
     </header>
 
     <div class="shell source-story__content">
@@ -140,6 +128,18 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
 
       <section id="source-panel-claims" role="tabpanel" aria-labelledby="source-tab-claims" data-source-panel="claims">
         <div class="source-story__workspace" data-content-workspace>
+          <aside class:list={["source-story__media", !demo?.portrait && "source-story__media--typographic"]} aria-label="Media della fonte">
+            {demo?.portrait ? <img src={demo.portrait} alt="Ritratto illustrativo, persona fittizia" loading="eager" /> : (
+              <div class="source-story__media-type"><span>ARCHIVIO</span><strong>{kind}</strong><small>Il documento originale fa fede</small></div>
+            )}
+            {demo && <a href="#preview-original" class="source-story__demo-media-link" aria-label="Il filmato è fittizio. Leggi la nota sulla fonte inventata."></a>}
+            {content?.public_media_url && !demo && (
+              <a class="source-story__play" href={content.public_media_url} aria-label="Apri il media pubblico autorizzato" rel="noreferrer">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"></path></svg>
+              </a>
+            )}
+            {duration != null && !demo && <span class="source-story__media-time">{timeLabel(duration)}</span>}
+          </aside>
           <section class="source-story__claims" aria-labelledby="content-moments-heading">
             <h2 id="content-moments-heading">Dichiarazioni estratte dalla fonte</h2>
             {moments.length === 0 ? (

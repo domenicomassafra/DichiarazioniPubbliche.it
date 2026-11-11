@@ -717,21 +717,19 @@ try {
       if (family === "home" || family === "method" || family === "utility") {
         const geometry = await cdp.evaluate(`(() => {
           const box = (selector) => {
-            const element = document.querySelector(selector);
-            if (!element) return null;
-            const rect = element.getBoundingClientRect();
-            return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+            const rect = document.querySelector(selector)?.getBoundingClientRect();
+            return rect && { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
           };
           return {
             intro: box('${family === "home" ? ".hero-copy-v4" : ".dp-utility-document__header"}'),
-            partner: box('${family === "home" ? ".atlas-reading-path" : ".dp-utility-document__rail"}'),
-            body: box('${family === "home" ? ".home-recent" : ".dp-utility-document__body"}'),
+            partner: box('${family === "home" ? ".dp-home-highlight" : family === "method" ? ".dp-method-overview" : ".dp-utility-document__rail"}'),
+            body: box('${family === "home" ? ".dp-home-explore" : family === "method" ? ".dp-utility-document__rail" : ".dp-utility-document__body"}'),
           };
         })()`);
-        assert(geometry.intro && geometry.partner && geometry.body, `${family} ${variant}: split template element missing`);
-        if (variant === "desktop") {
-          assert(geometry.partner.left >= geometry.intro.right - 1, `${family}: reading rail must occupy right desktop column: ${JSON.stringify(geometry)}`);
-          assert(geometry.partner.top < geometry.intro.bottom, `${family}: right column must be alongside introduction, not stacked below: ${JSON.stringify(geometry)}`);
+        assert(geometry.intro && geometry.partner && geometry.body, `${family} ${variant}: missing layout element`);
+        if (variant === "desktop" && family !== "method") {
+          assert(geometry.partner.left >= geometry.intro.right - 1, `${family}: right desktop column: ${JSON.stringify(geometry)}`);
+          assert(geometry.partner.top < geometry.intro.bottom, `${family}: side-by-side desktop: ${JSON.stringify(geometry)}`);
         } else {
           assert(geometry.partner.top >= geometry.intro.bottom - 1, `${family}: phone reading order must put context after introduction: ${JSON.stringify(geometry)}`);
           assert(geometry.body.top >= geometry.partner.bottom - 1, `${family}: phone context must not appear below document/results: ${JSON.stringify(geometry)}`);
