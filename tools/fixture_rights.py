@@ -221,5 +221,5 @@ def fixture_rows(fixture_policy: str, review_date: str, code_license: str) -> di
         public_projection_status="internal design reference; not a public artifact",
         blocker=None,
     ),
-    
+
     }
