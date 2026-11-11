@@ -3,8 +3,10 @@ import hashlib
 import json
 import unittest
 from copy import deepcopy
+from dataclasses import replace
 
 from dichiarazioni_pubbliche.autonomous_publication import AgentReview
+from dichiarazioni_pubbliche.autonomous_runner_v3 import _json
 from dichiarazioni_pubbliche.omniroute_execution_authority import (
     OmniRouteExecutionAuthority,
 )
@@ -20,12 +22,10 @@ CONNECTION_ID = "connection:pro"
 
 def fixture():
     request = {
-        "model": MODEL, "messages": [{"role": "user", "content": "private test"}],
+        "model": MODEL, "messages": [{"role": "user", "content": "perché citazione test"}],
         "temperature": 0, "max_tokens": 512,
     }
-    prompt_hash = hashlib.sha256(json.dumps(
-        request, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
-    ).encode()).hexdigest()
+    prompt_hash = hashlib.sha256(_json(request).encode()).hexdigest()
     receipt = AgentReview(
         "agent:primary", MODEL, "c" * 64, ("PROVENANCE",), True,
         provider="omniroute", provider_request_id=RESPONSE_ID,
@@ -80,7 +80,8 @@ def fixture():
             "allowedConnections": [CONNECTION_ID], "allowedCombos": [],
         }]},
         "/api/usage/call-logs?model=antigravity%2Fgemini-3.8-flash-tiered&limit=100": [
-            {"id": CALL_ID, "provider": "antigravity", "status": 200}
+            {"id": CALL_ID, "provider": "antigravity", "status": 200,
+             "sessionTag": TAG}
         ],
         "/api/usage/call-logs/" + CALL_ID: detail,
         "/api/usage/route-explain/" + CALL_ID: route,
@@ -112,6 +113,33 @@ class OmniRouteExecutionAuthorityTests(unittest.TestCase):
         verdict["stage_citations"] = {}
         detail["responseBody"]["choices"][0]["message"]["content"] = json.dumps(verdict)
         self.assertFalse(self.verifier(self.receipt))
+
+    def test_genuine_provider_rejection_with_empty_citations_is_witnessed(self):
+        detail = self.values["/api/usage/call-logs/" + CALL_ID]
+        verdict = json.loads(detail["responseBody"]["choices"][0]["message"]["content"])
+        verdict["accepted"] = False
+        verdict["stage_citations"] = {"PROVENANCE": []}
+        detail["responseBody"]["choices"][0]["message"]["content"] = json.dumps(verdict)
+        rejected = replace(self.receipt, accepted=False,
+                           stage_citations={"PROVENANCE": []})
+        self.assertTrue(self.verifier(rejected))
+
+    def test_unrelated_sessions_do_not_trigger_management_detail_reads(self):
+        endpoint = "/api/usage/call-logs?model=antigravity%2Fgemini-3.8-flash-tiered&limit=100"
+        unrelated = [{"id": f"unrelated-{n}", "provider": "antigravity",
+                      "status": 200, "sessionTag": "another-session"}
+                     for n in range(75)]
+        self.values[endpoint] = unrelated + self.values[endpoint]
+        self.assertTrue(self.verifier(self.receipt))
+        self.assertEqual(
+            [path for path in self.reads if path.startswith("/api/usage/call-logs/")],
+            ["/api/usage/call-logs/" + CALL_ID],
+        )
+
+    def test_conflicting_requested_and_review_model_ids_are_rejected(self):
+        self.assertFalse(self.verifier({**vars(self.receipt),
+                                        "requested_model": MODEL,
+                                        "model_id": "antigravity/another-model"}))
 
     def test_forged_journal_receipt_cannot_reuse_another_gateway_call(self):
         altered = {**vars(self.receipt), "session_tag": "dp413-" + "b" * 32}
