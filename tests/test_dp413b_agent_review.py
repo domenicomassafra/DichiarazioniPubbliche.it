@@ -55,12 +55,8 @@ class GatewayReviewTests(TestCase):
             http_post=post or self.fake_post,
         )
 
-    def test_three_distinct_models_have_individual_gateway_and_receipt_bindings(self):
-        models = (
-            "antigravity/gemini-3.8-flash-tiered",
-            "antigravity/gemini-3-flash",
-            "antigravity/gemini-2.5-pro",
-        )
+    def test_owner_38_flash_only_binds_gateway_and_receipt(self):
+        models = ("antigravity/gemini-3.8-flash-tiered",)
         gate_models = []
         results = []
         for index, model_id in enumerate(models):
@@ -79,13 +75,15 @@ class GatewayReviewTests(TestCase):
     def test_model_specific_gate_refuses_unavailable_subscription_without_post(self):
         with self.assertRaisesRegex(RuntimeError, "SUBSCRIPTION"):
             self.reviewer(
-                "agent:secondary", model_id="antigravity/gemini-3-flash",
-                gate=lambda model: model == MODEL,
+                "agent:secondary", model_id=MODEL,
+                gate=lambda _model: False,
             ).review(self.item, self.binding)
         self.assertEqual(self.calls, [])
 
     def test_unapproved_or_alias_model_refused_even_with_subscribed_gate(self):
         for model_id in (
+            "antigravity/gemini-3-flash",
+            "antigravity/gemini-2.5-pro",
             "antigravity/gemini-3.8-flash-high",
             "antigravity/gemini-3.7-flash",
             "antigravity/gemini-3.1-pro",
@@ -101,11 +99,11 @@ class GatewayReviewTests(TestCase):
     def test_different_model_response_cannot_be_substituted_for_second_agent(self):
         def wrong_return(*args):
             status, response = self.fake_post(*args)
-            response["model"] = MODEL
+            response["model"] = "gemini-3-flash"
             return status, response
         with self.assertRaisesRegex(RuntimeError, "MODEL_SUBSTITUTED"):
             self.reviewer(
-                "agent:second", model_id="antigravity/gemini-2.5-pro",
+                "agent:second", model_id=MODEL,
                 post=wrong_return,
             ).review(self.item, self.binding)
         self.assertEqual(self.journal.review_executions(self.binding), ())

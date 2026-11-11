@@ -18,18 +18,14 @@ from urllib.parse import urlsplit
 from dichiarazioni_pubbliche.autopublish_contract import load_autopublish_contract
 
 
-# Owner decision 49 (2026-11-10) invalidates old universal 2+1 receipts.
-POLICY_VERSION = "autonomous-publication-413-v6-owner49"
-# Current owner-authorized Pro connections expose three distinct Gemini models,
-# through existing Antigravity/OmniRoute subscriptions; no direct/paid fallback.
-# Model strings alone never prove actual upstream identity, subscription scope,
-# quota, or permission to publish. The trusted live gateway must attest those.
+# Owner decision 49 and the 2026-11-11 Gemini route correction invalidate
+# receipts produced under the previous model allowlist.
+POLICY_VERSION = "autonomous-publication-413-v7-owner49-gemini38"
+# Owner correction 2026-11-11: Gemini usage must stay on Antigravity 3.8 Flash.
+# Model strings alone never prove subscription, quota, or publication authority.
+# Uncertain 2+1 records HOLD until three genuinely distinct models are authorized.
 SUBSCRIPTION_REVIEW_MODEL = "antigravity/gemini-3.8-flash-tiered"
-APPROVED_REVIEW_MODELS = frozenset({
-    SUBSCRIPTION_REVIEW_MODEL,
-    "antigravity/gemini-3-flash",
-    "antigravity/gemini-2.5-pro",
-})
+APPROVED_REVIEW_MODELS = frozenset({SUBSCRIPTION_REVIEW_MODEL})
 
 
 def review_model_authorized(model_id: object) -> bool:

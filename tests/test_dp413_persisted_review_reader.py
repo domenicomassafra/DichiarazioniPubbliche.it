@@ -7,6 +7,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import sys
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 
@@ -26,6 +27,16 @@ SECOND = "antigravity/gemini-3-flash"
 
 class PersistedReviewReaderTests(unittest.TestCase):
     def setUp(self):
+        # Exercise legacy two-model receipt replay in isolation; the live
+        # owner policy is asserted separately and rejects these old models.
+        legacy_models = frozenset({PRIMARY, SECOND})
+        for module in (
+            "dichiarazioni_pubbliche.autonomous_publication",
+            "dichiarazioni_pubbliche.autonomous_agent_review",
+        ):
+            context = patch(f"{module}.APPROVED_REVIEW_MODELS", legacy_models)
+            context.start()
+            self.addCleanup(context.stop)
         self.temporary = TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.journal = SQLiteRunJournal(Path(self.temporary.name) / "reviews.sqlite3")
