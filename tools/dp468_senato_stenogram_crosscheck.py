@@ -87,10 +87,13 @@ class _OfficialSpeech(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
         self.depth = 0
+        self.ignored_content = 0
         self.chunks: list[str] = []
         self.person_dids: set[int] = set()
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in {"script", "style", "template", "noscript"}:
+            self.ignored_content += 1
         a = dict(attrs)
         if tag == "div" and self.depth == 0 and "bgt" in (a.get("class") or "").split():
             self.depth = 1
@@ -106,10 +109,12 @@ class _OfficialSpeech(HTMLParser):
                         self.person_dids.add(int(ids[0]))
 
     def handle_data(self, data: str) -> None:
-        if self.depth:
+        if self.depth and not self.ignored_content:
             self.chunks.append(data)
 
     def handle_endtag(self, tag: str) -> None:
+        if tag in {"script", "style", "template", "noscript"} and self.ignored_content:
+            self.ignored_content -= 1
         if tag == "div" and self.depth:
             self.depth -= 1
 

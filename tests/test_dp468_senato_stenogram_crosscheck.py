@@ -34,6 +34,15 @@ class OfficialStenogramTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "WORDING_OR_SPEAKER_MISMATCH"):
             validate_intervention(URL, navigation_only, 33022, "Sono le parole esatte pronunciate.")
 
+    def test_script_embedded_in_article_cannot_supply_missing_quote(self):
+        embedded = (
+            b'<div class="bgt"><p><a href="https://www.senato.it/loc/link.asp?'
+            b'leg=19&amp;tipodoc=sanasen&amp;id=33022">POTENTI</a>'
+            b'Testo diverso.</p><script>Sono le parole esatte pronunciate.</script></div>'
+        )
+        with self.assertRaisesRegex(ValueError, "WORDING_OR_SPEAKER_MISMATCH"):
+            validate_intervention(URL, embedded, 33022, "Sono le parole esatte pronunciate.")
+
     def test_wrong_speaker_quote_and_source_are_held(self):
         for url, body, did, quote, error in (
             (URL, BODY, 33023, "Sono le parole esatte pronunciate.", "WORDING_OR_SPEAKER_MISMATCH"),
