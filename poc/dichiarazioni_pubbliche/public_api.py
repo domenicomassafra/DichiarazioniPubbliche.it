@@ -60,6 +60,7 @@ from .public_static_root import (
     PinnedStaticHTTPServer as _PinnedStaticHTTPServer,
     open_static_root as _open_static_root,
 )
+from .public_error_document import send_static_not_found
 
 API_CONTRACT_VERSION = "v1"
 API_BASE_PATH = "/api/v1"
@@ -1524,14 +1525,9 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
             "/account/api/session", "/account/api/logout", "/account/api/delete",
         }
 
-    def _static_not_found(self) -> None:
-        # Withdrawn routes may be revisited after a corrected release. Never
-        # retain a stale 404 in a browser or edge cache across that change.
-        self.send_response(404)
-        self.send_header("Cache-Control", WITHDRAWAL_CACHE_CONTROL)
-        self.send_header("Surrogate-Control", "no-store")
-        self.send_header("Content-Length", "0")
-        self.end_headers()
+    def _static_not_found(self, *, page: bool = False) -> None:
+        # Withdrawn routes may return: never cache a 404. See public_error_document.
+        send_static_not_found(self, WITHDRAWAL_CACHE_CONTROL, page=page)
 
     def _serve_static(self, method: str) -> None:
         # Serve from the pinned descriptor to prevent symlink-swap leaks.
@@ -1605,11 +1601,11 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
                         leaf = index
                         break
                     else:
-                        self._static_not_found()
+                        self._static_not_found(page=True)
                         return
                 else:
                     if urlsplit(self.path).path.endswith("/"):
-                        self._static_not_found()
+                        self._static_not_found(page=True)
                         return
                     opened_fd = os.open(leaf, file_flags, dir_fd=current_fd)
                 with os.fdopen(opened_fd, "rb") as opened:
@@ -1663,7 +1659,7 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
                     if method == "GET":
                         self.copyfile(opened, self.wfile)
         except OSError:
-            self._static_not_found()
+            self._static_not_found(page=True)
 
 
     def do_GET(self) -> None:  # noqa: N802

@@ -102,7 +102,7 @@ const legacyToCanonical = new Map([
 // approved. Account, privacy and correction intake are noindex utility surfaces,
 // not additional primary public-record templates.
 function assertKnownPublicPageFamilies(routes) {
-  const staticPages = new Set([...requiredStatic, "/accedi/", "/account/", "/privacy/", "/segnalazioni/"]);
+  const staticPages = new Set([...requiredStatic, "/accedi/", "/account/", "/privacy/", "/segnalazioni/", "/404.html"]);
   // A deliberately opted-in, unindexed DP-349 visual fixture is a review
   // surface, never an independently approved public-record page family.
   if (demoSnapshot && pages.has("/anteprima/fonte/")) {
@@ -237,6 +237,15 @@ assert.equal([...pages.keys()].some((route) => route.startsWith("/studio/")), fa
 
 for (const [route, html] of pages) {
   if ([...legacyToCanonical.keys()].some((prefix) => route.startsWith(prefix))) continue;
+  if (route === "/404.html") {
+    // DP-544: the error page must be reachable and never indexed. It carries
+    // the home canonical instead of claiming its own public record job.
+    assert.match(html, /<meta name="robots" content="noindex,nofollow"/, "/404.html: error page must stay noindex");
+    assert.equal(canonicalOf(html), "/", "/404.html: error page canonical must point to the archive home");
+    assert.match(html, /class="[^"]*dp-utility-document/, "/404.html: error page must render the editorial shell");
+    assert.match(html, /href="\/esplora\/"/, "/404.html: error page must offer a way back to the archive");
+    continue;
+  }
   const canonical = canonicalOf(html);
   assert(canonical, `${route}: missing canonical`);
   assert.equal(canonical, route, `${route}: primary route canonical is ${canonical}`);

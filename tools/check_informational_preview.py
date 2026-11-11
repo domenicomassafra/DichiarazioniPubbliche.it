@@ -21,6 +21,9 @@ from typing import Mapping
 
 PUBLIC_ROUTES = ("/", "/esplora/", "/metodo/", "/correzioni/", "/dati/", "/progetto/")
 PRIVATE_UTILITY_ROUTES = ("/accedi/", "/account/", "/privacy/", "/segnalazioni/")
+# DP-544: the public server answers an unknown page with this bundled error
+# document instead of an empty body. It carries no record job of its own.
+ERROR_DOCUMENT = "404.html"
 PUBLIC_BASE = "https://dichiarazionipubbliche.it"
 PUBLIC_SCHEMA = "dichiarazioni-pubbliche-public-v2"
 SEARCH_SCHEMA = "dichiarazioni-pubbliche-search-index-v1"
@@ -197,10 +200,12 @@ def check_preview_bundle(
     public_files = {html_route(route) for route in PUBLIC_ROUTES}
     private_files = {html_route(route) for route in PRIVATE_UTILITY_ROUTES}
     require(public_files.issubset(html_paths), "PUBLIC_ROUTE_MISSING")
-    unexpected_html = html_paths - public_files - private_files
+    require(ERROR_DOCUMENT in html_paths, "ERROR_DOCUMENT_MISSING")
+    unexpected_html = html_paths - public_files - private_files - {ERROR_DOCUMENT}
     require(not unexpected_html, f"UNEXPECTED_HTML_ROUTE:{','.join(sorted(unexpected_html))}")
 
-    required_top_files = {"robots.txt", "sitemap.xml", "search-index.v1.json", "favicon.svg"}
+    required_top_files = {"robots.txt", "sitemap.xml", "search-index.v1.json", "favicon.svg",
+                          ERROR_DOCUMENT}
     for item in files:
         if not item.is_file():
             continue
