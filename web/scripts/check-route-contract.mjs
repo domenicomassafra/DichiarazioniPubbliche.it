@@ -180,6 +180,7 @@ if (demoSnapshot) assert(contentPages.length > 0, "demo Content routes required 
 let timedLocatorPages = 0;
 let writtenLocatorPages = 0;
 for (const [route, html] of contentPages) {
+  assert.doesNotMatch(html, /source-story__(?:timeline-)?play--static/, `${route}: an unplayable source must not present a play affordance`);
   if (/class="source-story__timeline-marker"/.test(html)) {
     timedLocatorPages += 1;
     assert.match(html, /aria-label="Momenti selezionabili nella fonte"/i, `${route}: timed locator lacks navigable source timeline`);

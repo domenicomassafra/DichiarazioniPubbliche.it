@@ -55,7 +55,7 @@ status. No image is evidence of a real, authorized public dossier.
 ### Nine-family visual matrix
 
 The repository's existing Chrome QA generated viewport captures for all nine
-public route families on the **same isolated fictional build**. The desktop
+public route families from the **same isolated fictional data fixture**. The desktop
 captures use 1440 CSS pixels, phone uses 375 CSS pixels, and the 200% captures
 use **actual browser zoom** (1280px outer viewport, 640px CSS layout viewport).
 These are first-viewport review captures, not full-page screenshots or evidence
@@ -77,6 +77,12 @@ An additional [grayscale phone capture](route-matrix/person-phone-grayscale.png)
 helps inspect the non-color reading cues. Chrome QA passed 24 route checks,
 with no external requests or overflow in the tested modes; manual screen-reader
 acceptance still needs its own human receipt.
+
+The Content route screenshots were refreshed after a small source-reader fix:
+without an explicitly approved `public_media_url`, its media panel and timeline
+no longer show an inert triangle that looks like a playable video. Approved
+media links and the fictional reference-page presentation are unchanged.
+The route-contract check now guards this distinction.
 
 ### Interaction acceptance
 

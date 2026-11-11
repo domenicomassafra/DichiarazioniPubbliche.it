@@ -122,15 +122,11 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
           <div class="source-story__media-type"><span>ARCHIVIO</span><strong>{kind}</strong><small>Il documento originale fa fede</small></div>
         )}
         {demo && <a href="#preview-original" class="source-story__demo-media-link" aria-label="Il filmato è fittizio. Leggi la nota sulla fonte inventata."></a>}
-        {content?.public_media_url && !demo ? (
+        {content?.public_media_url && !demo && (
           <a class="source-story__play" href={content.public_media_url} aria-label="Apri il media pubblico autorizzato" rel="noreferrer">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"></path></svg>
           </a>
-        ) : !demo ? (
-          <span class="source-story__play source-story__play--static" aria-label="Riproduzione non disponibile nell'anteprima" role="img">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"></path></svg>
-          </span>
-        ) : null}
+        )}
         {duration != null && !demo && <span class="source-story__media-time">{timeLabel(duration)}</span>}
       </aside>
     </header>
@@ -225,7 +221,7 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
         {timed.length && duration ? (
           <div class="source-story__timeline-player">
             {content?.public_media_url && !demo ? <a class="source-story__timeline-play" aria-label="Apri il media originale" href={content.public_media_url} rel="noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"></path></svg></a>
-              : <span class="source-story__timeline-play source-story__timeline-play--static" aria-label="Video non riproducibile qui" role="img"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"></path></svg></span>}
+              : demo ? <span class="source-story__timeline-play source-story__timeline-play--static" aria-label="Video non riproducibile qui" role="img"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"></path></svg></span> : null}
             <span class="source-story__timeline-end">0:00</span>
             <ol class="source-story__timeline-track" aria-label="Momenti selezionabili nella fonte">
               {timed.map(({ dossier, locator }, index) => (
