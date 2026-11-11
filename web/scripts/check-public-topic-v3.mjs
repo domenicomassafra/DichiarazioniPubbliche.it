@@ -76,6 +76,24 @@ try {
   await writeFile(join(temp, "astro.config.mjs"),
     'import {defineConfig} from "astro/config";export default defineConfig({output:"static"})');
 
+  // Two Statements from one stable Person must resolve to the same identity.
+  // The Topic sidebar otherwise silently uses the last name and route.
+  const siblingIndex = populated.data.findIndex((row) => row.statement_id === "statement:1");
+  assert.ok(siblingIndex >= 0 && populated.data.some((row) =>
+    row.statement_id === "statement:2" && row.person_id === populated.data[siblingIndex].person_id),
+    "fixture needs two different Statements from one Person");
+  for (const [name, mutate] of [
+    ["person-name-conflict", (row) => { row.statement.person.name = "Altered Person"; }],
+    ["person-route-conflict", (row) => { row.person_route = "/persone/another-person/"; }],
+  ]) {
+    const mismatched = structuredClone(populated);
+    mutate(mismatched.data[siblingIndex]);
+    const { dataset_sha256, provider_calls, ...material } = mismatched;
+    mismatched.dataset_sha256 = hash(material);
+    await rejects(name, mismatched, economia,
+      { expectedCollectionSha256: mismatched.dataset_sha256 });
+  }
+
   const populatedHtml = await succeeds("published", populated);
   assert.match(populatedHtml, /data-public-topic-v3/);
   assert.match(populatedHtml, /Raccolta sintetica delimitata/);
