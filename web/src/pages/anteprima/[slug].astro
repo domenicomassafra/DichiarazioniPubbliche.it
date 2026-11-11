@@ -26,7 +26,7 @@ export function getStaticPaths() {
       finding_id: findingId,
       claim_id: `claim:visual-preview-349:${index + 1}`,
       claim: claims[index],
-      speaker: { id: "person:preview:marta-ferri", name: "Marta Ferri", public_role: "Ministra della Mobilità (personaggio inventato)" },
+      speaker: { id: "person:preview:marta-ferri", name: "Marta Ferri", public_role: "Ministra della Mobilità" },
       source: {
         content_id: contentId,
         title: "Intervista con Marta Ferri",
@@ -66,7 +66,7 @@ export function getStaticPaths() {
     finding_ids: dossiers.map((dossier) => dossier.finding_id),
   };
   const demo = {
-    summary: "La ministra parla di mobilità urbana, piste ciclabili e obiettivi dei prossimi anni. Testo e personaggio fittizi.",
+    summary: "La ministra parla di mobilità urbana, piste ciclabili e obiettivi dei prossimi anni.",
     portrait: `data:image/jpeg;base64,${readFileSync(resolve(process.cwd(), "src/data/preview-portrait-349.jpg")).toString("base64")}`,
     excerpts: Object.fromEntries(dossiers.map((dossier, index) => [
       dossier.finding_id,
