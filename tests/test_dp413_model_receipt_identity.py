@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 import unittest
+from unittest.mock import patch
 
 from dichiarazioni_pubbliche.autonomous_operations import AutonomousOperations
 from dichiarazioni_pubbliche.autonomous_publication import (
@@ -14,6 +15,19 @@ from tests.test_autonomous_operations import (
 
 class ThirdModelReceiptIdentityTests(unittest.TestCase):
     def test_auditor_cannot_return_noncanonical_alias_of_its_canonical_model(self):
+        # Historical three-model fixture verifies receipt identity only.
+        legacy_models = frozenset({
+            "antigravity/gemini-3.8-flash-tiered",
+            "antigravity/gemini-3-flash",
+            "antigravity/gemini-2.5-pro",
+        })
+        with patch(
+            "dichiarazioni_pubbliche.autonomous_publication.APPROVED_REVIEW_MODELS",
+            legacy_models,
+        ):
+            self._assert_alias_fails()
+
+    def _assert_alias_fails(self):
         class WrongReceiptModel(Reviewer):
             def review(self, item, evidence_sha256):
                 signed = super().review(item, evidence_sha256)

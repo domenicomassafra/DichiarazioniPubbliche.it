@@ -56,8 +56,6 @@ class SenatoV3BindingTests(TestCase):
             processing_family_approved=lambda: True,
             primary_agent_id="agent:primary",
             primary_model_id="antigravity/gemini-3.8-flash-tiered",
-            independent_agent_id="agent:second",
-            independent_model_id="antigravity/gemini-3-flash",
         )
         arguments.update(overrides)
         return bind_senato_public_v3(**arguments)
