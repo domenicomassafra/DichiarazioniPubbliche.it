@@ -24,6 +24,13 @@ assert.equal(producer.status, 0, `DP439 fixture failed: ${producer.stderr}`);
 const { populated, empty, one, revoked, topics, source_sha, people_sha } = JSON.parse(producer.stdout);
 const [economia, economica] = topics;
 const hash = (input) => createHash("sha256").update(canonicalJson(input)).digest("hex");
+const repin = (model) => {
+  const material = {};
+  for (const key of ["schema_version", "source_dataset_sha256", "person_dataset_sha256",
+    "generated_at", "coverage_note", "status", "result_count", "data"]) material[key] = model[key];
+  model.dataset_sha256 = hash(material);
+  return {expectedCollectionSha256: model.dataset_sha256};
+};
 assert.equal(populated.result_count, 4);
 assert.equal(one.result_count, 1);
 assert.equal(empty.result_count, 0);
@@ -66,15 +73,38 @@ async function succeeds(name, model, topic = economia, options = {}) {
   assert.equal(result.status, 0, `Astro SSR ${name} failed:\n${result.stdout}\n${result.stderr}`);
   return readFile(join(temp, name, "index.html"), "utf8");
 }
-async function rejects(name, model, topic = economia, options = {}) {
+async function rejects(name, model, topic = economia, options = {}, code) {
   const result = await render(name, model, topic, options);
   assert.notEqual(result.status, 0, `Unsafe ${name} unexpectedly built and exposed a Topic`);
+  if (code) assert.ok((result.stdout + result.stderr).includes(code),
+    `${name}: expected ${code}, got:\n${result.stdout}\n${result.stderr}`);
 }
 try {
   await mkdir(join(temp, "src/pages"), { recursive: true });
   await symlink(join(web, "node_modules"), join(temp, "node_modules"), "dir");
   await writeFile(join(temp, "astro.config.mjs"),
     'import {defineConfig} from "astro/config";export default defineConfig({output:"static"})');
+
+  // Stable Person routes must agree even when a public speaker's caption
+  // legitimately changes between statements.
+  const siblingIndex = populated.data.findIndex((row) => row.statement_id === "statement:1");
+  assert.ok(siblingIndex >= 0 && populated.data.some((row) =>
+    row.statement_id === "statement:2" && row.person_id === populated.data[siblingIndex].person_id),
+    "fixture needs two different Statements from one Person");
+  const historicCaption = structuredClone(populated);
+  historicCaption.data[siblingIndex].statement.person.name = "Alias storico";
+  const captionHtml = await succeeds("historic-speaker-caption", historicCaption, economia, repin(historicCaption));
+  assert.match(captionHtml, /Alias storico/);
+  assert.doesNotMatch(captionHtml.slice(captionHtml.indexOf("Persone presenti nel record pubblico")),
+    /Alias storico/, "Person index must use the most recent public caption");
+  for (const statementId of ["statement:1", "statement:2"]) {
+    const mismatched = structuredClone(populated);
+    for (const row of mismatched.data) {
+      if (row.statement_id === statementId) row.person_route = "/persone/another-person/";
+    }
+    await rejects(`person-route-conflict-${statementId}`, mismatched, economia,
+      repin(mismatched), "PUBLIC_TOPIC_V3_PERSON_ROUTE_CONFLICT");
+  }
 
   const populatedHtml = await succeeds("published", populated);
   assert.match(populatedHtml, /data-public-topic-v3/);
@@ -123,6 +153,32 @@ try {
   await rejects("same-content-conflicting-source", conflicting, economia,
     {expectedCollectionSha256: conflicting.dataset_sha256});
 
+  // One Statement may belong to multiple Topics, but its published source
+  // version and literal wording must be identical in every membership.
+  const splitStatement = structuredClone(populated);
+  const sameIdRows = splitStatement.data.filter((row) => row.statement_id === "statement:2");
+  assert.equal(sameIdRows.length, 2, "fixture must cover one Statement in two Topics");
+  sameIdRows[1].version_id = "statement-version:stale";
+  sameIdRows[1].statement.version_id = "statement-version:stale";
+  const splitMaterial = {};
+  for (const key of ["schema_version", "source_dataset_sha256", "person_dataset_sha256",
+    "generated_at", "coverage_note", "status", "result_count", "data"]) splitMaterial[key] = splitStatement[key];
+  splitStatement.dataset_sha256 = hash(splitMaterial);
+  await rejects("same-statement-conflicting-version", splitStatement, economia,
+    {expectedCollectionSha256: splitStatement.dataset_sha256});
+
+  const splitWording = structuredClone(populated);
+  const secondMembership = splitWording.data.filter((row) => row.statement_id === "statement:2")[1];
+  const alteredQuote = "costa 20 euro, non 10.";
+  secondMembership.statement.original.text = alteredQuote;
+  secondMembership.statement.original.quote_sha256 = createHash("sha256").update(alteredQuote).digest("hex");
+  const wordingMaterial = {};
+  for (const key of ["schema_version", "source_dataset_sha256", "person_dataset_sha256",
+    "generated_at", "coverage_note", "status", "result_count", "data"]) wordingMaterial[key] = splitWording[key];
+  splitWording.dataset_sha256 = hash(wordingMaterial);
+  await rejects("same-statement-conflicting-words", splitWording, economia,
+    {expectedCollectionSha256: splitWording.dataset_sha256});
+
   await rejects("opt-in-off", populated, economia, {allowTopicV3:false});
   await rejects("stale-release", revoked, economia); // held/withdrawn new release, OLD pin
   await rejects("expired-authority", populated, economia, {
@@ -136,7 +192,7 @@ try {
   const foreign = structuredClone(populated);
   foreign.data[0].person_route = "//evil.invalid/";
   await rejects("foreign-person-link", foreign, economia);
-  console.log("DP-406 actual Astro SSR opt-in Topic dossier: populated, empty, homonym, date/source/Person links, stale/withdrawn, forgery and unavailable fail-closed PASS");
+  console.log("DP-406 actual Astro SSR opt-in Topic dossier: populated, empty, homonym, date/source/Person links, same-Statement version/wording conflicts, stale/withdrawn, forgery and unavailable fail-closed PASS");
 } finally {
   await rm(temp, { recursive: true, force: true });
 }
