@@ -38,6 +38,10 @@ class CorrectionPurgeTests(unittest.TestCase):
                 self.assertEqual(request.get_method(), "POST")
                 self.assertEqual(json.loads(request.data), {"purge_everything": True})
                 return FakeResponse(200, b'{"success":true,"errors":[],"result":{"id":"purge-1"}}')
+            self.assertEqual(
+                request.get_header("User-agent"),
+                "DichiarazioniPubbliche-correction-readback/1.0",
+            )
             return FakeResponse(503, b'{"error":"PUBLIC_PROJECTION_UNAVAILABLE"}', {"Cache-Control": "no-store"})
 
         with patch("urllib.request.urlopen", side_effect=fetch):

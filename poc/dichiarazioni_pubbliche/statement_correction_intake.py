@@ -186,9 +186,9 @@ class StatementCorrectionIntake:
 
     def open_hold(
         self, actor: str, statement_id: str, version_id: str, reason: str,
-        *, reserve, purge,
+        *, reserve,
     ) -> tuple[int, dict[str, object]]:
-        """Open one durable private challenge for an exact published version."""
+        """Persist a challenge; the listener must purge before acknowledging it."""
         try:
             current = self.current_statement(statement_id)
             if current is None or current.get("version_id") != version_id:
@@ -215,8 +215,6 @@ class StatementCorrectionIntake:
                 return _unavailable()
             if hold is not True:
                 return 409, {"error": "CORRECTION_ALREADY_RESOLVED"}
-            if purge("statement-v3:" + statement_id) is not True:
-                return _unavailable()
             return 202, {
                 "request_id": request_id,
                 "state": "HOLD",

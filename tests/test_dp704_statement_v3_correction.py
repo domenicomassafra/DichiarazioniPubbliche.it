@@ -1,5 +1,6 @@
 """#704/#468: a challenged v3 Statement fenced until a new release replaces it."""
 
+import http.client
 import json
 import sys
 import threading
@@ -39,12 +40,29 @@ class StatementV3CorrectionIntakeTests(unittest.TestCase):
         purges = []
         jobs = []
         service = self.server.RequestHandlerClass.account_service
+
+        def purge_with_origin_readback(target):
+            connection = http.client.HTTPConnection("127.0.0.1", private.server_port, timeout=0.5)
+            try:
+                connection.request("GET", "/api/v3/statements", headers={
+                    "Host": "dichiarazionipubbliche.it",
+                })
+                response = connection.getresponse()
+                status, cache = response.status, response.getheader("Cache-Control", "")
+                response.read()
+            finally:
+                connection.close()
+            if status != 503 or "no-store" not in cache:
+                return False
+            purges.append(target)
+            return True
+
         private = build_live_correction_server(
             str(root / "projection.json"), host="127.0.0.1", port=0,
             static_dir=str(root / "static"), account_service=service,
             correction_ledger=FakeLedger(),
             correction_enqueue=lambda *args: jobs.append(args) or True,
-            correction_purge=lambda target: purges.append(target) or True,
+            correction_purge=purge_with_origin_readback,
             correction_reserve=lambda *_: True,
             statement_projection_path=candidate,
             statement_current_fingerprint_path=current,
@@ -75,6 +93,18 @@ class StatementV3CorrectionIntakeTests(unittest.TestCase):
             self.assertEqual(self.request("GET", "/api/v3/statements/statement:1")[0], 503)
             self.assertEqual(self.request("GET", "/")[0], 503)
             self.assertEqual(self.request("GET", "/segnalazioni/")[0], 200)
+
+            # A failed edge readback cannot acknowledge the correction, but
+            # cannot undo the durable HOLD or expose the contested version.
+            private.RequestHandlerClass.correction_purge = staticmethod(lambda *_: False)
+            status, _, denied = self.request(
+                "POST", "/intake/corrections", payload, self.auth_headers(),
+            )
+            self.assertEqual(status, 503)
+            self.assertEqual(denied, {"error": "PUBLIC_PROJECTION_UNAVAILABLE"})
+            self.assertTrue(statement_store.current_hold("statement:1", "statement-version:1"))
+            self.assertEqual(self.request("GET", "/api/v3/statements")[0], 503)
+            private.RequestHandlerClass.correction_purge = staticmethod(purge_with_origin_readback)
 
             status, _, state = self.request(
                 "GET", "/intake/corrections/" + request_id, headers=self.auth_headers(),

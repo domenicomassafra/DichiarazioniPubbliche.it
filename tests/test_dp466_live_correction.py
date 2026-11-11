@@ -163,6 +163,31 @@ class LiveCorrectionHttpTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(reply["state"], "HOLD")
 
+    def test_purge_can_verify_hold_by_reading_the_same_live_listener(self):
+        """The edge cache purge must re-enter the origin before POST returns 202."""
+        observed = []
+
+        def purge_with_origin_readback(_finding_id):
+            connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=0.5)
+            try:
+                connection.request("GET", "/", headers={"Host": "dichiarazionipubbliche.it"})
+                response = connection.getresponse()
+                observed.append((response.status, response.getheader("Cache-Control")))
+                response.read()
+            finally:
+                connection.close()
+            return observed[-1][0] == 503 and "no-store" in observed[-1][1]
+
+        self.server.RequestHandlerClass.correction_purge = staticmethod(purge_with_origin_readback)
+        status, _, receipt = self.request(
+            "POST", "/intake/corrections",
+            {"finding_id": self.finding_id, "reason": "Correggere la citazione pubblicata"},
+            self.auth_headers(),
+        )
+        self.assertEqual(status, 202)
+        self.assertEqual(receipt["state"], "HOLD")
+        self.assertEqual(observed, [(503, "no-store, private")])
+
     def test_unauthorized_invalid_and_duplicate_requests_are_rejected(self):
         item = {"finding_id": self.finding_id, "reason": "Inesattezza"}
         self.assertEqual(self.request("POST", "/intake/corrections", item)[0], 401)

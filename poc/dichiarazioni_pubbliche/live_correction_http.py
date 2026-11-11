@@ -234,8 +234,7 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
             if (not isinstance(statement_id, str) or not _FINDING_ID.fullmatch(statement_id)
                     or not isinstance(version_id, str) or not _FINDING_ID.fullmatch(version_id)):
                 return self._correction_response(400, {"error": "INVALID_REQUEST"})
-            with type(self).correction_lock:
-                return self._submit_statement_correction(actor, statement_id, version_id, reason)
+            return self._submit_statement_correction(actor, statement_id, version_id, reason)
         finding = payload["finding_id"]
         if not isinstance(finding, str) or not _FINDING_ID.fullmatch(finding):
             return self._correction_response(400, {"error": "INVALID_REQUEST"})
@@ -282,14 +281,19 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
                 # the existing queue builds the reanalysis task first.
                 if type(self).correction_enqueue(finding, request_id) is not True:
                     return self._unavailable()
-                if type(self).correction_purge(finding) is not True:
-                    return self._unavailable()
-                return self._correction_response(202, {
-                    "request_id": request_id,
-                    "state": "HOLD", "message": "Rettifica ricevuta; verifica automatica in corso.",
-                })
             except Exception:
                 return self._unavailable()
+        # The purge probes our own HTTP origin. The durable HOLD must exist
+        # before the probe, and origin GETs must be able to acquire this lock.
+        try:
+            if type(self).correction_purge(finding) is not True:
+                return self._unavailable()
+        except Exception:
+            return self._unavailable()
+        return self._correction_response(202, {
+            "request_id": request_id,
+            "state": "HOLD", "message": "Rettifica ricevuta; verifica automatica in corso.",
+        })
 
     def _submit_statement_correction(
         self, actor: str, statement_id: str, version_id: str, reason: str,
@@ -297,10 +301,21 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
         intake = type(self).statement_correction_intake
         if intake is None or not type(self).statement_projection_path:
             return self._unavailable()
-        return self._correction_response(*intake.open_hold(
-            actor, statement_id, version_id, reason,
-            reserve=type(self).correction_reserve, purge=type(self).correction_purge,
-        ))
+        with type(self).correction_lock:
+            status, payload = intake.open_hold(
+                actor, statement_id, version_id, reason,
+                reserve=type(self).correction_reserve,
+            )
+        if status != 202:
+            return self._correction_response(status, payload)
+        # A v3 challenge is durable and publicly fenced before this external
+        # purge/readback; holding the lock would deadlock its origin probe.
+        try:
+            if type(self).correction_purge("statement-v3:" + statement_id) is not True:
+                return self._unavailable()
+        except Exception:
+            return self._unavailable()
+        return self._correction_response(status, payload)
 
 
 def build_live_correction_server(

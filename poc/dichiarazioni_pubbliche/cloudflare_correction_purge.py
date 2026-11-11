@@ -71,7 +71,10 @@ class CloudflareCorrectionPurge:
             for path in paths:
                 probe = urllib.request.Request(
                     self.site_origin + path,
-                    headers={"Cache-Control": "no-cache", "Accept": "application/json"},
+                    headers={
+                        "Cache-Control": "no-cache", "Accept": "application/json",
+                        "User-Agent": "DichiarazioniPubbliche-correction-readback/1.0",
+                    },
                     method="GET",
                 )
                 status, headers, _ = self._read_status(probe)
