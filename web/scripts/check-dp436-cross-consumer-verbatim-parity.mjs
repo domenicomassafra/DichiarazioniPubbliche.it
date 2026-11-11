@@ -277,6 +277,13 @@ const spoof = (surface, mutate) => {
 };
 for (const surface of ["index", "api", "jsonld", "ntriples"]) {
   assert.throws(
+    () => requireAgreement(Object.entries(full.surfaces).map(([name, rows]) => ({
+      name, rows: name === surface ? [...rows, rows[0]] : rows,
+    }))),
+    new RegExp(MISMATCH),
+    `duplicate Statement ID on ${surface} must be refused`,
+  );
+  assert.throws(
     () => requireAgreement(spoof(surface, (row) => { row.original_text = "parafrasi non approvata"; })),
     new RegExp(MISMATCH),
     `a changed quotation on ${surface} must be refused`,
