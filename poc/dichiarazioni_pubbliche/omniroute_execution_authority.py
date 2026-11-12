@@ -143,8 +143,9 @@ class OmniRouteExecutionAuthority:
             ))
             if not isinstance(detail, dict):
                 return False
-            if detail.get("sessionTag") == tag:
-                matches.append(detail)
+            if detail.get("id") != row["id"] or detail.get("sessionTag") != tag:
+                return False
+            matches.append(detail)
         if len(matches) != 1:
             return False
         detail = matches[0]
