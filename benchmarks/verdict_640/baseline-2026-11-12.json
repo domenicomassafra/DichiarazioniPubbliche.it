@@ -1,0 +1,490 @@
+{
+  "total": 40,
+  "correct": 19,
+  "accuracy": 0.475,
+  "per_label": {
+    "vero": {
+      "correct": 1,
+      "total": 8
+    },
+    "falso": {
+      "correct": 3,
+      "total": 8
+    },
+    "parzialmente vero": {
+      "correct": 3,
+      "total": 8
+    },
+    "non verificabile": {
+      "correct": 4,
+      "total": 8
+    },
+    "opinione": {
+      "correct": 8,
+      "total": 8
+    }
+  },
+  "median_seconds": 8.2194,
+  "worst_seconds": 60.0492,
+  "model_calls_total": 40,
+  "cases": [
+    {
+      "id": "V01",
+      "expected": "vero",
+      "actual": "ERRORE",
+      "seconds": 60.0438,
+      "model_calls": 1,
+      "error": "TimeoutError: timed out",
+      "evidence": []
+    },
+    {
+      "id": "V02",
+      "expected": "vero",
+      "actual": "ERRORE",
+      "seconds": 23.3767,
+      "model_calls": 1,
+      "error": "HTTPError: HTTP Error 429: Too Many Requests",
+      "evidence": []
+    },
+    {
+      "id": "V03",
+      "expected": "vero",
+      "actual": "ERRORE",
+      "seconds": 0.3261,
+      "model_calls": 1,
+      "error": "HTTPError: HTTP Error 429: Too Many Requests",
+      "evidence": []
+    },
+    {
+      "id": "V04",
+      "expected": "vero",
+      "actual": "ERRORE",
+      "seconds": 0.5202,
+      "model_calls": 1,
+      "error": "HTTPError: HTTP Error 429: Too Many Requests",
+      "evidence": []
+    },
+    {
+      "id": "V05",
+      "expected": "vero",
+      "actual": "ERRORE",
+      "seconds": 0.5232,
+      "model_calls": 1,
+      "error": "HTTPError: HTTP Error 429: Too Many Requests",
+      "evidence": []
+    },
+    {
+      "id": "V06",
+      "expected": "vero",
+      "actual": "ERRORE",
+      "seconds": 0.2994,
+      "model_calls": 1,
+      "error": "HTTPError: HTTP Error 429: Too Many Requests",
+      "evidence": []
+    },
+    {
+      "id": "V07",
+      "expected": "vero",
+      "actual": "parzialmente vero",
+      "seconds": 53.5464,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "Il Fondo per il funzionamento dei servizi di informazione per la sicurezza è stato intorno a 650-800 milioni di euro in diversi anni della stagione 2008-2016.",
+        "Nelle leggi di bilancio più recenti il fondo risulta cresciuto in modo rilevante, ma non è confermato un 'più che raddoppio' rispetto al limite superiore di 800 milioni indicato da Renzi.",
+        "Il confronto con lo stipendio di 'chi sta a casa' non è quantificato né riferito a una voce omogenea, quindi resta un'affermazione politica non verificabile nel dettaglio."
+      ]
+    },
+    {
+      "id": "V08",
+      "expected": "vero",
+      "actual": "vero",
+      "seconds": 4.8787,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "Dati UNHCR/Ministero dell’Interno sugli sbarchi in Italia: nel 2023 circa 157.600 arrivi via mare, nel 2015 circa 153.800.",
+        "Il numero di arrivi registrati nel 2023 risulta quindi superiore a quello del 2015, anche se di poco."
+      ]
+    },
+    {
+      "id": "F01",
+      "expected": "falso",
+      "actual": "falso",
+      "seconds": 46.8056,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "I dati ACI-ISTAT sui monopattini riportano già per il 2022 16 morti e 2.787 feriti e per il 2023 21 morti e 3.235 feriti; il totale 2022-2025 è quindi molto superiore a 25 morti e 3.700 feriti.",
+        "Il valore di circa 25 morti e 3.700 feriti sembra riferirsi a un singolo anno (2024), non all'intero periodo indicato."
+      ]
+    },
+    {
+      "id": "F02",
+      "expected": "falso",
+      "actual": "parzialmente vero",
+      "seconds": 38.1784,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "Il divieto generale di coprirsi il volto in luogo pubblico esisteva già nell’ordinamento italiano (art. 5 della legge 152/1975), quindi la parte fattuale sulla preesistenza del divieto è corretta.",
+        "Il decreto scuola ha previsto/ribadito il divieto di indossare burqa e niqab negli istituti scolastici, ma l’affermazione che sia stato fatto «per rincorrere Vannacci» è un giudizio politico sulle intenzioni, non un fatto verificabile."
+      ]
+    },
+    {
+      "id": "F03",
+      "expected": "falso",
+      "actual": "ERRORE",
+      "seconds": 60.0337,
+      "model_calls": 1,
+      "error": "TimeoutError: timed out",
+      "evidence": []
+    },
+    {
+      "id": "F04",
+      "expected": "falso",
+      "actual": "falso",
+      "seconds": 5.9645,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "L'Italia ha registrato tassi di inflazione molto più elevati in passato, soprattutto negli anni '70 e '80 e nel 2022, quindi l'attuale situazione non è 'senza precedenti'.",
+        "La frase è iperbolica e non sostenuta dai dati storici sull'inflazione italiana."
+      ]
+    },
+    {
+      "id": "F05",
+      "expected": "falso",
+      "actual": "ERRORE",
+      "seconds": 60.0358,
+      "model_calls": 1,
+      "error": "TimeoutError: timed out",
+      "evidence": []
+    },
+    {
+      "id": "F06",
+      "expected": "falso",
+      "actual": "falso",
+      "seconds": 14.9772,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "L’IMU sull’abitazione principale fu abolita dalla legge di stabilità 2014 (L. 147/2013), approvata sotto il governo Letta, non nel 2015 dal governo Renzi.",
+        "Il governo Renzi intervenne invece con la legge di stabilità 2016 (L. 208/2015), che eliminò la TASI sull’abitazione principale: si tratta di un tributo diverso dall’IMU e con decorrenza 2016.",
+        "La dichiarazione confonde quindi l’abolizione dell’IMU prima casa (governo Letta, 2013) con l’abolizione della TASI prima casa (governo Renzi, legge approvata a fine 2015)."
+      ]
+    },
+    {
+      "id": "F07",
+      "expected": "falso",
+      "actual": "non verificabile",
+      "seconds": 37.7065,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "La data indicata per la dichiarazione (24 ottobre 2026) è successiva alla data corrente (9 maggio 2026), quindi non risulta una dichiarazione già resa e verificabile.",
+        "Senza accesso diretto ai testi degli otto decreti e al fact-check indicato, non è possibile controllare in modo affidabile i conteggi delle nuove fattispecie di reato e degli inasprimenti di pena."
+      ]
+    },
+    {
+      "id": "F08",
+      "expected": "falso",
+      "actual": "non verificabile",
+      "seconds": 7.0279,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "La dichiarazione non specifica a quale votazione si riferisca e non fornisce dati verificabili sul comportamento del PD.",
+        "Senza accesso alla fonte indicata o a dati ufficiali di voto, non è possibile confermare né smentire l'astensione."
+      ]
+    },
+    {
+      "id": "P01",
+      "expected": "parzialmente vero",
+      "actual": "parzialmente vero",
+      "seconds": 36.5246,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "Il governo Conte nel 2019 sospese/revocò autorizzazioni all’esportazione di bombe e missili verso Arabia Saudita ed Emirati Arabi, soprattutto dopo il caso Khashoggi e la guerra in Yemen.",
+        "Non risulta però un divieto generale e completo di ogni tipo di arma: il provvedimento riguardò principalmente sistemi d’arma specifici, non tutte le esportazioni.",
+        "La frase «ho vietato l’export di armi» è quindi troppo ampia rispetto all’intervento effettivo del governo."
+      ]
+    },
+    {
+      "id": "P02",
+      "expected": "parzialmente vero",
+      "actual": "vero",
+      "seconds": 6.919,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "La responsabilità dei genitori per i danni causati dai figli minori è disciplinata dall'art. 2048 del Codice civile.",
+        "Il Codice civile italiano è entrato in vigore nel 1942, quindi la norma esisteva già da allora."
+      ]
+    },
+    {
+      "id": "P03",
+      "expected": "parzialmente vero",
+      "actual": "parzialmente vero",
+      "seconds": 53.6786,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "Il nuovo reato di partecipazione violenta a manifestazioni pubbliche è punito con la reclusione da 1 a 5 anni.",
+        "Nel codice penale il reato richiamato è 'devastazione e saccheggio' (art. 419 c.p.), punito con 8-15 anni, con aumento se commesso in occasione di tumulto, sommossa o pubblica manifestazione: la pena è quindi molto superiore.",
+        "Il 'danneggiamento' (art. 635 c.p.) è un reato distinto e ha pene inferiori; la formulazione che unisce 'devastazione e danneggiamento' è imprecisa."
+      ]
+    },
+    {
+      "id": "P04",
+      "expected": "parzialmente vero",
+      "actual": "non verificabile",
+      "seconds": 16.7766,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "La dichiarazione non specifica quali prezzi (energia, carburanti, beni di consumo) né il periodo, quindi il confronto con \"moltissime altre nazioni europee\" non è misurabile in modo univoco.",
+        "L'affermazione che i prezzi non dipendano dal governo italiano, dall'economia italiana o dall'Europa è una generalizzazione che richiede dati e contesto specifici per essere verificata.",
+        "Non ho accesso a ricerca live né al contenuto integrale della fonte indicata, quindi non posso confermare la citazione o i dati di confronto."
+      ]
+    },
+    {
+      "id": "P05",
+      "expected": "parzialmente vero",
+      "actual": "ERRORE",
+      "seconds": 60.0492,
+      "model_calls": 1,
+      "error": "TimeoutError: timed out",
+      "evidence": []
+    },
+    {
+      "id": "P06",
+      "expected": "parzialmente vero",
+      "actual": "falso",
+      "seconds": 20.3385,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "Le preferenze elettorali esistevano già in Italia nel sistema proporzionale in vigore fino al 1993; non sarebbe quindi la prima volta.",
+        "Il Rosatellum (legge elettorale del 2017) non prevede voti di preferenza nelle liste proporzionali bloccate.",
+        "Non risulta dai dati disponibili che una legge del 2026 abbia introdotto le preferenze per la prima volta."
+      ]
+    },
+    {
+      "id": "P07",
+      "expected": "parzialmente vero",
+      "actual": "parzialmente vero",
+      "seconds": 48.3005,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "Il dato dei 20 milioni si riferisce a uno specifico stanziamento per il SIA sperimentale nel 2014, non all’insieme delle misure contro la povertà.",
+        "I 2 miliardi e 700 milioni corrispondono allo stanziamento del Fondo per la lotta alla povertà previsto dalla legge di bilancio 2017, in gran parte per il 2018, e non alla spesa effettiva al momento dell’uscita di Renzi da Palazzo Chigi.",
+        "La cifra confrontata con i 20 milioni del 2014 è quindi una dotazione pluriennale/programmata, non una spesa annua equivalente."
+      ]
+    },
+    {
+      "id": "P08",
+      "expected": "parzialmente vero",
+      "actual": "falso",
+      "seconds": 22.5925,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "Il dato di circa 65mila rimpatri volontari non risulta riferito agli ultimi due anni né all’insieme di Algeria, Libia e Tunisia: corrisponde piuttosto al totale cumulativo dei rimpatri volontari assistiti dall’OIM dalla Libia a partire dal 2015.",
+        "Nei due anni indicati i rimpatri volontari assistiti da OIM da Libia, Tunisia e Algeria sono molto inferiori a 65mila.",
+        "La formulazione “prima ancora di tentare di attraversare il Mediterraneo” non è supportata dai dati OIM: molti rimpatri riguardano migranti già presenti in Nord Africa, anche dopo tentativi di attraversata o intercettazioni."
+      ]
+    },
+    {
+      "id": "N01",
+      "expected": "non verificabile",
+      "actual": "non verificabile",
+      "seconds": 13.9231,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "La dichiarazione è datata 14 ottobre 2026, una data futura rispetto al momento della verifica, e riguarda dati annuali sui rimpatri non ancora disponibili.",
+        "Non sono forniti dati ufficiali sui rimpatri per il periodo 2026 né è possibile consultare la fonte indicata in questa sede; senza ricerca live non si può confermare il record storico nello stesso periodo."
+      ]
+    },
+    {
+      "id": "N02",
+      "expected": "non verificabile",
+      "actual": "non verificabile",
+      "seconds": 40.293,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "La dichiarazione non specifica il contesto territoriale né la fonte del dato sui 300 bambini che non parlano italiano.",
+        "La data indicata (24 ottobre 2026) è successiva al momento della verifica e non dispongo di fonti live per confermare o smentire il numero."
+      ]
+    },
+    {
+      "id": "N03",
+      "expected": "non verificabile",
+      "actual": "non verificabile",
+      "seconds": 6.8402,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "La dichiarazione riportata è incompleta: non specifica quale votazione Fratelli d’Italia avrebbe affrontato 'per coerenza'.",
+        "Senza il contesto della votazione e senza il contenuto verificabile dell’articolo fonte, non è possibile stabilire se il fatto sia vero o falso."
+      ]
+    },
+    {
+      "id": "N04",
+      "expected": "non verificabile",
+      "actual": "opinione",
+      "seconds": 6.2208,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "La dichiarazione esprime una valutazione personale di Giorgia Meloni sull'importanza di indicare una prospettiva concreta con benefici rapidi; non è un fatto verificabile oggettivamente."
+      ]
+    },
+    {
+      "id": "N05",
+      "expected": "non verificabile",
+      "actual": "non verificabile",
+      "seconds": 9.2405,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "La dichiarazione contiene valutazioni soggettive ('intenso e costruttivo') e affermazioni prospettiche ('ci sta portando', 'consentirebbe').",
+        "Non sono disponibili dati o documenti verificabili che attestino lo stato del confronto tecnico e la compatibilità con le regole europee."
+      ]
+    },
+    {
+      "id": "N06",
+      "expected": "non verificabile",
+      "actual": "opinione",
+      "seconds": 4.1007,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "La dichiarazione esprime una valutazione prognostica sul rischio di restrizione dell’offerta e pressioni sui prezzi, non un fatto empirico verificabile in modo diretto.",
+        "Non vengono indicati dati, misure o studi specifici che quantifichino l’effetto delle nuove prescrizioni sugli importatori."
+      ]
+    },
+    {
+      "id": "N07",
+      "expected": "non verificabile",
+      "actual": "opinione",
+      "seconds": 6.8177,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "La dichiarazione esprime una valutazione politica e una previsione sul rischio di sostituire una dipendenza con un'altra, non un fatto verificabile in modo oggettivo.",
+        "Il contenuto è metaforico e dipende dal contesto e dal 'nodo' a cui si riferisce, non specificato nella frase."
+      ]
+    },
+    {
+      "id": "N08",
+      "expected": "non verificabile",
+      "actual": "opinione",
+      "seconds": 8.4523,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "La dichiarazione è una previsione politica sul futuro: l’apertura di una finestra con l’insediamento del nuovo governo israeliano.",
+        "L’avverbio “inevitabilmente” esprime una valutazione soggettiva, non un dato verificabile al momento della dichiarazione.",
+        "Non sono disponibili elementi fattuali che possano confermare o smentire l’inevitabilità dell’esito indicato."
+      ]
+    },
+    {
+      "id": "O01",
+      "expected": "opinione",
+      "actual": "opinione",
+      "seconds": 2.5745,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "L'enunciato esprime una tesi normativa e valutativa su come difendere l'interesse nazionale, non un fatto empirico verificabile.",
+        "Non contiene dati, cifre o riferimenti concreti che possano essere confrontati con fonti indipendenti."
+      ]
+    },
+    {
+      "id": "O02",
+      "expected": "opinione",
+      "actual": "opinione",
+      "seconds": 4.9204,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "La dichiarazione esprime una posizione politica e una priorità di policy, non un fatto misurabile o verificabile in modo oggettivo.",
+        "Non contiene dati quantitativi né riferimenti fattuali specifici che possano essere confrontati con fonti disponibili."
+      ]
+    },
+    {
+      "id": "O03",
+      "expected": "opinione",
+      "actual": "opinione",
+      "seconds": 7.9865,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "La frase esprime una posizione politica e normativa: sostiene che la decarbonizzazione non debba coincidere con la deindustrializzazione, senza enunciare un fatto empirico misurabile.",
+        "Non è verificabile come dato oggettivo; richiederebbe criteri politici su come definire e bilanciare decarbonizzazione e deindustrializzazione."
+      ]
+    },
+    {
+      "id": "O04",
+      "expected": "opinione",
+      "actual": "opinione",
+      "seconds": 5.6088,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "L'affermazione è prescrittiva: indica come 'deve essere' una risposta, non un fatto verificabile."
+      ]
+    },
+    {
+      "id": "O05",
+      "expected": "opinione",
+      "actual": "opinione",
+      "seconds": 2.2544,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "L'affermazione «Sono proposte di buon senso» esprime un giudizio valutativo soggettivo, non un fatto verificabile.",
+        "Non sono identificati nel testo della dichiarazione le proposte specifiche né criteri oggettivi per stabilirne il «buon senso»."
+      ]
+    },
+    {
+      "id": "O06",
+      "expected": "opinione",
+      "actual": "opinione",
+      "seconds": 2.972,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "È un'affermazione retorica di carattere politico, che esprime una posizione soggettiva su regole e cittadini, non un fatto verificabile."
+      ]
+    },
+    {
+      "id": "O07",
+      "expected": "opinione",
+      "actual": "opinione",
+      "seconds": 6.6466,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "La dichiarazione è esplicitamente presentata come una valutazione personale (“Per come la vedo io”) e formula un giudizio politico normativo, non un fatto verificabile."
+      ]
+    },
+    {
+      "id": "O08",
+      "expected": "opinione",
+      "actual": "opinione",
+      "seconds": 6.5071,
+      "model_calls": 1,
+      "error": null,
+      "evidence": [
+        "La frase esprime un giudizio personale tramite 'considero', quindi non è una dichiarazione fattuale verificabile.",
+        "La data indicata (2026-10-14) è futura rispetto al contesto di verifica e non consente un riscontro diretto della fonte."
+      ]
+    }
+  ]
+}
