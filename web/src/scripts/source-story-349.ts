@@ -38,10 +38,10 @@
       };
       for (const control of controls) control.addEventListener("click", () => {
         select(control.dataset.contentSelect);
-        if (control.closest(".source-story__timeline-track")) {
-          root.querySelector("[data-content-detail]:not([hidden])")?.scrollIntoView({
+        if (control.closest(".source-story__timeline-track") || control.closest(".source-story__claim-list")) {
+          root.querySelector<HTMLElement>("[data-content-detail]:not([hidden])")?.scrollIntoView({
             behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
-            block: "center",
+            block: "start",
           });
         }
       });
