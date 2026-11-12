@@ -1,27 +1,24 @@
-"""Read-only, private daily-ingestion health classification.
+"""Read-only daily-machine health classification.
 
-This checks *actual stage data*, not whether a systemd timer succeeded.
-It grants no source rights, model access, review or publication authority.
-Only aggregate counters may leave the runtime authority.
+This checks the last 24 hours of the DP-638 daily machine, not the lifetime of
+the database: a blocked job from September is history, not a current failure.
+It grants no rights, model access, review or publication authority, and only
+aggregate counters leave the runtime.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from typing import Any
 
 
 COUNTER_NAMES = (
     "daily_runs_completed", "daily_runs_failed", "daily_items_discovered",
-    "discovery_hits", "captures", "passages", "statement_candidates",
-    "claim_candidates", "jobs_queued", "jobs_blocked", "provider_receipts",
+    "captures", "statements", "verdicts", "published", "jobs_blocked",
+    "provider_receipts",
 )
-
-# Optional snapshot members: a host may report the start of the latest
-# completed run, which carries the local calendar date the run belongs to.
-OPTIONAL_SNAPSHOT_NAMES = ("latest_daily_run_started_at",)
 
 
 @dataclass(frozen=True)
@@ -49,10 +46,9 @@ class DailyPipelineHealth:
 def classify_daily_pipeline(
     snapshot: Mapping[str, object], *, today: date,
 ) -> DailyPipelineHealth:
-    required = set(COUNTER_NAMES) | {"latest_daily_run_date"}
-    if (not isinstance(snapshot, Mapping)
-            or not required <= set(snapshot)
-            or set(snapshot) - required - set(OPTIONAL_SNAPSHOT_NAMES)):
+    if not isinstance(snapshot, Mapping) or set(snapshot) != set(COUNTER_NAMES) | {
+        "latest_daily_run_date"
+    }:
         raise ValueError("DAILY_PIPELINE_COUNTER_SCHEMA_DRIFT")
     counters: dict[str, int] = {}
     for name in COUNTER_NAMES:
@@ -70,75 +66,57 @@ def classify_daily_pipeline(
             raise ValueError("DAILY_PIPELINE_DATE_INVALID") from exc
         if parsed.isoformat() != last or parsed > today:
             raise ValueError("DAILY_PIPELINE_DATE_INVALID")
-    else:
-        parsed = None
-
-    # `source_poll_run.run_date` is the UTC date, while the daily timer fires at
-    # local midnight, so a successful run is stored one calendar day behind the
-    # host's date and the check reported DAILY_RUN_NOT_CURRENT every day. Read
-    # the run's own start when the host reports it.
-    current = parsed
-    started_at = snapshot.get("latest_daily_run_started_at")
-    if started_at is not None:
-        if not isinstance(started_at, str):
-            raise ValueError("DAILY_PIPELINE_DATE_INVALID")
-        try:
-            current = datetime.fromisoformat(started_at).astimezone().date()
-        except ValueError as exc:
-            raise ValueError("DAILY_PIPELINE_DATE_INVALID") from exc
 
     reasons: list[str] = []
     if counters["daily_runs_completed"] == 0:
         reasons.append("NO_COMPLETED_DAILY_RUN")
-    elif current != today:
-        reasons.append("DAILY_RUN_NOT_CURRENT")
     if counters["daily_runs_failed"]:
         reasons.append("FAILED_DAILY_RUN_PRESENT")
-    if counters["daily_items_discovered"] == 0 and counters["discovery_hits"] == 0:
-        reasons.append("NO_ACTUAL_DISCOVERY_RESULTS")
+    if counters["daily_items_discovered"] == 0:
+        reasons.append("NO_DISCOVERED_ITEMS")
     if counters["daily_items_discovered"] and counters["captures"] == 0:
-        reasons.append("POLLED_METADATA_NOT_CAPTURED")
-    if counters["discovery_hits"] and counters["captures"] == 0:
-        reasons.append("DISCOVERY_NOT_CAPTURED")
-    if counters["captures"] == 0:
-        reasons.append("NO_PRIVATE_CAPTURES")
-    if counters["captures"] and counters["passages"] == 0:
-        reasons.append("CAPTURE_NOT_PARSED")
-    if counters["passages"] and counters["statement_candidates"] == 0:
-        reasons.append("PASSAGES_NOT_PROMOTED_TO_PRIVATE_CANDIDATES")
+        reasons.append("ITEMS_NOT_CAPTURED")
+    if counters["captures"] and counters["statements"] == 0:
+        reasons.append("CAPTURES_WITHOUT_STATEMENTS")
+    if counters["statements"] and counters["verdicts"] == 0:
+        reasons.append("STATEMENTS_WITHOUT_VERDICTS")
+    if counters["statements"] and counters["published"] == 0:
+        reasons.append("NOTHING_PUBLISHED")
     if counters["jobs_blocked"] > 0:
         reasons.append("BLOCKED_JOBS_PRESENT")
-    if counters["jobs_queued"] > 0:
-        reasons.append("UNPROCESSED_QUEUE_PRESENT")
-    if counters["statement_candidates"] > 0:
-        reasons.append("PRIVATE_REVIEW_STILL_REQUIRED")
-    # Even when all technical stages are populated there is no authority to
-    # infer an independently reviewed, licensed public projection.
-    state = "NEEDS_OPERATOR_ACTION" if reasons else "TECHNICAL_STAGES_PRESENT_REVIEW_REQUIRED"
+    state = "HEALTHY" if not reasons else "NEEDS_OPERATOR_ACTION"
     return DailyPipelineHealth(state, tuple(reasons), counters, last)
 
 
+# Every counter is windowed to the last 24 hours on purpose: the machine is
+# judged on what it did today, never on rows that keep a counter red forever.
 DAILY_PIPELINE_COUNTS_SQL = """
 BEGIN TRANSACTION READ ONLY;
-WITH recent_daily AS (
-  SELECT run_date, discovered, status, started_at
-  FROM source_poll_run
-  WHERE mode = 'full-source' AND diagnostic = false
+WITH window_since AS (
+  SELECT now() - interval '24 hours' AS since
 ), snapshots AS (
   SELECT
-    (SELECT count(*) FROM recent_daily WHERE status='COMPLETED')::integer AS daily_runs_completed,
-    (SELECT count(*) FROM recent_daily WHERE status='FAILED')::integer AS daily_runs_failed,
-    (SELECT coalesce(sum(discovered), 0) FROM recent_daily WHERE status='COMPLETED')::integer AS daily_items_discovered,
-    (SELECT count(*) FROM research_discovery_hit)::integer AS discovery_hits,
-    (SELECT count(*) FROM content_capture)::integer AS captures,
-    (SELECT count(*) FROM passage)::integer AS passages,
-    (SELECT count(*) FROM statement_candidate)::integer AS statement_candidates,
-    (SELECT count(*) FROM claim_candidate)::integer AS claim_candidates,
-    (SELECT count(*) FROM processing_job WHERE state IN ('QUEUED', 'PENDING', 'RETRY'))::integer AS jobs_queued,
-    (SELECT count(*) FROM processing_job WHERE state IN ('BLOCKED', 'FAILED'))::integer AS jobs_blocked,
-    (SELECT count(*) FROM provider_receipt)::integer AS provider_receipts,
-    (SELECT max(run_date)::text FROM recent_daily WHERE status='COMPLETED') AS latest_daily_run_date,
-    (SELECT max(started_at)::text FROM recent_daily WHERE status='COMPLETED') AS latest_daily_run_started_at
+    (SELECT count(*) FROM daily_run
+      WHERE finished_at >= now() - interval '24 hours')::integer AS daily_runs_completed,
+    (SELECT count(*) FROM source_poll_run
+      WHERE status = 'FAILED' AND run_date >= current_date - 1)::integer AS daily_runs_failed,
+    (SELECT coalesce(sum(items), 0) FROM daily_run
+      WHERE run_date >= current_date - 1)::integer AS daily_items_discovered,
+    (SELECT count(*) FROM daily_capture, window_since
+      WHERE daily_capture.fetched_at >= window_since.since)::integer AS captures,
+    (SELECT count(*) FROM daily_statement, window_since
+      WHERE daily_statement.created_at >= window_since.since)::integer AS statements,
+    (SELECT count(*) FROM daily_verdict, window_since
+      WHERE daily_verdict.created_at >= window_since.since)::integer AS verdicts,
+    (SELECT count(*) FROM daily_statement, window_since
+      WHERE daily_statement.metadata->'publication'->>'public_url' IS NOT NULL
+        AND daily_statement.created_at >= window_since.since)::integer AS published,
+    (SELECT count(*) FROM processing_job, window_since
+      WHERE processing_job.state IN ('BLOCKED', 'FAILED')
+        AND processing_job.created_at >= window_since.since)::integer AS jobs_blocked,
+    (SELECT count(*) FROM provider_receipt, window_since
+      WHERE provider_receipt.started_at >= window_since.since)::integer AS provider_receipts,
+    (SELECT max(run_date)::text FROM daily_run) AS latest_daily_run_date
 )
 SELECT row_to_json(snapshots)::text FROM snapshots;
 COMMIT;
@@ -146,6 +124,6 @@ COMMIT;
 
 
 __all__ = [
-    "COUNTER_NAMES", "DAILY_PIPELINE_COUNTS_SQL", "OPTIONAL_SNAPSHOT_NAMES",
+    "COUNTER_NAMES", "DAILY_PIPELINE_COUNTS_SQL",
     "DailyPipelineHealth", "classify_daily_pipeline",
 ]

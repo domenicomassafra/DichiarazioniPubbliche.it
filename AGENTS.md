@@ -10,6 +10,8 @@ Leggere prima `~/.dstack/contracts/shared-root/AGENTS.md` e la issue GitHub asse
 - Git autorevole: `domenicomassafra/DichiarazioniPubbliche.it`, branch `main`. Lavorare sul Mac Studio in `~/Code/.worktrees/DichiarazioniPubbliche.it-<issue>` da `origin/main`; il checkout condiviso potrebbe contenere WIP di altri.
 - Consumer MiniPC: mirror non-Git `/home/udodo/src/DichiarazioniPubbliche.it`; servizio `dichiarazioni-pubbliche-web.service` su `127.0.0.1:18090`. GitHub CI non installa il consumer.
 
+Per il solo flusso giornaliero della #638, la decisione del proprietario del 12 novembre 2026 autorizza acquisizione automatica delle dichiarazioni da fonti pubbliche e modelli tramite le lane OmniRoute funzionanti. Restano obbligatorie la citazione esatta, l'attribuzione verificata sulla stessa fonte, la data e le evidenze indipendenti per i verdetti. Una riga `PUBLISHED` nel database non prova che il sito l'abbia effettivamente pubblicata.
+
 ## Comandi di verifica
 
 Toolchain: Python 3.11–3.14 e Node 24. Eseguire `npm ci`, test e build solo sul Mac Studio, sempre tramite `python3 ~/.local/share/controlcenter/resource-guard/workload_launcher.py build -- <comando>`; il MiniPC è riservato a runtime Linux, servizi e verifiche di readback.

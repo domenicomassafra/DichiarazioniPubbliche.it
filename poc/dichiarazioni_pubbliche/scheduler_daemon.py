@@ -1231,32 +1231,6 @@ def poll_source(
         omitted_items = max(len(discovered) - len(items), 0) + max(
             int(getattr(discovery_batch, "omitted_items", 0)), 0
         )
-        # Broad official feeds are discovery-only until an explicit acquisition
-        # contract is implemented. RSS publication does not grant reuse rights.
-        # Keep a bounded durable run receipt without creating Content, Capture,
-        # jobs, or a fictitious acquisition permit.
-        if source.get("kind") == "public_rss":
-            outcome = PollOutcome(
-                source_id,
-                "BLOCKED",
-                discovered=len(items),
-                omitted_items=omitted_items,
-                error="RIGHTS_HOLD",
-                error_category="RIGHTS_HOLD",
-                receipt_id=(
-                    deterministic_source_receipt_id(context.run_id, source_id)
-                    if context is not None else None
-                ),
-            )
-            if context is not None:
-                _record_full_source_result(
-                    store, source, outcome, context,
-                    started_at=started_at, completed_at=_utc_datetime(now),
-                )
-            # The feed itself was fetched successfully; this is a content-rights
-            # hold, not a transient HTTP error requiring exponential backoff.
-            store.mark_success(source_id, "")
-            return outcome
         cost_blocked = (
             store.cost_today() >= float(budget.max_cost_usd_per_day)
             or store.cost_today(source_id)

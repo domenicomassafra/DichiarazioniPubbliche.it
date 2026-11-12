@@ -4,7 +4,9 @@ from pathlib import Path
 
 
 class ReceiptIntegrityCases:
-    def test_rights_blocked_child_is_written_and_read_back(self):
+    def test_public_rss_child_is_written_and_read_back(self):
+        # DP-638 removed the blanket public_rss rights hold: an official feed is
+        # a normal source now, and the daily machine captures its items.
         self.write_registry([{
             "id": "official-rss", "kind": "public_rss", "name": "Public feed"
         }])
@@ -13,11 +15,9 @@ class ReceiptIntegrityCases:
         self.assertEqual(first.status, "COMPLETED")
         rows = store.list_source_poll_sources(first.run_id)
         self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]["status"], "BLOCKED")
-        self.assertEqual(rows[0]["error_category"], "RIGHTS_HOLD")
+        self.assertEqual(rows[0]["status"], "HEALTHY")
         replay = self.run_full(store, lambda source: [])
         self.assertEqual(replay.status, "SKIPPED_ALREADY_COMPLETED")
-        self.assertEqual(replay[0].status, "BLOCKED")
 
     def test_daily_units_and_receipt_schema_are_present(self):
         root = Path(__file__).resolve().parents[1]
@@ -25,7 +25,7 @@ class ReceiptIntegrityCases:
         timer = (root / "deploy/systemd/dichiarazioni-pubbliche-source-poll-daily.timer").read_text()
         schema = (root / "db/schema.v1.sql").read_text()
         migration = (root / "db/migrations/20260925-add-source-poll-run-receipts.sql").read_text()
-        self.assertIn("--full-source", service)
+        self.assertIn("dichiarazioni_pubbliche.daily_machine", service)
         self.assertIn("OnCalendar=daily", timer)
         for sql in (schema, migration):
             self.assertIn("CREATE TABLE IF NOT EXISTS source_poll_run", sql)

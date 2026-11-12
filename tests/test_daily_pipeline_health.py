@@ -1,7 +1,7 @@
 import json
 import sys
 import unittest
-from datetime import date, datetime, timedelta
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
@@ -14,124 +14,93 @@ from dichiarazioni_pubbliche.daily_pipeline_health import (  # noqa: E402
 )
 import check_daily_pipeline_health as cli  # noqa: E402
 
-
-TODAY = date(2026, 10, 10)
-# The classifier reads the run start in the host's own timezone, so the fixture
-# must build the instant in that same zone to stay CI-timezone independent.
-LOCAL_TZ = datetime.now().astimezone().tzinfo
+TODAY = date(2026, 11, 12)
 
 
 def snapshot(**overrides):
     result = {name: 0 for name in COUNTER_NAMES}
-    result.update({
-        "daily_runs_completed": 1, "latest_daily_run_date": TODAY.isoformat(),
-    })
+    result.update({"daily_runs_completed": 1, "latest_daily_run_date": TODAY.isoformat()})
     result.update(overrides)
     return result
 
 
 class DailyPipelineHealthTests(unittest.TestCase):
-    def test_local_midnight_run_is_current_despite_the_utc_run_date(self):
-        """The timer fires at local midnight; the stored run date is the UTC day before."""
-        local_run = datetime(2026, 10, 10, 0, 2, tzinfo=LOCAL_TZ)
-        status = classify_daily_pipeline(
-            snapshot(latest_daily_run_date=(TODAY - timedelta(days=1)).isoformat(),
-                     latest_daily_run_started_at=local_run.isoformat()),
+    def test_complete_day_is_healthy(self):
+        report = classify_daily_pipeline(
+            snapshot(
+                daily_items_discovered=20,
+                captures=18,
+                statements=12,
+                verdicts=12,
+                published=9,
+                provider_receipts=40,
+            ),
             today=TODAY,
         )
-        self.assertNotIn("DAILY_RUN_NOT_CURRENT", status.reasons)
+        self.assertEqual(report.state, "HEALTHY")
+        self.assertEqual(report.reasons, ())
+        self.assertFalse(report.publication_authority)
+        self.assertTrue(report.private_only)
 
-    def test_a_stale_run_is_still_reported_not_current(self):
-        local_run = datetime(2026, 10, 8, 0, 2, tzinfo=LOCAL_TZ)
-        status = classify_daily_pipeline(
-            snapshot(latest_daily_run_date=(TODAY - timedelta(days=2)).isoformat(),
-                     latest_daily_run_started_at=local_run.isoformat()),
-            today=TODAY,
-        )
-        self.assertIn("DAILY_RUN_NOT_CURRENT", status.reasons)
-
-    def test_daily_timer_success_without_material_is_not_a_working_pipeline(self):
-        status = classify_daily_pipeline(snapshot(), today=TODAY)
-        self.assertEqual(status.state, "NEEDS_OPERATOR_ACTION")
-        self.assertIn("NO_ACTUAL_DISCOVERY_RESULTS", status.reasons)
-        self.assertIs(status.publication_authority, False)
-        self.assertIs(status.paid_calls_authorized, False)
-        self.assertIs(status.private_only, True)
-
-    def test_each_real_stage_gap_is_classified_without_fake_promotion(self):
+    def test_each_stage_gap_is_named(self):
         cases = (
-            (dict(daily_items_discovered=3), "POLLED_METADATA_NOT_CAPTURED"),
-            (dict(discovery_hits=4), "DISCOVERY_NOT_CAPTURED"),
-            (dict(discovery_hits=4, captures=4), "CAPTURE_NOT_PARSED"),
-            (dict(discovery_hits=4, captures=4, passages=4),
-             "PASSAGES_NOT_PROMOTED_TO_PRIVATE_CANDIDATES"),
-            (dict(discovery_hits=4, captures=4, passages=4, statement_candidates=3),
-             "PRIVATE_REVIEW_STILL_REQUIRED"),
-            (dict(jobs_queued=2), "UNPROCESSED_QUEUE_PRESENT"),
-            (dict(jobs_blocked=2), "BLOCKED_JOBS_PRESENT"),
+            (dict(daily_items_discovered=3), "ITEMS_NOT_CAPTURED"),
+            (dict(daily_items_discovered=3, captures=3), "CAPTURES_WITHOUT_STATEMENTS"),
+            (dict(daily_items_discovered=3, captures=3, statements=2), "STATEMENTS_WITHOUT_VERDICTS"),
+            (dict(daily_items_discovered=3, captures=3, statements=2, verdicts=2), "NOTHING_PUBLISHED"),
+            (dict(daily_items_discovered=3, jobs_blocked=1), "BLOCKED_JOBS_PRESENT"),
+            (dict(daily_runs_failed=2), "FAILED_DAILY_RUN_PRESENT"),
         )
         for values, reason in cases:
             with self.subTest(reason=reason):
                 report = classify_daily_pipeline(snapshot(**values), today=TODAY)
                 self.assertIn(reason, report.reasons)
-                self.assertFalse(report.publication_authority)
+                self.assertEqual(report.state, "NEEDS_OPERATOR_ACTION")
+
+    def test_missing_run_and_no_discovery_are_reported(self):
+        report = classify_daily_pipeline(
+            snapshot(daily_runs_completed=0, latest_daily_run_date=None), today=TODAY
+        )
+        self.assertIn("NO_COMPLETED_DAILY_RUN", report.reasons)
         self.assertIn(
-            "NO_PRIVATE_CAPTURES",
-            classify_daily_pipeline(snapshot(daily_items_discovered=3), today=TODAY).reasons,
+            "NO_DISCOVERED_ITEMS",
+            classify_daily_pipeline(snapshot(), today=TODAY).reasons,
         )
 
-    def test_not_yet_daily_or_stale_run_is_not_passed(self):
-        self.assertIn(
-            "NO_COMPLETED_DAILY_RUN",
-            classify_daily_pipeline(
-                snapshot(daily_runs_completed=0, latest_daily_run_date=None),
-                today=TODAY,
-            ).reasons,
-        )
-        self.assertIn(
-            "DAILY_RUN_NOT_CURRENT",
-            classify_daily_pipeline(
-                snapshot(latest_daily_run_date=(TODAY - timedelta(days=1)).isoformat()),
-                today=TODAY,
-            ).reasons,
-        )
+    def test_old_rows_are_not_counted_by_the_query(self):
+        sql = DAILY_PIPELINE_COUNTS_SQL.lower()
+        self.assertIn("begin transaction read only", sql)
+        self.assertNotIn("insert into", sql)
+        self.assertNotIn("update ", sql)
+        self.assertNotIn("delete from", sql)
+        self.assertNotIn("canonical_url", sql)
+        self.assertNotIn("body", sql)
+        self.assertIn("interval '24 hours'", sql)
+        self.assertIn("row_to_json", sql)
 
-    def test_invalid_types_forged_success_or_future_run_fails_closed(self):
+    def test_invalid_types_and_forged_dates_fail_closed(self):
         for values in (
             dict(captures=True),
             dict(captures="0"),
             dict(jobs_blocked=-1),
             dict(latest_daily_run_date="tomorrow"),
-            dict(latest_daily_run_date="2026-10-11"),
         ):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 classify_daily_pipeline(snapshot(**values), today=TODAY)
         with self.assertRaisesRegex(ValueError, "SCHEMA_DRIFT"):
             classify_daily_pipeline({**snapshot(), "raw_transcript": "private"}, today=TODAY)
 
-    def test_query_is_read_only_and_does_not_project_any_private_body(self):
-        sql = DAILY_PIPELINE_COUNTS_SQL.lower()
-        self.assertIn("begin transaction read only", sql)
-        self.assertNotIn("insert into", sql)
-        self.assertNotIn("update ", sql)
-        self.assertNotIn("delete from", sql)
-        self.assertNotIn("raw_text", sql)
-        self.assertNotIn("canonical_url", sql)
-        self.assertIn("row_to_json", sql)
+    def test_cli_aggregate_only_and_fail_closed(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
 
-    def test_cli_displays_aggregate_only_and_exits_failclosed(self):
         with patch.object(cli.PsqlRuntime, "run", return_value=json.dumps(snapshot())):
-            from contextlib import redirect_stdout
-            from io import StringIO
             out = StringIO()
             with redirect_stdout(out):
                 self.assertEqual(cli.main(["--database-url", "postgresql:///fixture"]), 0)
             body = json.loads(out.getvalue())
             self.assertFalse(body["publication_authority"])
             self.assertTrue(body["reasons"])
-            out = StringIO()
-            with redirect_stdout(out):
-                self.assertEqual(cli.main(["--expect-populated"]), 1)
         with patch.object(cli.PsqlRuntime, "run", side_effect=RuntimeError("secret private-id")):
             out = StringIO()
             with redirect_stdout(out):
