@@ -1,13 +1,15 @@
 ---
 import "../styles/utility-349.css";
+import UtilitySiblingNav from "./UtilitySiblingNav.astro";
 
 interface Props {
   eyebrow: string;
   title: string;
   lede: string;
+  showSiblingNav?: boolean;
 }
 
-const { eyebrow, title, lede } = Astro.props;
+const { eyebrow, title, lede, showSiblingNav = true } = Astro.props;
 ---
 
 <article class="shell dp-utility-document" aria-labelledby="dp-utility-title">
@@ -19,11 +21,7 @@ const { eyebrow, title, lede } = Astro.props;
     </nav>
     <h1 id="dp-utility-title">{title}</h1>
     <p class="lede">{lede}</p>
-    <nav class="atlas-utility-path dp-utility-document__sibling-nav" aria-label="Altri documenti">
-      <a href="/metodo/" aria-current={eyebrow === "Metodo" ? "page" : undefined}>Metodo</a>
-      <a href="/correzioni/" aria-current={eyebrow === "Correzioni" ? "page" : undefined}>Correzioni</a>
-      <a href="/dati/" aria-current={eyebrow === "Dati & API" ? "page" : undefined}>Dati &amp; API</a>
-    </nav>
+    {showSiblingNav && <UtilitySiblingNav current={eyebrow} />}
   </header>
   <aside class="dp-utility-document__rail" aria-label="Orientamento nel registro">
     {Astro.slots.has("rail") ? (

@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import UtilityDocument from "../components/UtilityDocument.astro";
+import UtilitySiblingNav from "../components/UtilitySiblingNav.astro";
 ---
 
 <BaseLayout
@@ -12,6 +13,7 @@ import UtilityDocument from "../components/UtilityDocument.astro";
     eyebrow="Metodo"
     title="Come arriviamo a un giudizio."
     lede="Prima di pubblicare una dichiarazione controlliamo le parole originali, la persona a cui sono attribuite, i diritti di utilizzo e le prove. Se manca un requisito necessario, il record resta fuori dall'archivio pubblico."
+    showSiblingNav={false}
   >
     <nav slot="rail" aria-label="Indice del metodo">
       <h2>In questo documento</h2>
@@ -32,6 +34,7 @@ import UtilityDocument from "../components/UtilityDocument.astro";
         <li><strong>Storia</strong><span>Revisioni, correzioni e repliche.</span></li>
       </ol>
     </div>
+    <UtilitySiblingNav current="Metodo" />
     <section id="dichiarazioni" class="dp-utility-section">
       <h2>Quali dichiarazioni raccogliamo</h2>
       <p>Il progetto documenta dichiarazioni pubbliche attribuibili a persone note o pronunciate in un contesto di interesse pubblico: interviste, discorsi, articoli, video, post e documenti. Raccogliere il materiale per la ricerca non significa pubblicarlo.</p>

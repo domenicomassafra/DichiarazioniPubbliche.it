@@ -1,0 +1,12 @@
+---
+interface Props {
+  current: string;
+}
+const { current } = Astro.props;
+---
+
+<nav class="atlas-utility-path dp-utility-document__sibling-nav" aria-label="Altri documenti">
+  <a href="/metodo/" aria-current={current === "Metodo" ? "page" : undefined}>Metodo</a>
+  <a href="/correzioni/" aria-current={current === "Correzioni" ? "page" : undefined}>Correzioni</a>
+  <a href="/dati/" aria-current={current === "Dati & API" ? "page" : undefined}>Dati &amp; API</a>
+</nav>
