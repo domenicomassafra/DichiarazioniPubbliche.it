@@ -284,9 +284,15 @@ class PublicationTest(unittest.TestCase):
         with self.assertRaises(dp.PublicationError):
             dp.build_dossier(self._row(speaker_key="", speaker_name=""))
 
-    def test_verdict_without_independent_link_is_refused(self):
+    def test_true_verdict_without_independent_link_is_refused(self):
         with self.assertRaises(dp.PublicationError):
             dp.build_dossier(self._row(evidence=[]))
+
+    def test_not_verifiable_is_not_projected_by_public_v2(self):
+        # public-v2 admits only SUPPORTED / FACTUALLY_FALSE / OUTDATED_DATA, so a
+        # "not verifiable" statement stays in the database and in the summary.
+        with self.assertRaisesRegex(dp.PublicationError, "NOT_VERIFIABLE"):
+            dp.build_dossier(self._row(verdict="NOT_VERIFIABLE", evidence=[]))
 
     def test_opinion_is_not_projected_until_the_web_has_the_label(self):
         with self.assertRaisesRegex(dp.PublicationError, "OPINION_LABEL"):

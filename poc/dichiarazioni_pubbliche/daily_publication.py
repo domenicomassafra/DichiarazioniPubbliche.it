@@ -48,11 +48,11 @@ POLICY_VERSION = "dp638-daily-machine-v1"
 ASSESSMENT_BY_VERDICT = {
     "TRUE": VerificationAssessment.SUPPORTED.value,
     "FALSE": VerificationAssessment.FACTUALLY_FALSE.value,
-    "NOT_VERIFIABLE": VerificationAssessment.INSUFFICIENT_EVIDENCE.value,
 }
 NOT_PROJECTABLE_VERDICTS = {
     "PARTLY_TRUE": "VERDICT_LABEL_PARTLY_TRUE_NOT_IN_PUBLIC_SCHEMA",
     "OPINION": "OPINION_LABEL_NOT_IN_PUBLIC_SCHEMA",
+    "NOT_VERIFIABLE": "VERDICT_LABEL_NOT_VERIFIABLE_NOT_IN_PUBLIC_SCHEMA",
 }
 LABEL_BY_VERDICT = {
     "TRUE": "Vero",
@@ -153,7 +153,9 @@ def build_dossier(row: dict[str, Any]) -> dict[str, Any]:
             "relation": "CONTEXT",
         }
     ] + belegt
-    if verdict_code != "OPINION" and len(evidence) < 2:
+    if verdict_code in {"TRUE", "FALSE"} and len(evidence) < 2:
+        # A true/false verdict needs a link that is not the statement's own page;
+        # a "not verifiable" verdict carries the source record and says why.
         raise PublicationError("VERDICT_WITHOUT_EVIDENCE_LINK")
 
     capture_kind = str(row.get("capture_kind") or "article")

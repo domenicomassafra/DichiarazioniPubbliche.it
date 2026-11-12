@@ -54,7 +54,7 @@ Regole:
 - TRUE se i fatti della dichiarazione sono confermati; FALSE se sono smentiti; PARTLY_TRUE se una parte e' confermata e una no.
 - OPINION solo se la dichiarazione non contiene alcun fatto controllabile: nessun numero, nessuna decisione, nessun evento, nessuna data. Un giudizio su un fatto (per esempio un commento su una legge o su un provvedimento) resta un fatto controllabile.
 - NOT_VERIFIABLE se afferma un fatto ma nessuna fonte disponibile lo conferma o lo smentisce. In dubbio fra OPINION e NOT_VERIFIABLE scegli NOT_VERIFIABLE.
-- Ogni verdetto TRUE, FALSE o PARTLY_TRUE deve indicare almeno una fonte indipendente con URL reale che conferma o smentisce. Puoi citare solo URL presenti qui sopra o pagine ufficiali che conosci con certezza.
+- Ogni verdetto TRUE, FALSE o PARTLY_TRUE deve indicare almeno una fonte indipendente con URL reale. Va bene un URL presente qui sopra oppure una pagina ufficiale che conosci con certezza (sito dell'ente, dell'azienda, della statistica): verra' scaricata e controllata davvero, e se non risponde il verdetto diventa NOT_VERIFIABLE.
 - explanation: cosa dicono le fonti, in italiano, senza parafrasare la dichiarazione.
 """
 
