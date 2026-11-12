@@ -43,6 +43,7 @@ class RadioRadicaleCrosscheckTests(unittest.TestCase):
             (URL, self.page(self.items[::-1]), "SPEAKER_INDEX_MISMATCH"),
             (URL, self.page(self.items[:-1]), "SPEAKER_INDEX_MISMATCH"),
             (URL, self.page().replace(b"2025-05-29T", b"2025-05-30T"), "SPEAKER_INDEX_MISMATCH"),
+            (URL, self.page().replace(b"2025-05-29T10:01:00+02:00", b"2025-05-29Tinvalid"), "SPEAKER_INDEX_MISMATCH"),
         )
         for url, body, reason in cases:
             with self.subTest(reason=reason), self.assertRaisesRegex(ValueError, reason):

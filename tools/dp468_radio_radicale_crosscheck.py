@@ -8,6 +8,7 @@ not the exact spoken words or public rights/privacy/review authority.
 from __future__ import annotations
 
 import hashlib
+from datetime import date as calendar_date, datetime, timedelta
 from html import unescape
 import json
 import re
@@ -71,7 +72,14 @@ def crosscheck(
     events = []
     for item in _ITEM.findall(index):
         link, date = _LINK.search(item), _DATE.search(item)
-        if not link or not date or not date.group(1).startswith("2025-05-29T"):
+        if not link or not date:
+            continue
+        try:
+            start = datetime.fromisoformat(date.group(1))
+        except ValueError:
+            continue
+        if (start.date() != calendar_date(2025, 5, 29)
+                or start.utcoffset() != timedelta(hours=2)):
             continue
         link_url, name = link.groups()
         parsed = urlparse(unescape(link_url))
