@@ -14,13 +14,15 @@ Le immagini fotografiche di Figma sono **oscurate nelle copie affiancate** per n
 | Tema | [prima](topic-figma-vs-pr629.png) | [dopo](topic-figma-vs-implementation.png) | Testata ridotta e dichiarazioni leggibili come registro cronologico. Indici di fonti e persone restano consultabili. |
 | Esplora | [prima](explore-figma-vs-pr629.png) | [dopo](explore-figma-vs-implementation.png) | Ricerca, schede di tipo, filtro laterale e righe compatte senza l'effetto card. |
 | Fonte | [prima](content-figma-vs-pr629.png) | [candidata precedente](content-figma-vs-implementation.png) · [desktop aggiornato](after-matrix/content-desktop.png) · [telefono aggiornato](after-matrix/content-phone.png) | Dal 12/11 media ed estratto affiancati con dichiarazioni selezionabili sotto, come nel Figma; a 375px il contenuto segue il media. La selezione mostra il passaggio e aggiorna `?momento=`. Nessun play senza media pubblico autorizzato. |
-| Metodo | [prima](method-figma-vs-pr629.png) | [dopo](method-figma-vs-implementation.png) | Testata più breve e quattro fasi editoriali in prima schermata. Il metodo mantiene informazioni su limiti, correzioni e diritti. |
+| Metodo | [prima](method-figma-vs-pr629.png) | [candidata precedente](method-figma-vs-implementation.png) · [desktop aggiornato](after-matrix/method-desktop.png) · [telefono aggiornato](after-matrix/method-phone.png) | Le quattro fasi tornano subito dopo il titolo e la premessa, in maggiore evidenza tipografica. La navigazione verso Metodo/Correzioni/Dati resta disponibile dopo le fasi; i dettagli su limiti, correzioni e diritti rimangono nel documento. |
 
 Le catture correnti complete a 1440px e 375px per nove famiglie sono in [after-matrix](after-matrix/). I frame Figma presentano un esempio ipotetico con citazione, percentuali e un volto: nessuno di questi elementi è abilitato per la pubblicazione senza approvazione della fonte, della formulazione verbatim e dei diritti.
 
 ## Verifiche e acceptance ancora aperte
 
 **Delta del 12 novembre, Fonte:** riordinate le sezioni nel DOM secondo l'ordine editoriale, eliminate le compressioni CSS desktop della pagina, conservate attribuzione/diritti, selezione dei passaggi e disclosure. Il browser verifica posizione delle colonne e della lista a 1440/375px, selezione e URL, più lo zoom 200% sulle nove famiglie. Le immagini aggiornate sopra provengono dalla stessa build di verifica isolata. Il resto del confronto Figma resta da confermare schermata per schermata prima di dichiarare parità totale.
+
+**Delta del 12 novembre, Metodo:** aumento della gerarchia del titolo e delle quattro fasi, navigazione dei documenti spostata dopo il percorso per esporre subito i passaggi scelti nel Figma. I tre link rimangono reali e vengono controllati sul DOM desktop/mobile dal QA Chrome; il testo integrale del metodo è invariato.
 
 - [x] Verificato Figma originale e confronto prima/dopo delle sette schermate, con ritratti oscurati per la documentazione.
 - [x] Implementati principali cambi di composizione, mantenendo etichette e dati dalla proiezione pubblica approvata.
