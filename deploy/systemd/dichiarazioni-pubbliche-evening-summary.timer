@@ -1,0 +1,10 @@
+[Unit]
+Description=Dichiarazioni Pubbliche evening summary
+
+[Timer]
+OnCalendar=*-*-* 20:30:00
+Persistent=true
+Unit=dichiarazioni-pubbliche-evening-summary.service
+
+[Install]
+WantedBy=timers.target

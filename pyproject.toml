@@ -87,6 +87,8 @@ dichiarazioni-pubbliche-source-watcher = "dichiarazioni_pubbliche.source_watcher
 dichiarazioni-pubbliche-worker-daemon = "dichiarazioni_pubbliche.worker_daemon:main"
 dichiarazioni-pubbliche-review-admin = "dichiarazioni_pubbliche.review_admin:main"
 dichiarazioni-pubbliche-scheduler-daemon = "dichiarazioni_pubbliche.scheduler_daemon:main"
+dichiarazioni-pubbliche-daily-machine = "dichiarazioni_pubbliche.daily_machine:main"
+dichiarazioni-pubbliche-daily-projection = "dichiarazioni_pubbliche.daily_publication:main"
 dichiarazioni-pubbliche-health-digest = "dichiarazioni_pubbliche.health_digest:main"
 
 [tool.setuptools]

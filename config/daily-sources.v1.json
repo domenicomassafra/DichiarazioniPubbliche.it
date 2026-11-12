@@ -1,0 +1,281 @@
+{
+  "schema_version": 1,
+  "description": "Fonti della macchina giornaliera DP-638: una fonte per riga, con il suo indirizzo reale di scoperta. Aggiungere o togliere una fonte e' una modifica a questo file, non al codice.",
+  "relevance_rule": {
+    "id": "PUBLIC_FIGURE_SPEAKING_IN_PUBLIC_ON_PUBLIC_INTEREST",
+    "reason": "La fonte e' un'istituzione pubblica, un'agenzia o una testata generalista: cio' che pubblica e' per costruzione una presa di parola pubblica su un tema di interesse pubblico. La rilevanza per singola dichiarazione e' decisa dal passaggio di estrazione, che scarta cio' che non e' una dichiarazione attribuibile a una persona.",
+    "recorded_on": "content_item.metadata.ingestion_relevance"
+  },
+  "limits": {
+    "max_items_per_run": 20,
+    "max_items_per_source": 3,
+    "max_capture_chars": 60000,
+    "max_statements_per_capture": 8
+  },
+  "models": {
+    "statements": "opencode-go/deepseek-v4.1-flash",
+    "verdict": "antigravity/gemini-3.8-flash-medium",
+    "check": "opencode-go/deepseek-v4.1-flash",
+    "asr": "whisper",
+    "base_url": "http://100.94.144.48:20128/v1"
+  },
+  "sources": [
+    {
+      "id": "official-camera-temi",
+      "name": "Camera dei deputati - temi in evidenza",
+      "publisher": "Camera dei deputati",
+      "kind": "public_rss",
+      "discovery_url": "https://documenti.camera.it/rss/temi/bridgeTemiEvidenzaRss.xml",
+      "max_items_per_run": 3
+    },
+    {
+      "id": "official-consilium-press",
+      "name": "Consiglio UE - comunicati stampa",
+      "publisher": "Consiglio dell'Unione europea",
+      "kind": "public_rss",
+      "discovery_url": "https://www.consilium.europa.eu/it/rss/pressreleases.ashx",
+      "max_items_per_run": 3
+    },
+    {
+      "id": "ansa-tutte",
+      "name": "ANSA",
+      "publisher": "ANSA",
+      "kind": "public_rss",
+      "discovery_url": "https://www.ansa.it/sito/ansait_rss.xml",
+      "max_items_per_run": 3
+    },
+    {
+      "id": "ansa-politica",
+      "name": "ANSA Politica",
+      "publisher": "ANSA",
+      "kind": "public_rss",
+      "discovery_url": "https://www.ansa.it/sito/notizie/politica/politica_rss.xml",
+      "max_items_per_run": 3
+    },
+    {
+      "id": "adnkronos-politica",
+      "name": "Adnkronos Politica",
+      "publisher": "Adnkronos",
+      "kind": "public_rss",
+      "discovery_url": "https://www.adnkronos.com/RSS_Politica.xml",
+      "max_items_per_run": 2
+    },
+    {
+      "id": "agi-politica",
+      "name": "AGI Politica",
+      "publisher": "AGI",
+      "kind": "public_rss",
+      "discovery_url": "https://www.agi.it/politica/rss",
+      "max_items_per_run": 2
+    },
+    {
+      "id": "askanews",
+      "name": "Askanews",
+      "publisher": "Askanews",
+      "kind": "public_rss",
+      "discovery_url": "https://askanews.it/feed/",
+      "max_items_per_run": 2
+    },
+    {
+      "id": "dire",
+      "name": "DIRE",
+      "publisher": "Agenzia DIRE",
+      "kind": "public_rss",
+      "discovery_url": "https://www.dire.it/feed/",
+      "max_items_per_run": 2
+    },
+    {
+      "id": "la-repubblica",
+      "name": "la Repubblica",
+      "publisher": "la Repubblica",
+      "kind": "public_rss",
+      "discovery_url": "https://www.repubblica.it/rss/homepage/rss2.0.xml",
+      "max_items_per_run": 2
+    },
+    {
+      "id": "corriere-della-sera",
+      "name": "Corriere della Sera",
+      "publisher": "Corriere della Sera",
+      "kind": "public_rss",
+      "discovery_url": "https://xml2.corriereobjects.it/rss/homepage.xml",
+      "max_items_per_run": 2
+    },
+    {
+      "id": "il-fatto-quotidiano",
+      "name": "Il Fatto Quotidiano",
+      "publisher": "Il Fatto Quotidiano",
+      "kind": "public_rss",
+      "discovery_url": "https://www.ilfattoquotidiano.it/feed/",
+      "max_items_per_run": 2
+    },
+    {
+      "id": "il-sole-24-ore",
+      "name": "Il Sole 24 Ore",
+      "publisher": "Il Sole 24 Ore",
+      "kind": "public_rss",
+      "discovery_url": "https://www.ilsole24ore.com/rss/italia.xml",
+      "max_items_per_run": 1
+    },
+    {
+      "id": "il-manifesto",
+      "name": "il manifesto",
+      "publisher": "il manifesto",
+      "kind": "public_rss",
+      "discovery_url": "https://ilmanifesto.it/feed",
+      "max_items_per_run": 1
+    },
+    {
+      "id": "domani",
+      "name": "Domani",
+      "publisher": "Domani",
+      "kind": "public_rss",
+      "discovery_url": "https://www.editorialedomani.it/rss",
+      "max_items_per_run": 1
+    },
+    {
+      "id": "linkiesta",
+      "name": "Linkiesta",
+      "publisher": "Linkiesta",
+      "kind": "public_rss",
+      "discovery_url": "https://www.linkiesta.it/feed/",
+      "max_items_per_run": 1
+    },
+    {
+      "id": "open-online",
+      "name": "Open",
+      "publisher": "Open",
+      "kind": "public_rss",
+      "discovery_url": "https://www.open.online/feed/",
+      "max_items_per_run": 1
+    },
+    {
+      "id": "notizie-it",
+      "name": "Notizie.it",
+      "publisher": "Notizie.it",
+      "kind": "public_rss",
+      "discovery_url": "https://www.notizie.it/feed/",
+      "max_items_per_run": 1
+    },
+    {
+      "id": "youtube-pulp-podcast",
+      "name": "Pulp Podcast",
+      "publisher": "Pulp Podcast",
+      "kind": "youtube_channel",
+      "channel_id": "UCY99TnBJ8xyat2lpeN_hcEA",
+      "discovery_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCY99TnBJ8xyat2lpeN_hcEA",
+      "max_items_per_run": 2
+    },
+    {
+      "id": "youtube-breaking-italy",
+      "name": "Breaking Italy",
+      "publisher": "Breaking Italy",
+      "kind": "youtube_channel",
+      "channel_id": "UC4V3oCikXeSqYQr0hBMARwg",
+      "discovery_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC4V3oCikXeSqYQr0hBMARwg",
+      "max_items_per_run": 2
+    },
+    {
+      "id": "youtube-la7-attualita",
+      "name": "La7 Attualita",
+      "publisher": "La7",
+      "kind": "youtube_channel",
+      "channel_id": "UC2_ZJDH5PXEoJJz9zAvBuiA",
+      "discovery_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC2_ZJDH5PXEoJJz9zAvBuiA",
+      "max_items_per_run": 2
+    },
+    {
+      "id": "youtube-tg-la7",
+      "name": "TG La7",
+      "publisher": "La7",
+      "kind": "youtube_channel",
+      "channel_id": "UCYj2t05uU65UrlI1f0OGhlg",
+      "discovery_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCYj2t05uU65UrlI1f0OGhlg",
+      "max_items_per_run": 2
+    },
+    {
+      "id": "youtube-di-martedi",
+      "name": "DiMartedi",
+      "publisher": "La7",
+      "kind": "youtube_channel",
+      "channel_id": "UC05m3EOCgvCldG5CizFfEJg",
+      "discovery_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC05m3EOCgvCldG5CizFfEJg",
+      "max_items_per_run": 1
+    },
+    {
+      "id": "youtube-sky-tg24",
+      "name": "Sky TG24",
+      "publisher": "Sky TG24",
+      "kind": "youtube_channel",
+      "channel_id": "UCz6E3lF72mb6uoJ-mOlNo2A",
+      "discovery_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCz6E3lF72mb6uoJ-mOlNo2A",
+      "max_items_per_run": 2
+    },
+    {
+      "id": "youtube-rai-news",
+      "name": "Rai News",
+      "publisher": "Rai News",
+      "kind": "youtube_channel",
+      "channel_id": "UCxqR9g_1XlnfrqwHK9viwCw",
+      "discovery_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCxqR9g_1XlnfrqwHK9viwCw",
+      "max_items_per_run": 2
+    },
+    {
+      "id": "youtube-ansa",
+      "name": "ANSA",
+      "publisher": "ANSA",
+      "kind": "youtube_channel",
+      "channel_id": "UC7dCZ28JQUZYno7TSlLKNoQ",
+      "discovery_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC7dCZ28JQUZYno7TSlLKNoQ",
+      "max_items_per_run": 1
+    },
+    {
+      "id": "youtube-fanpage",
+      "name": "Fanpage.it",
+      "publisher": "Fanpage.it",
+      "kind": "youtube_channel",
+      "channel_id": "UCWJhBqnyVdHAuxexgjghNFw",
+      "discovery_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCWJhBqnyVdHAuxexgjghNFw",
+      "max_items_per_run": 1
+    },
+    {
+      "id": "youtube-il-fatto-quotidiano",
+      "name": "Il Fatto Quotidiano",
+      "publisher": "Il Fatto Quotidiano",
+      "kind": "youtube_channel",
+      "channel_id": "UCPfFXhCgc6cciu3aYm-9AdA",
+      "discovery_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCPfFXhCgc6cciu3aYm-9AdA",
+      "max_items_per_run": 1
+    },
+    {
+      "id": "youtube-la-repubblica",
+      "name": "la Repubblica",
+      "publisher": "la Repubblica",
+      "kind": "youtube_channel",
+      "channel_id": "UCdO19jgxeqoFX5RCVbDuwzA",
+      "discovery_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCdO19jgxeqoFX5RCVbDuwzA",
+      "max_items_per_run": 1
+    },
+    {
+      "id": "youtube-radio-radicale",
+      "name": "Radio Radicale",
+      "publisher": "Radio Radicale",
+      "kind": "youtube_channel",
+      "channel_id": "UC2xUgPwYzexNqxP2ehbzeMw",
+      "discovery_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC2xUgPwYzexNqxP2ehbzeMw",
+      "max_items_per_run": 1
+    }
+  ],
+  "evening": {
+    "enabled": true,
+    "target": "discord:cron job",
+    "sender": [
+      "hermes",
+      "send",
+      "--to",
+      "discord:cron job",
+      "--subject",
+      "Dichiarazioni Pubbliche — riepilogo della giornata"
+    ],
+    "note": "Consegna tramite il gateway Hermes gia' configurato. In prova si usa --dry-run: il messaggio viene solo scritto su file e stampato."
+  }
+}
