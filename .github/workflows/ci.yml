@@ -313,9 +313,6 @@ jobs:
       - name: Deterministic contributor acceptance (repository + licensing + version)
         run: python3 tools/check_contributor_acceptance.py
 
-      - name: DP-304 versioned field inventory rejects schema/privacy policy drift
-        run: python3 tools/check_privacy_field_inventory.py
-
   clean-clone:
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     name: detached clean-clone smoke

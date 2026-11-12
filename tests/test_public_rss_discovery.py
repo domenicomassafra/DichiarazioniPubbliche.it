@@ -84,7 +84,11 @@ class PublicRssTests(unittest.TestCase):
         self.assertEqual(discover_source_result(self.source, feed_xml="<rss/>").error_category, "MALFORMED_RESPONSE")
         self.assertEqual(discover_source_result(self.source, feed_xml=RSS, max_response_bytes=10).status, "FAILED")
 
-    def test_full_source_receipt_is_discovery_only_and_idempotent(self):
+    def test_full_source_receipt_stops_at_the_legacy_relevance_guard(self):
+        # DP-638 removed the blanket public_rss rights hold: the legacy scheduler
+        # path now stops one step later, on the manual relevance authority that
+        # the daily machine replaces. The receipt stays bounded and idempotent.
+
         with tempfile.TemporaryDirectory() as root:
             registry = Path(root) / "sources.json"
             registry.write_text(json.dumps({"schema_version": 1, "sources": [self.source]}))
@@ -105,9 +109,7 @@ class PublicRssTests(unittest.TestCase):
             run = run_registry(registry, store, **kwargs)
             self.assertEqual(run.status, "COMPLETED")
             self.assertEqual(run[0].status, "BLOCKED")
-            self.assertEqual(run[0].error_category, "RIGHTS_HOLD")
-            self.assertEqual(run.counters["discovered"], 1)
-            self.assertEqual(run.counters["omitted_items"], 1)
+            self.assertEqual(run[0].error_category, "INGESTION_RELEVANCE_MISSING")
             self.assertEqual(run.counters["content_upserts"], 0)
             self.assertEqual(run.counters["jobs_enqueued"], 0)
             self.assertEqual(store.jobs, [])
