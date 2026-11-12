@@ -140,27 +140,6 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
             )}
             {duration != null && !demo && <span class="source-story__media-time">{timeLabel(duration)}</span>}
           </aside>
-          <section class="source-story__claims" aria-labelledby="content-moments-heading">
-            <h2 id="content-moments-heading">Dichiarazioni estratte dalla fonte</h2>
-            {moments.length === 0 ? (
-              <p class="source-story__empty">Per questa fonte non risultano dichiarazioni verificate pubblicate.</p>
-            ) : (
-              <ol class="source-story__claim-list">
-                {moments.map(({ dossier, locator }, index) => (
-                  <li class:list={["source-story__claim", index === 0 && "is-current"]} data-content-event>
-                    <button type="button" data-content-select={dossier.finding_id} aria-current={index === 0 ? "true" : undefined} aria-controls={`source-detail-${dossierSlug(dossier)}`} aria-expanded={index === 0 ? "true" : "false"}>
-                      <span class="source-story__time">{locator.start != null ? timeLabel(locator.start) : locator.label}</span>
-                      <span class="source-story__claim-text">{demo ? `“${dossier.claim}”` : dossier.claim}</span>
-                      {!demo && <span class="source-story__paraphrase">Sintesi normalizzata · non citazione testuale</span>}
-                      <span class="source-story__verdict-label">VERDETTO</span>
-                      <span class:list={["source-story__verdict", `source-story__verdict--${dossier.finding.assessment.toLowerCase()}`]}>{verdict(dossier)}</span>
-                      <span class="source-story__arrow" aria-hidden="true">→</span>
-                    </button>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </section>
           <section class="source-story__excerpts" aria-labelledby="source-excerpt-heading">
             <h2 id="source-excerpt-heading">Estratto dalla trascrizione</h2>
             {moments.length === 0 && <p class="source-story__empty">Nessun estratto pubblicato.</p>}
@@ -190,6 +169,27 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
                 </article>
               );
             })}
+          </section>
+          <section class="source-story__claims" aria-labelledby="content-moments-heading">
+            <h2 id="content-moments-heading">Dichiarazioni estratte dalla fonte</h2>
+            {moments.length === 0 ? (
+              <p class="source-story__empty">Per questa fonte non risultano dichiarazioni verificate pubblicate.</p>
+            ) : (
+              <ol class="source-story__claim-list">
+                {moments.map(({ dossier, locator }, index) => (
+                  <li class:list={["source-story__claim", index === 0 && "is-current"]} data-content-event>
+                    <button type="button" data-content-select={dossier.finding_id} aria-current={index === 0 ? "true" : undefined} aria-controls={`source-detail-${dossierSlug(dossier)}`} aria-expanded={index === 0 ? "true" : "false"}>
+                      <span class="source-story__time">{locator.start != null ? timeLabel(locator.start) : locator.label}</span>
+                      <span class="source-story__claim-text">{demo ? `“${dossier.claim}”` : dossier.claim}</span>
+                      {!demo && <span class="source-story__paraphrase">Sintesi normalizzata · non citazione testuale</span>}
+                      <span class="source-story__verdict-label">VERDETTO</span>
+                      <span class:list={["source-story__verdict", `source-story__verdict--${dossier.finding.assessment.toLowerCase()}`]}>{verdict(dossier)}</span>
+                      <span class="source-story__arrow" aria-hidden="true">→</span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            )}
           </section>
           <aside class="source-story__analysis" aria-labelledby="source-analysis-heading">
             <h2 id="source-analysis-heading">ANALISI DELLA FONTE</h2>

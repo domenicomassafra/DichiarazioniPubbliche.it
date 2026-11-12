@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { assertAtlasReadingPath } from "./check-atlas-browser.mjs";
+import { assertSourceReader } from "./check-browser-source-349.mjs";
 import { checkExploreKindRadios } from "./check-browser-explore-radio.mjs";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
@@ -7,8 +8,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-// Allow a complete browser acceptance pass against a freshly built isolated
-// artifact; QA must never depend on a previously populated shared web/dist.
+// Browser QA uses the selected build, never a shared previous artifact.
 const root = path.resolve(process.env.DP_BROWSER_DIST || "dist");
 const chromeBin = process.env.CHROME_BIN || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const screenshotRoot = path.join(tmpdir(), "dichiarazioni-pubbliche-browser-qa");
@@ -372,8 +372,7 @@ try {
     await cdp.send("Emulation.setEmulatedVisionDeficiency", { type: "none" });
     await cdp.send("Emulation.clearDeviceMetricsOverride");
 
-    // The second Chrome session applies actual 200% browser zoom via profile
-    // settings; viewport emulation or pinch scaling would not prove reflow.
+    // Check true 200% browser zoom, beyond viewport emulation.
     const zoomBrowser = await launchChrome(origin, { zoomFactor: 2 });
     zoomBrowser.cdp.on("Network.requestWillBeSent", ({ request }) => {
       if (!request?.url || request.url.startsWith("data:") || request.url.startsWith("blob:")) return;
@@ -682,7 +681,7 @@ try {
     topicShot = await screenshot(cdp, "topic-desktop");
   }
 
-  // DP-422.8: exercise public page families in Chrome on desktop and phone.
+  // DP-422.8: desktop and phone routes.
   const dp422Families = new Map([
     ["home", "/"], ["explore", "/esplora/"],
     ["statement", scanRoutes.find((route) => route.startsWith("/dichiarazioni/"))],
@@ -714,6 +713,7 @@ try {
       assert.equal(state.h1.length, 1, `${family} ${variant}: must have exactly one primary heading`);
       assert(state.h1[0].length > 0 && state.main, `${family} ${variant}: primary heading or main missing`);
       await assertAtlasReadingPath(cdp, family, variant);
+      if (family === "content") await assertSourceReader(cdp, variant);
       if (family === "home" || family === "method" || family === "utility") {
         const geometry = await cdp.evaluate(`(() => {
           const box = (selector) => {
