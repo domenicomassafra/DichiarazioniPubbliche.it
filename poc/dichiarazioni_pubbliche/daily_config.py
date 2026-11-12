@@ -94,5 +94,3 @@ def load_config(path: str | Path | None = None) -> DailyConfig:
         relevance_rule=dict(payload.get("relevance_rule") or {}),
         raw=payload,
     )
-
-

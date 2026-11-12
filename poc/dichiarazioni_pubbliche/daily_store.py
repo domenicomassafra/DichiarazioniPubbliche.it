@@ -52,9 +52,9 @@ class DailyStore(PsqlRuntime):
             metadata=json.dumps({"publisher": source.publisher, "daily_machine": "DP-638"}),
         )
 
-    def save_items(self, rows: Sequence[dict[str, Any]]) -> list[str]:
+    def save_items(self, rows: Sequence[dict[str, Any]]) -> dict[str, str]:
         if not rows:
-            return []
+            return {}
         raw = self.run(
             """
             WITH input AS (
@@ -80,14 +80,23 @@ class DailyStore(PsqlRuntime):
                         ELSE content_item.canonical_url END,
                     published_at = COALESCE(content_item.published_at, EXCLUDED.published_at),
                     duration_ms = COALESCE(content_item.duration_ms, EXCLUDED.duration_ms),
-                    metadata = content_item.metadata || EXCLUDED.metadata
-                RETURNING id
+                    metadata = (content_item.metadata || EXCLUDED.metadata) ||
+                        CASE WHEN content_item.metadata->'ingestion_relevance'->>'attribution_version'
+                                  = 'direct-source-attribution-v2'
+                               AND content_item.metadata->'ingestion_relevance'->>'decision'
+                                  IN ('RELEVANT', 'UNCONFIRMED')
+                             THEN jsonb_build_object('ingestion_relevance', content_item.metadata->'ingestion_relevance')
+                             ELSE '{}'::jsonb END
+                RETURNING id, source_id, source_external_id
             )
-            SELECT COALESCE(jsonb_agg(id), '[]'::jsonb)::text FROM upserted;
+            SELECT COALESCE(jsonb_object_agg(input.content_id, upserted.id), '{}'::jsonb)::text
+            FROM upserted JOIN input
+              ON input.source_id = upserted.source_id
+             AND input.external_id = upserted.source_external_id;
             """,
             items=json.dumps(list(rows), ensure_ascii=False),
         )
-        return list(json.loads(raw.strip() or "[]"))
+        return dict(json.loads(raw.strip() or "{}"))
 
     def save_capture(
         self,
@@ -106,12 +115,7 @@ class DailyStore(PsqlRuntime):
                 :'id', :'content_id', :'source_id', :'kind', :'url',
                 :'chars'::integer, :'sha', :'body', :'metadata'::jsonb
             )
-            ON CONFLICT (id) DO UPDATE SET
-                fetched_at = now(),
-                char_count = EXCLUDED.char_count,
-                text_sha256 = EXCLUDED.text_sha256,
-                body = EXCLUDED.body,
-                metadata = EXCLUDED.metadata;
+            ON CONFLICT (id) DO NOTHING;
             """,
             id=capture_id,
             content_id=content_id,
@@ -122,6 +126,18 @@ class DailyStore(PsqlRuntime):
             sha=sha256_text(capture.body),
             body=capture.body,
             metadata=json.dumps(capture.metadata, ensure_ascii=False),
+        )
+
+    def set_relevance(self, content_id: str, *, decision: str, reason: str) -> None:
+        self.run(
+            """UPDATE content_item
+               SET metadata = jsonb_set(
+                   metadata, '{ingestion_relevance}',
+                   COALESCE(metadata->'ingestion_relevance', '{}'::jsonb) ||
+                   jsonb_build_object('decision', :'decision', 'reason', :'reason', 'decided_at', now())
+               )
+               WHERE id = :'content_id';""",
+            content_id=content_id, decision=decision, reason=reason,
         )
 
     def save_statement(self, row: dict[str, Any]) -> None:
@@ -142,9 +158,24 @@ class DailyStore(PsqlRuntime):
                 :'extraction_model', :'metadata'::jsonb
             )
             ON CONFLICT (id) DO UPDATE SET
+                capture_id = EXCLUDED.capture_id,
+                source_url = EXCLUDED.source_url,
+                source_title = EXCLUDED.source_title,
+                source_publisher = EXCLUDED.source_publisher,
+                source_published_at = EXCLUDED.source_published_at,
+                statement_date = EXCLUDED.statement_date,
+                quote = EXCLUDED.quote,
+                quote_offset = EXCLUDED.quote_offset,
+                moment_label = EXCLUDED.moment_label,
+                speaker_name = EXCLUDED.speaker_name,
+                speaker_role = EXCLUDED.speaker_role,
+                speaker_key = EXCLUDED.speaker_key,
+                topic = EXCLUDED.topic,
+                claim_nature = EXCLUDED.claim_nature,
                 status = EXCLUDED.status,
                 status_reason = EXCLUDED.status_reason,
-                metadata = daily_statement.metadata || EXCLUDED.metadata;
+                extraction_model = EXCLUDED.extraction_model,
+                metadata = EXCLUDED.metadata;
             """,
             **row,
         )
@@ -299,5 +330,3 @@ class DailyStore(PsqlRuntime):
             day=day,
         )
         return int(raw.strip() or 0)
-
-

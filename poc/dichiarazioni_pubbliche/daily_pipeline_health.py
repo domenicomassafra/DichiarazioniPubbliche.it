@@ -97,7 +97,7 @@ WITH window_since AS (
 ), snapshots AS (
   SELECT
     (SELECT count(*) FROM daily_run
-      WHERE run_date >= current_date - 1)::integer AS daily_runs_completed,
+      WHERE finished_at >= now() - interval '24 hours')::integer AS daily_runs_completed,
     (SELECT count(*) FROM source_poll_run
       WHERE status = 'FAILED' AND run_date >= current_date - 1)::integer AS daily_runs_failed,
     (SELECT coalesce(sum(items), 0) FROM daily_run
@@ -109,7 +109,7 @@ WITH window_since AS (
     (SELECT count(*) FROM daily_verdict, window_since
       WHERE daily_verdict.created_at >= window_since.since)::integer AS verdicts,
     (SELECT count(*) FROM daily_statement, window_since
-      WHERE daily_statement.status = 'PUBLISHED'
+      WHERE daily_statement.metadata->'publication'->>'public_url' IS NOT NULL
         AND daily_statement.created_at >= window_since.since)::integer AS published,
     (SELECT count(*) FROM processing_job, window_since
       WHERE processing_job.state IN ('BLOCKED', 'FAILED')

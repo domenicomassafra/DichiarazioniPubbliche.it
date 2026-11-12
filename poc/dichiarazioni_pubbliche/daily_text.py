@@ -222,5 +222,3 @@ def html_to_text(markup: str) -> str:
     if not paragraphs:
         paragraphs = [block for block in parser.blocks if block]
     return "\n".join(paragraphs)
-
-

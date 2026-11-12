@@ -27,6 +27,8 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from dichiarazioni_pubbliche.daily_machine import DailyStore, find_verbatim, sha256_text
+from dichiarazioni_pubbliche.daily_capture import Capture
+from dichiarazioni_pubbliche.daily_statements import ATTRIBUTION_VERSION, ExtractedStatement, resolve_speaker
 from dichiarazioni_pubbliche.domain_vocabulary import (
     ClaimType,
     FindingPublicationStatus,
@@ -105,11 +107,21 @@ def build_dossier(row: dict[str, Any]) -> dict[str, Any]:
         raise PublicationError("QUOTE_MISSING")
     if not capture_body or find_verbatim(capture_body, quote) is None:
         raise PublicationError("QUOTE_NOT_VERBATIM_IN_SOURCE")
+    quote_offset = int(row.get("quote_offset") or 0)
+    if capture_body[quote_offset : quote_offset + len(quote)] != quote:
+        raise PublicationError("QUOTE_OFFSET_NOT_IN_SOURCE")
     speaker_name = str(row.get("speaker_name") or "").strip()
     speaker_key = str(row.get("speaker_key") or "").strip()
     if not speaker_name or not speaker_key:
         raise PublicationError("SPEAKER_UNRESOLVED")
+    moment = row.get("moment") if isinstance(row.get("moment"), dict) else {}
+    if moment.get("attribution_version") != ATTRIBUTION_VERSION:
+        raise PublicationError("ATTRIBUTION_VERSION_NOT_VERIFIED")
+    capture_kind = str(row.get("capture_kind") or "article")
     source_url = str(row.get("source_url") or "").strip()
+    direct = ExtractedStatement(quote, speaker_name, str(row.get("speaker_role") or ""), "", "", "FACTUAL")
+    if resolve_speaker(direct, Capture(capture_kind, source_url, capture_body)) != speaker_key:
+        raise PublicationError("SPEAKER_ATTRIBUTION_NOT_VERIFIED")
     if not source_url.startswith(("http://", "https://")):
         raise PublicationError("SOURCE_URL_MISSING")
     verdict_code = str(row.get("verdict") or "NOT_VERIFIABLE").upper()
@@ -117,6 +129,17 @@ def build_dossier(row: dict[str, Any]) -> dict[str, Any]:
         raise PublicationError("VERDICT_UNKNOWN")
     if verdict_code in NOT_PROJECTABLE_VERDICTS:
         raise PublicationError(NOT_PROJECTABLE_VERDICTS[verdict_code])
+    first_pass = row.get("first_pass") if isinstance(row.get("first_pass"), dict) else {}
+    check_pass = row.get("check_pass") if isinstance(row.get("check_pass"), dict) else {}
+    models = str(row.get("models") or "").split("|")
+    if (
+        str(row.get("agreement") or "") != "AGREE"
+        or str(first_pass.get("verdict") or "").upper() != verdict_code
+        or str(check_pass.get("verdict") or "").upper() != verdict_code
+        or int(row.get("model_calls") or 0) < 2
+        or len(models) != 2 or not all(models) or models[0] == models[1]
+    ):
+        raise PublicationError("INDEPENDENT_VERDICT_NOT_VERIFIED")
 
     now = _now()
     statement_id = str(row["id"])
@@ -158,8 +181,6 @@ def build_dossier(row: dict[str, Any]) -> dict[str, Any]:
         # a "not verifiable" verdict carries the source record and says why.
         raise PublicationError("VERDICT_WITHOUT_EVIDENCE_LINK")
 
-    capture_kind = str(row.get("capture_kind") or "article")
-    moment = row.get("moment") if isinstance(row.get("moment"), dict) else {}
     if capture_kind == "article":
         source = {
             "content_id": str(row["content_id"]),
@@ -348,6 +369,8 @@ class PublicationStore(DailyStore):
                     'explanation', COALESCE(verdict.explanation, ''),
                     'evidence', COALESCE(verdict.evidence, '[]'::jsonb),
                     'agreement', COALESCE(verdict.agreement, ''),
+                    'first_pass', COALESCE(verdict.first_pass, '{}'::jsonb),
+                    'check_pass', COALESCE(verdict.check_pass, '{}'::jsonb),
                     'models', COALESCE(verdict.models, ''),
                     'model_calls', COALESCE(verdict.model_calls, 0),
                     'duration_seconds', COALESCE(verdict.duration_seconds, 0)

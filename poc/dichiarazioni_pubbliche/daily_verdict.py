@@ -59,21 +59,25 @@ Regole:
 """
 
 CHECK_SYSTEM_PROMPT = (
-    "Sei un revisore indipendente. Ricevi una dichiarazione, un verdetto proposto "
-    "e le fonti gia' scaricate. Verifichi se il verdetto regge su quelle fonti. "
+    "Sei un revisore indipendente. Decidi da zero sulla dichiarazione e sulle "
+    "fonti scaricate: non conosci la risposta del primo modello. Un'altra pagina "
+    "che ripete la dichiarazione non ne dimostra la verita'. "
     "Rispondi esclusivamente con JSON valido."
 )
 
 CHECK_USER_TEMPLATE = """DICHIARAZIONE: "{quote}"
 PERSONA: {speaker}
 FONTE ORIGINALE: {source_url}
-VERDETTO PROPOSTO: {verdict} - {explanation}
+DATA DELLA DICHIARAZIONE: {statement_date}
+CONTESTO ORIGINALE:
+{context}
 
 ESTRATTI DELLE FONTI INDIPENDENTI:
 {evidence}
 
 Rispondi con questo JSON:
-{{"verdict":"TRUE|FALSE|PARTLY_TRUE|NOT_VERIFIABLE","explanation":"perche' il verdetto regge o non regge"}}
+{{"verdict":"TRUE|FALSE|PARTLY_TRUE|NOT_VERIFIABLE|OPINION","explanation":"conclusione motivata sulle fonti"}}
+Se non ci sono prove indipendenti scegli NOT_VERIFIABLE; OPINION solo per giudizi senza affermazioni fattuali. Considera la data: una promessa futura non e' gia' un fatto avvenuto.
 """
 
 
@@ -88,7 +92,7 @@ class EvidenceCheck:
 
     @property
     def usable(self) -> bool:
-        return self.status == 200 and self.chars >= 200
+        return self.status == 200 and self.chars >= 200 and bool(self.excerpt)
 
 
 _CLAIM_STOPWORDS = frozenset(
@@ -130,7 +134,8 @@ def verify_evidence(
     if text:
         excerpt = text[:1200]
     usable_status = status
-    if tokens and overlap == 0 and status == 200:
+    # A downloaded page sharing one generic word does not corroborate a claim.
+    if (len(tokens) < 2 or overlap < max(2, (len(tokens) + 2) // 3)) and status == 200:
         return EvidenceCheck(
             url=url,
             title=str(entry.get("title") or ""),
@@ -198,19 +203,6 @@ def decide_verdict(
     verdict = str(proposal.get("verdict") or "NOT_VERIFIABLE").upper()
     if verdict not in {"TRUE", "FALSE", "PARTLY_TRUE", "NOT_VERIFIABLE", "OPINION"}:
         verdict = "NOT_VERIFIABLE"
-    if verdict == "OPINION":
-        return {
-            "verdict": "OPINION",
-            "explanation": bounded_text(proposal.get("explanation"), 1200).strip()
-            or "Giudizio, opinione o promessa: nessun verdetto di vero o falso.",
-            "evidence": [],
-            "first_pass": proposal,
-            "check_pass": {},
-            "agreement": "OPINION",
-            "models": verdict_model,
-            "model_calls": len(client.calls) - calls_before,
-            "duration_seconds": round(time.monotonic() - started, 3),
-        }
     explanation = bounded_text(proposal.get("explanation"), 1200).strip()
     evidence_rows = proposal.get("evidence") if isinstance(proposal.get("evidence"), list) else []
     checked: list[dict[str, Any]] = []
@@ -228,7 +220,7 @@ def decide_verdict(
                 "excerpt": check.excerpt,
             }
         )
-    if verdict != "NOT_VERIFIABLE" and not checked:
+    if verdict in {"TRUE", "FALSE", "PARTLY_TRUE"} and not checked:
         verdict = "NOT_VERIFIABLE"
         explanation = (
             explanation
@@ -236,48 +228,50 @@ def decide_verdict(
         ).strip()
     check_pass: dict[str, Any] = {}
     agreement = "SINGLE"
-    if verdict != "NOT_VERIFIABLE" and checked:
-        evidence_text = "\n\n".join(
-            f"[{index + 1}] {row['publisher']} - {row['title']} ({row['url']})\n{row['excerpt'][:1200]}"
-            for index, row in enumerate(checked[:4])
-        )
-        second = client.complete(
-            check_model,
-            [
-                {"role": "system", "content": CHECK_SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": CHECK_USER_TEMPLATE.format(
-                        quote=statement.quote,
-                        speaker=speaker,
-                        source_url=source_url,
-                        verdict=verdict,
-                        explanation=explanation,
-                        evidence=evidence_text,
-                    ),
-                },
-            ],
-            operation="VERDICT_CHECK",
-            max_tokens=800,
-        )
-        try:
-            check_pass = parse_model_json(second.text)
-        except DailyMachineError:
-            check_pass = {}
-        if not isinstance(check_pass, dict):
-            check_pass = {}
-        confirmed = str(check_pass.get("verdict") or "NOT_VERIFIABLE").upper()
-        agreement = "AGREE" if confirmed == verdict else "DISAGREE"
-        if agreement == "DISAGREE":
-            verdict = "NOT_VERIFIABLE"
-            explanation = (
-                "I due passaggi non concordano ("
-                + verdict
-                + " / "
-                + confirmed
-                + "): la dichiarazione non e' verificabile. "
-                + explanation
-            ).strip()
+    evidence_text = "\n\n".join(
+        f"[{index + 1}] {row['publisher']} - {row['title']} ({row['url']})\n{row['excerpt'][:1200]}"
+        for index, row in enumerate(checked[:4])
+    )
+    second = client.complete(
+        check_model,
+        [
+            {"role": "system", "content": CHECK_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": CHECK_USER_TEMPLATE.format(
+                    quote=statement.quote,
+                    speaker=speaker,
+                    source_url=source_url,
+                    verdict=verdict,
+                    explanation=explanation,
+                    evidence=evidence_text or "(nessuna prova indipendente disponibile)",
+                    statement_date=statement_date,
+                    context=context,
+                ),
+            },
+        ],
+        operation="VERDICT_CHECK",
+        max_tokens=800,
+    )
+    try:
+        check_pass = parse_model_json(second.text)
+    except DailyMachineError:
+        check_pass = {}
+    if not isinstance(check_pass, dict):
+        check_pass = {}
+    confirmed = str(check_pass.get("verdict") or "NOT_VERIFIABLE").upper()
+    agreement = "AGREE" if confirmed == verdict else "DISAGREE"
+    if agreement == "DISAGREE":
+        proposed = verdict
+        verdict = "NOT_VERIFIABLE"
+        explanation = (
+            "I due passaggi non concordano ("
+            + proposed
+            + " / "
+            + confirmed
+            + "): la dichiarazione non e' verificabile. "
+            + explanation
+        ).strip()
     return {
         "verdict": verdict,
         "explanation": explanation,
@@ -289,5 +283,3 @@ def decide_verdict(
         "model_calls": len(client.calls) - calls_before,
         "duration_seconds": round(time.monotonic() - started, 3),
     }
-
-

@@ -84,5 +84,3 @@ def write_bundle(path: Path, bundle: dict[str, Any]) -> dict[str, Any]:
         temporary = Path(handle.name)
     temporary.replace(path)
     return bundle
-
-

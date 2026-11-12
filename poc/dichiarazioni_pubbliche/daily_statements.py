@@ -50,7 +50,8 @@ Estrai al massimo {limit} dichiarazioni. Rispondi con questo JSON:
 
 Regole vincolanti:
 - quote: copia un frammento contiguo del TESTO qui sopra, parola per parola, senza aggiungere punteggiatura o virgolette. Se il TESTO non ha punteggiatura, non aggiungerla.
-- speaker: nome e cognome della persona che pronuncia la frase, prese dal TESTO o dal titolo. Se nel testo non e' chiaro chi parla, scrivi "".
+- Estrai solo discorso DIRETTO tra virgolette attribuito esplicitamente a una persona nel TESTO, oppure parole con etichetta del parlante in una trascrizione. Il discorso indiretto del giornalista non e' una citazione della persona.
+- speaker: nome e cognome di una figura pubblica che pronuncia proprio la frase, presenti insieme nel TESTO con un verbo di dichiarazione o un'etichetta del parlante. Una persona menzionata o nel solo titolo non basta: in dubbio scrivi "".
 - speaker_role: ruolo o carica se il testo lo dice, altrimenti "".
 - moment: per un video/audio il minuto nel formato mm:ss; per un articolo il numero di paragrafo, per esempio "par. 3".
 - topic: 2-5 parole, il tema della dichiarazione.
@@ -126,16 +127,47 @@ def _name_tokens(name: str) -> list[str]:
     return [token for token in _NAME_TOKEN.findall(name or "") if len(token) >= 3]
 
 
-def resolve_speaker(statement: ExtractedStatement, capture: Capture, item: DiscoveredItem) -> str:
-    """Return the resolved speaker key, or an empty string when unattributable."""
+ATTRIBUTION_VERSION = "direct-source-attribution-v2"
+_SPEECH_VERB = r"(?:ha (?:detto|dichiarato|affermato|spiegato|aggiunto|sottolineato|scritto|ricordato|annunciato)|dice|dichiara|afferma|spiega|aggiunge|sottolinea|scrive|ricorda|annuncia)"
 
+
+def resolve_speaker(statement: ExtractedStatement, capture: Capture, item: DiscoveredItem | None = None) -> str:
+    """Bind a person to this direct quote, never to a name elsewhere on the page.
+
+    shortcut: unlabelled media and surname-only/complex attributions stay held;
+    broaden only with source-bound attribution fixtures and independent review.
+    """
     tokens = _name_tokens(statement.speaker)
     if len(tokens) < 2:
         return ""
-    haystack, _ = _search_form(capture.body + "\n" + item.content.title)
-    if not all((" " + token.casefold()) in (" " + haystack) for token in tokens):
+    found = find_verbatim(capture.body, statement.quote)
+    if found is None:
         return ""
-    return "person:" + "-".join(token.casefold() for token in tokens)
+    name = r"(?<!\w)" + r"\s+".join(re.escape(token) for token in tokens) + r"(?!\w)"
+    start, end = found
+    body = capture.body
+    if capture.kind in {"captions", "asr"}:
+        line_start = body.rfind("\n", 0, start) + 1
+        attributed = re.fullmatch(name + r"\s*:\s*", body[line_start:start], flags=re.I) is not None
+    else:
+        attributed = False
+        for opening, closing in (("«", "»"), ("“", "”"), ('"', '"')):
+            left = body.rfind(opening, 0, start + 1)
+            right = body.find(closing, end)
+            if left < 0 or right < 0 or start - left > 1200 or right - end > 1200:
+                continue
+            if closing in body[left + 1:start] or opening in body[end:right]:
+                continue
+            before = body[max(0, left - 200):left]
+            after = body[right + 1:right + 201]
+            attributed = bool(
+                re.search(name + r"\s*[,]?\s*(?:" + _SPEECH_VERB + r")\s*:?\s*$", before, flags=re.I)
+                or re.search(r"^[\s,–—-]*(?:" + _SPEECH_VERB + r")\s+" + name, after, flags=re.I)
+                or re.search(name + r"\s*:\s*$", before, flags=re.I)
+            )
+            if attributed:
+                break
+    return "person:" + "-".join(token.casefold() for token in tokens) if attributed else ""
 
 
 def moment_selection(
@@ -169,5 +201,3 @@ def moment_selection(
         "moment_kind": "PARAGRAPH",
         "moment_paragraph": paragraph,
     }
-
-

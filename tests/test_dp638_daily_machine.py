@@ -71,8 +71,8 @@ EVIDENCE_HTML = (
 )
 
 BODY = (
-    "Il ministro Adolfo Urso ha detto che il governo investira' due miliardi nel settore dei chip "
-    "e che l'annuncio arrivera' entro la fine del mese.\n\n"
+    "Adolfo Urso ha dichiarato: «il governo investira' due miliardi nel settore dei chip». "
+    "L'annuncio arrivera' entro la fine del mese.\n\n"
     "Secondo il ministro la misura serve a ridurre la dipendenza dall'estero."
 )
 
@@ -127,7 +127,7 @@ class VerbatimTest(unittest.TestCase):
 class SpeakerTest(unittest.TestCase):
     def test_resolves_named_speaker(self):
         statement = dst.ExtractedStatement(
-            quote="il governo investira'", speaker="Adolfo Urso", speaker_role="Ministro",
+            quote="il governo investira' due miliardi nel settore dei chip", speaker="Adolfo Urso", speaker_role="Ministro",
             moment="", topic="chip", nature="FACTUAL",
         )
         capture = dc.Capture(kind="article", url="https://example.test/1", body=BODY)
@@ -155,7 +155,8 @@ class VerdictTest(unittest.TestCase):
 
     def test_opinion_gets_no_verdict(self):
         client = FakeClient(
-            [json.dumps({"verdict": "OPINION", "explanation": "E' un giudizio.", "evidence": []})]
+            [json.dumps({"verdict": "OPINION", "explanation": "E' un giudizio.", "evidence": []}),
+             json.dumps({"verdict": "OPINION", "explanation": "Concordo."})]
         )
         result = dvd.decide_verdict(
             client,
@@ -170,7 +171,7 @@ class VerdictTest(unittest.TestCase):
         )
         self.assertEqual(result["verdict"], "OPINION")
         self.assertEqual(result["evidence"], [])
-        self.assertEqual(len(client.calls), 1)
+        self.assertEqual(len(client.calls), 2)
 
     def test_unverifiable_when_evidence_cannot_be_fetched(self):
         client = FakeClient(
@@ -255,11 +256,13 @@ class PublicationTest(unittest.TestCase):
             "created_at": "2026-11-12T20:00:00+00:00",
             "capture_kind": "article",
             "capture_body": BODY,
-            "moment": {"moment_label": "par. 1", "moment_kind": "PARAGRAPH"},
+            "moment": {"moment_label": "par. 1", "moment_kind": "PARAGRAPH", "attribution_version": dst.ATTRIBUTION_VERSION},
             "verdict": "TRUE",
             "explanation": "Due miliardi stanziati.",
             "evidence": [{"url": "https://example.test/2", "title": "t", "publisher": "p"}],
             "agreement": "AGREE",
+            "first_pass": {"verdict": "TRUE"},
+            "check_pass": {"verdict": "TRUE"},
             "models": "m1|m2",
             "model_calls": 2,
             "duration_seconds": 12.5,
@@ -283,6 +286,15 @@ class PublicationTest(unittest.TestCase):
     def test_unresolved_speaker_is_refused(self):
         with self.assertRaises(dp.PublicationError):
             dp.build_dossier(self._row(speaker_key="", speaker_name=""))
+
+    def test_mentioned_person_cannot_be_published_as_speaker(self):
+        body = 'Adolfo Urso incontra Mario Rossi. Mario Rossi ha dichiarato: «' + self._row()["quote"] + '».'
+        with self.assertRaisesRegex(dp.PublicationError, "SPEAKER_ATTRIBUTION"):
+            dp.build_dossier(self._row(capture_body=body, quote_offset=body.index(self._row()["quote"])))
+
+    def test_legacy_attribution_has_no_publication_authority(self):
+        with self.assertRaisesRegex(dp.PublicationError, "ATTRIBUTION_VERSION"):
+            dp.build_dossier(self._row(moment={"moment_kind": "PARAGRAPH"}))
 
     def test_true_verdict_without_independent_link_is_refused(self):
         with self.assertRaises(dp.PublicationError):
@@ -329,7 +341,7 @@ class RunTest(unittest.TestCase):
 
             def save_items(self, rows):
                 captured["rows"] = rows
-                return [row["content_id"] for row in rows]
+                return {row["content_id"]: row["content_id"] for row in rows}
 
             def capture_ids_today(self, day):
                 return set()
@@ -339,6 +351,9 @@ class RunTest(unittest.TestCase):
 
             def save_statement(self, row):
                 self.statements.append(row)
+
+            def set_relevance(self, content_id, *, decision, reason):
+                captured.setdefault("relevance", []).append((content_id, decision, reason))
 
             def save_verdict(self, statement_id, verdict):
                 self.verdicts.append((statement_id, verdict))
@@ -403,36 +418,38 @@ class RunTest(unittest.TestCase):
         self.assertEqual(report["items"], 1)
         self.assertEqual(report["captures"], 1)
         self.assertEqual(report["statements"], 2)
-        self.assertEqual(report["published"], 1)
+        self.assertEqual(report["ready_for_publication"], 1)
+        self.assertEqual(report["published"], 0)
         self.assertEqual(report["held"].get(dmm.HELD_NO_SPEAKER), 1)
         self.assertEqual(len(store.verdicts), 1)
         self.assertEqual(store.verdicts[0][1]["verdict"], "TRUE")
         self.assertGreaterEqual(report["model_calls"], 3)
         self.assertTrue(store.receipts)
         self.assertIn("ingestion_relevance", captured["rows"][0]["metadata"])
+        self.assertEqual(captured["rows"][0]["metadata"]["ingestion_relevance"]["decision"], "CANDIDATE")
+        self.assertEqual(captured["relevance"][0][1], "RELEVANT")
 
 
 class SummaryTest(unittest.TestCase):
     def test_summary_lists_links_and_verdicts(self):
-        class Store(dmm.DailyStore):
-            def __init__(self):
-                super().__init__(None)
+        bundle = {"dossiers": [{"finding_id": "statement:abc", "speaker": {"name": "Adolfo Urso"},
+                               "claim": "Due miliardi per i chip", "finding": {"published_at": "2026-11-12T18:30:00Z", "assessment": "SUPPORTED"}}]}
+        def published_fetch(url, **kwargs):
+            if url.endswith("/api/v1/index.json"):
+                return 200, json.dumps(bundle)
+            return (200, "<html>Due miliardi per i chip</html>") if url.endswith("/statement-abc/") else (404, "")
 
-            def published_since(self, day):
-                return [
-                    {
-                        "speaker": "Adolfo Urso",
-                        "quote": "Due miliardi per i chip",
-                        "verdict": "TRUE",
-                        "source_publisher": "ANSA",
-                        "source_url": "https://example.test/1",
-                    }
-                ]
-
-        text = dmm.evening_summary(Store(), "2026-11-12")
+        text = dmm.evening_summary(None, "2026-11-12", fetcher=published_fetch)
         self.assertIn("1 dichiarazioni", text)
-        self.assertIn("https://example.test/1", text)
-        self.assertIn("TRUE", text)
+        self.assertIn("https://dichiarazionipubbliche.it/dichiarazioni/statement-abc/", text)
+        self.assertIn("SUPPORTED", text)
+
+    def test_summary_does_not_report_unreachable_routes_as_published(self):
+        bundle = {"dossiers": [{"finding_id": "statement:abc", "claim": "Titolo", "finding": {"published_at": "2026-11-12T18:30:00Z"}}]}
+        def fetch(url, **kwargs):
+            return (200, json.dumps(bundle)) if url.endswith("index.json") else (404, "")
+        text = dmm.evening_summary(None, "2026-11-12", fetcher=fetch)
+        self.assertIn("nessuna dichiarazione pubblicata", text)
 
 
 if __name__ == "__main__":

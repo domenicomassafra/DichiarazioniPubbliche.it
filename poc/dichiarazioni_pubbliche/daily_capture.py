@@ -9,6 +9,7 @@ import hashlib
 import html
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -70,9 +71,8 @@ def discover(
             continue
         for content in discovered:
             items.append(DiscoveredItem(source=source, content=content))
-    items.sort(key=lambda row: row.content.published_at or "", reverse=True)
-    limit = config.limit("max_items_per_run", 20)
-    return items[:limit], failures
+    # The processing budget must not discard discoveries before persistence.
+    return items, failures
 
 
 
@@ -244,5 +244,3 @@ def capture_item(
     if item.source.kind == "youtube_channel" or item.content.platform == "youtube":
         return youtube_capture(item)
     return capture_article(item, fetcher=article_fetcher)
-
-

@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
 
 from dichiarazioni_pubbliche.daily_text import DailyMachineError
+from dichiarazioni_pubbliche.source_watcher import fetch_bytes, validate_discovery_url
 
 DEFAULT_USER_AGENT = "DichiarazioniPubbliche/1.0 (+https://dichiarazionipubbliche.it)"
 
@@ -185,20 +186,16 @@ def fetch_text(
     max_bytes: int = 3_000_000,
     opener: Callable[[urllib.request.Request, float], tuple[int, bytes]] | None = None,
 ) -> tuple[int, str]:
-    if not url.startswith(("http://", "https://")):
-        raise DailyMachineError("URL_INVALID")
-    request = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": DEFAULT_USER_AGENT,
-            "Accept": "text/html,application/xhtml+xml,application/xml,text/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "it-IT,it;q=0.9,en;q=0.5",
-        },
-    )
-    fetch = opener or _http_open
-    status, raw = fetch(request, timeout)
-    if status != 200:
-        return status, ""
-    return status, raw[:max_bytes].decode("utf-8", "replace")
-
-
+    try:
+        if opener is not None:
+            safe_url = validate_discovery_url(url)
+            status, raw = opener(urllib.request.Request(safe_url), timeout)
+            if len(raw) > max_bytes:
+                raise DailyMachineError("HTTP_RESPONSE_TOO_LARGE")
+            return status, raw.decode("utf-8", "replace") if status == 200 else ""
+        fetched = fetch_bytes(url, timeout=timeout, max_response_bytes=max_bytes)
+        return fetched.status_code, fetched.body.decode(fetched.charset or "utf-8", "replace")
+    except urllib.error.HTTPError as exc:
+        return int(exc.code), ""
+    except (ValueError, urllib.error.URLError, TimeoutError, OSError) as exc:
+        raise DailyMachineError(f"PUBLIC_FETCH_REFUSED:{type(exc).__name__}") from exc

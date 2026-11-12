@@ -1,4 +1,4 @@
-"""DP-638 — the daily machine: sources in, published statements with a verdict out.
+"""DP-638 — the daily machine: sources in, verified statements ready for publication.
 
 One bounded run does the whole chain, once a day, without a human:
 
@@ -39,6 +39,7 @@ from dichiarazioni_pubbliche.daily_capture import (
 from dichiarazioni_pubbliche.daily_config import DailyConfig, SourceSpec, load_config
 from dichiarazioni_pubbliche.daily_model import ModelClient
 from dichiarazioni_pubbliche.daily_statements import (
+    ATTRIBUTION_VERSION,
     ExtractedStatement,
     extract_statements,
     moment_selection,
@@ -80,8 +81,8 @@ def _statement_id(source_id: str, content_id: str, offset: int, quote: str) -> s
     return "statement:" + hashlib.sha256(material.encode()).hexdigest()[:32]
 
 
-def _capture_id(content_id: str, kind: str) -> str:
-    return "capture:" + hashlib.sha256(f"{content_id}\0{kind}".encode()).hexdigest()[:32]
+def _capture_id(content_id: str, capture: Capture) -> str:
+    return "capture:" + sha256_text(f"{content_id}\0{capture.kind}\0{sha256_text(capture.body)}")[:32]
 
 
 def _flush_calls(
@@ -142,9 +143,10 @@ def _corroborating_sources(
 def _relevance_decision(config: DailyConfig, item: DiscoveredItem) -> dict[str, Any]:
     rule = config.relevance_rule
     return {
-        "decision": "RELEVANT",
+        "decision": "CANDIDATE",
+        "attribution_version": ATTRIBUTION_VERSION,
         "rule": str(rule.get("id") or "PUBLIC_FIGURE_SPEAKING_IN_PUBLIC_ON_PUBLIC_INTEREST"),
-        "reason": str(rule.get("reason") or ""),
+        "reason": "Fonte pubblica di potenziale interesse; parlante e dichiarazione da verificare sulla cattura.",
         "source_id": item.source.id,
         "decided_at": utc_now(),
     }
@@ -158,6 +160,7 @@ def run_daily(
     run_date: str | None = None,
     dry_run: bool = False,
     reprocess: bool = False,
+    capture_only: bool = False,
     skip_sources: Iterable[str] = (),
     max_seconds: float = 3000.0,
     discovery_fetcher: Callable[[str], str] | None = None,
@@ -177,6 +180,7 @@ def run_daily(
         "captures": 0,
         "statements": 0,
         "verdicts": 0,
+        "ready_for_publication": 0,
         "published": 0,
         "held": {},
         "sources": {},
@@ -227,12 +231,14 @@ def run_daily(
                 },
             }
         )
-    persisted = store.save_items(rows) if not dry_run else [row["content_id"] for row in rows]
-    content_ids = {row["content_id"]: cid for row, cid in zip(rows, persisted)}
+    content_ids = store.save_items(rows) if not dry_run else {row["content_id"]: row["content_id"] for row in rows}
 
     captured_today = store.capture_ids_today(day) if not dry_run else set()
     capture_pool: list[dict[str, str]] = []
+    attempted = 0
     for item in items:
+        if attempted >= config.limit("max_items_per_run", 20):
+            break
         if time.monotonic() > deadline:
             report["budget_exhausted"] = True
             say("budget exhausted: stopping before the remaining items")
@@ -246,7 +252,7 @@ def run_daily(
             continue
         if content_id in captured_today and not dry_run and not reprocess:
             continue
-        capture_started = time.monotonic()
+        attempted += 1
         try:
             capture = capture_item(
                 item,
@@ -273,7 +279,7 @@ def run_daily(
         )
         report["captures"] += 1
         say(f"captured {item.source.id}: {len(capture.body)} chars ({capture.kind})")
-        capture_id = _capture_id(content_id, capture.kind)
+        capture_id = _capture_id(content_id, capture)
         if not dry_run:
             store.save_capture(
                 capture_id=capture_id,
@@ -281,7 +287,9 @@ def run_daily(
                 source_id=item.source.id,
                 capture=capture,
             )
-        calls_before_extraction = len(client.calls)
+        if capture_only:
+            _flush_calls(store, client, content_id=content_id, reference=f"capture:{capture_id}", dry_run=dry_run, report=report)
+            continue
         try:
             statements = extract_statements(
                 client, statement_model, capture, item, limit=max_statements
@@ -290,9 +298,8 @@ def run_daily(
             report["failures"].append(
                 {"source_id": item.source.id, "error": f"EXTRACTION:{type(exc).__name__}"}
             )
-            client.calls.clear()
+            _flush_calls(store, client, content_id=content_id, reference=f"extract:{content_id}", dry_run=dry_run, report=report)
             continue
-        report["model_calls"] += len(client.calls) - calls_before_extraction
         _flush_calls(
             store,
             client,
@@ -301,6 +308,7 @@ def run_daily(
             dry_run=dry_run,
             report=report,
         )
+        resolved_source_statement = False
         for statement in statements:
             if time.monotonic() > deadline:
                 report["budget_exhausted"] = True
@@ -312,6 +320,7 @@ def run_daily(
                 continue
             exact_quote = capture.body[found[0] : found[1]]
             speaker_key = resolve_speaker(statement, capture, item)
+            resolved_source_statement |= bool(speaker_key)
             status = PUBLISHED if speaker_key else HELD_NO_SPEAKER
             reason = "" if speaker_key else "SPEAKER_NOT_RESOLVED_IN_SOURCE"
             moment = moment_selection(found[0], found[1], capture, statement.moment)
@@ -337,7 +346,7 @@ def run_daily(
                 "status": status,
                 "status_reason": reason,
                 "extraction_model": statement_model,
-                "metadata": json.dumps(moment, ensure_ascii=False),
+                "metadata": json.dumps({**moment, "attribution_version": ATTRIBUTION_VERSION}, ensure_ascii=False),
             }
             report["statements"] += 1
             verdict: dict[str, Any] | None = None
@@ -372,7 +381,8 @@ def run_daily(
             statement_seconds = round(time.monotonic() - statement_started, 3)
             report["statement_seconds"] += statement_seconds
             if row["status"] == PUBLISHED:
-                report["published"] += 1
+                # The DB status is legacy: a public API readback proves publication.
+                report["ready_for_publication"] += 1
             else:
                 report["held"][row["status"]] = report["held"].get(row["status"], 0) + 1
 
@@ -393,6 +403,16 @@ def run_daily(
                 store.save_statement(row)
                 if verdict is not None:
                     store.save_verdict(statement_id, verdict)
+        if not dry_run:
+            store.set_relevance(
+                content_id,
+                decision="RELEVANT" if resolved_source_statement else "UNCONFIRMED",
+                reason=(
+                    "Dichiarazione diretta attribuita nel testo a una persona pubblica."
+                    if resolved_source_statement else
+                    "Nessuna dichiarazione diretta attribuibile con sicurezza nella cattura."
+                ),
+            )
     report["finished_at"] = utc_now()
     if not dry_run:
         store.record_run(day, report, finished=True)
@@ -406,6 +426,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--database-url", default=os.environ.get("DICHIARAZIONI_PUBBLICHE_DATABASE_URL"))
     parser.add_argument("--run-date", default=date.today().isoformat())
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--capture-only", action="store_true", help="persist discoveries and captures without extracting statements")
     parser.add_argument("--reprocess", action="store_true", help="recapture items already captured today")
     parser.add_argument("--skip-source", action="append", default=[])
     parser.add_argument("--skip-kind", action="append", default=[])
@@ -450,6 +471,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         run_date=args.run_date,
         dry_run=args.dry_run,
         reprocess=args.reprocess,
+        capture_only=args.capture_only,
         skip_sources=skip_sources,
         max_seconds=args.max_seconds,
     )

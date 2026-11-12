@@ -2,32 +2,57 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 from dichiarazioni_pubbliche.daily_config import DailyConfig
 from dichiarazioni_pubbliche.daily_store import DailyStore
+from dichiarazioni_pubbliche.daily_model import fetch_text
 from dichiarazioni_pubbliche.daily_text import DailyMachineError, bounded_text
 
 
-def evening_summary(store: DailyStore, day: str) -> str:
-    rows = store.published_since(day)
-    if not rows:
+def evening_summary(
+    store: DailyStore, day: str,
+    *, fetcher: Callable[..., tuple[int, str]] = fetch_text,
+) -> str:
+    # Internal readiness is not publication: only the installed public API counts.
+    status, text = fetcher("https://dichiarazionipubbliche.it/api/v1/index.json")
+    if status != 200:
+        raise DailyMachineError(f"PUBLICATION_READBACK_HTTP_{status}")
+    try:
+        bundle = json.loads(text)
+        rows = [row for row in bundle["dossiers"] if str(row["finding"].get("published_at") or "")[:10] == day]
+    except (ValueError, KeyError, TypeError) as exc:
+        raise DailyMachineError("PUBLICATION_READBACK_INVALID") from exc
+    published: list[tuple[dict[str, Any], str]] = []
+    for row in rows:
+        slug = re.sub(r"[^a-z0-9]+", "-", str(row.get("finding_id") or "").lower()).strip("-")
+        if not slug:
+            continue
+        public_url = f"https://dichiarazionipubbliche.it/dichiarazioni/{slug}/"
+        try:
+            page_status, _ = fetcher(public_url, timeout=8)
+        except DailyMachineError:
+            continue
+        if page_status == 200:
+            published.append((row, public_url))
+    if not published:
         return (
             "Dichiarazioni Pubbliche, "
             + day
             + ": nessuna dichiarazione pubblicata oggi con un verdetto."
         )
-    lines = [f"Dichiarazioni Pubbliche, {day}: {len(rows)} dichiarazioni pubblicate."]
-    for row in rows:
+    lines = [f"Dichiarazioni Pubbliche, {day}: {len(published)} dichiarazioni pubblicate."]
+    for row, public_url in published:
         lines.append(
             "- {speaker}: \"{quote}\" ({verdict}, {publisher}) {url}".format(
-                speaker=row.get("speaker") or "persona non risolta",
-                quote=bounded_text(row.get("quote"), 160),
-                verdict=row.get("verdict"),
-                publisher=row.get("source_publisher"),
-                url=row.get("source_url"),
+                speaker=(row.get("speaker") or {}).get("name") or "persona non risolta",
+                quote=bounded_text(row.get("claim"), 160),
+                verdict=(row.get("finding") or {}).get("assessment"),
+                publisher="Dichiarazioni Pubbliche",
+                url=public_url,
             )
         )
     return "\n".join(lines)
@@ -78,5 +103,3 @@ def deliver_evening_summary(
         return result
     result["delivered"] = True
     return result
-
-
