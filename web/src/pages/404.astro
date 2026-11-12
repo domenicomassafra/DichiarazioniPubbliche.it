@@ -20,15 +20,13 @@ import UtilityDocument from "../components/UtilityDocument.astro";
       </ul>
     </nav>
     <p>Se il collegamento è arrivato da un'altra pagina del sito, segnalalo: il <a href="/segnalazioni/">modulo di segnalazione</a> richiede l'accesso al sito.</p>
-    <slot name="rail">
-      <nav aria-label="Documenti di fiducia">
-        <h2>Documenti di fiducia</h2>
-        <a href="/metodo/">Metodo</a>
-        <a href="/correzioni/">Correzioni</a>
-        <a href="/dati/">Dati &amp; API</a>
-        <a href="/progetto/">Progetto</a>
-        <a href="/privacy/">Privacy</a>
-      </nav>
-    </slot>
+    <nav slot="rail" aria-label="Documenti di fiducia">
+      <h2>Documenti di fiducia</h2>
+      <a href="/metodo/">Metodo</a>
+      <a href="/correzioni/">Correzioni</a>
+      <a href="/dati/">Dati &amp; API</a>
+      <a href="/progetto/">Progetto</a>
+      <a href="/privacy/">Privacy</a>
+    </nav>
   </UtilityDocument>
 </BaseLayout>
