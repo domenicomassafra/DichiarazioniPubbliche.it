@@ -136,6 +136,14 @@ class OmniRouteExecutionAuthorityTests(unittest.TestCase):
             ["/api/usage/call-logs/" + CALL_ID],
         )
 
+    def test_failed_gateway_attempt_in_same_session_blocks_review_witness(self):
+        endpoint = "/api/usage/call-logs?model=antigravity%2Fgemini-3.8-flash-tiered&limit=100"
+        self.values[endpoint].insert(0, {
+            "id": "failed-attempt", "provider": "antigravity",
+            "status": 502, "sessionTag": TAG,
+        })
+        self.assertFalse(self.verifier(self.receipt))
+
     def test_conflicting_requested_and_review_model_ids_are_rejected(self):
         self.assertFalse(self.verifier({**vars(self.receipt),
                                         "requested_model": MODEL,
