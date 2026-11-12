@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 
@@ -18,6 +18,10 @@ COUNTER_NAMES = (
     "discovery_hits", "captures", "passages", "statement_candidates",
     "claim_candidates", "jobs_queued", "jobs_blocked", "provider_receipts",
 )
+
+# Optional snapshot members: a host may report the start of the latest
+# completed run, which carries the local calendar date the run belongs to.
+OPTIONAL_SNAPSHOT_NAMES = ("latest_daily_run_started_at",)
 
 
 @dataclass(frozen=True)
@@ -45,9 +49,10 @@ class DailyPipelineHealth:
 def classify_daily_pipeline(
     snapshot: Mapping[str, object], *, today: date,
 ) -> DailyPipelineHealth:
-    if not isinstance(snapshot, Mapping) or set(snapshot) != set(COUNTER_NAMES) | {
-        "latest_daily_run_date"
-    }:
+    required = set(COUNTER_NAMES) | {"latest_daily_run_date"}
+    if (not isinstance(snapshot, Mapping)
+            or not required <= set(snapshot)
+            or set(snapshot) - required - set(OPTIONAL_SNAPSHOT_NAMES)):
         raise ValueError("DAILY_PIPELINE_COUNTER_SCHEMA_DRIFT")
     counters: dict[str, int] = {}
     for name in COUNTER_NAMES:
@@ -68,10 +73,24 @@ def classify_daily_pipeline(
     else:
         parsed = None
 
+    # `source_poll_run.run_date` is the UTC date, while the daily timer fires at
+    # local midnight, so a successful run is stored one calendar day behind the
+    # host's date and the check reported DAILY_RUN_NOT_CURRENT every day. Read
+    # the run's own start when the host reports it.
+    current = parsed
+    started_at = snapshot.get("latest_daily_run_started_at")
+    if started_at is not None:
+        if not isinstance(started_at, str):
+            raise ValueError("DAILY_PIPELINE_DATE_INVALID")
+        try:
+            current = datetime.fromisoformat(started_at).astimezone().date()
+        except ValueError as exc:
+            raise ValueError("DAILY_PIPELINE_DATE_INVALID") from exc
+
     reasons: list[str] = []
     if counters["daily_runs_completed"] == 0:
         reasons.append("NO_COMPLETED_DAILY_RUN")
-    elif parsed != today:
+    elif current != today:
         reasons.append("DAILY_RUN_NOT_CURRENT")
     if counters["daily_runs_failed"]:
         reasons.append("FAILED_DAILY_RUN_PRESENT")
@@ -102,7 +121,7 @@ def classify_daily_pipeline(
 DAILY_PIPELINE_COUNTS_SQL = """
 BEGIN TRANSACTION READ ONLY;
 WITH recent_daily AS (
-  SELECT run_date, discovered, status
+  SELECT run_date, discovered, status, started_at
   FROM source_poll_run
   WHERE mode = 'full-source' AND diagnostic = false
 ), snapshots AS (
@@ -118,7 +137,8 @@ WITH recent_daily AS (
     (SELECT count(*) FROM processing_job WHERE state IN ('QUEUED', 'PENDING', 'RETRY'))::integer AS jobs_queued,
     (SELECT count(*) FROM processing_job WHERE state IN ('BLOCKED', 'FAILED'))::integer AS jobs_blocked,
     (SELECT count(*) FROM provider_receipt)::integer AS provider_receipts,
-    (SELECT max(run_date)::text FROM recent_daily WHERE status='COMPLETED') AS latest_daily_run_date
+    (SELECT max(run_date)::text FROM recent_daily WHERE status='COMPLETED') AS latest_daily_run_date,
+    (SELECT max(started_at)::text FROM recent_daily WHERE status='COMPLETED') AS latest_daily_run_started_at
 )
 SELECT row_to_json(snapshots)::text FROM snapshots;
 COMMIT;
@@ -126,6 +146,6 @@ COMMIT;
 
 
 __all__ = [
-    "COUNTER_NAMES", "DAILY_PIPELINE_COUNTS_SQL",
+    "COUNTER_NAMES", "DAILY_PIPELINE_COUNTS_SQL", "OPTIONAL_SNAPSHOT_NAMES",
     "DailyPipelineHealth", "classify_daily_pipeline",
 ]
