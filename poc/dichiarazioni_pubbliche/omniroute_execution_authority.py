@@ -131,20 +131,21 @@ class OmniRouteExecutionAuthority:
         for row in rows:
             if not isinstance(row, dict) or type(row.get("id")) is not str:
                 return False
-            if row.get("provider") != "antigravity" or row.get("status") != 200:
-                continue
             # The gateway's list response includes sessionTag. Fetch only
             # matching detail rows; unrelated traffic must not make a review
             # tick perform up to 99 authenticated requests.
             if row.get("sessionTag") != tag:
                 continue
+            if row.get("provider") != "antigravity" or row.get("status") != 200:
+                return False
             detail = self._read("/api/usage/call-logs/" + urllib.parse.quote(
                 row["id"], safe="",
             ))
             if not isinstance(detail, dict):
                 return False
-            if detail.get("sessionTag") == tag:
-                matches.append(detail)
+            if detail.get("id") != row["id"] or detail.get("sessionTag") != tag:
+                return False
+            matches.append(detail)
         if len(matches) != 1:
             return False
         detail = matches[0]

@@ -136,6 +136,26 @@ class OmniRouteExecutionAuthorityTests(unittest.TestCase):
             ["/api/usage/call-logs/" + CALL_ID],
         )
 
+    def test_failed_gateway_attempt_in_same_session_blocks_review_witness(self):
+        endpoint = "/api/usage/call-logs?model=antigravity%2Fgemini-3.8-flash-tiered&limit=100"
+        original = list(self.values[endpoint])
+        failed = {"id": "failed-attempt", "provider": "antigravity",
+                  "status": 502, "sessionTag": TAG}
+        for rows in ([failed] + original, original + [failed]):
+            with self.subTest(first_failed=rows[0] is failed):
+                self.values[endpoint] = rows
+                self.assertFalse(self.verifier(self.receipt))
+
+    def test_matching_summary_must_match_detail_id_and_session(self):
+        endpoint = "/api/usage/call-logs?model=antigravity%2Fgemini-3.8-flash-tiered&limit=100"
+        self.values[endpoint] = [{"id": "other-call", "provider": "antigravity",
+                                  "status": 200, "sessionTag": TAG}]
+        original = self.values["/api/usage/call-logs/" + CALL_ID]
+        for mismatch in ({"id": CALL_ID}, {"id": "other-call", "sessionTag": "different"}):
+            with self.subTest(mismatch=mismatch):
+                self.values["/api/usage/call-logs/other-call"] = {**original, **mismatch}
+                self.assertFalse(self.verifier(self.receipt))
+
     def test_conflicting_requested_and_review_model_ids_are_rejected(self):
         self.assertFalse(self.verifier({**vars(self.receipt),
                                         "requested_model": MODEL,
