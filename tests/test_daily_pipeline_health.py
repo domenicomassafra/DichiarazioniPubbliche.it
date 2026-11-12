@@ -1,7 +1,7 @@
 import json
 import sys
 import unittest
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -16,6 +16,9 @@ import check_daily_pipeline_health as cli  # noqa: E402
 
 
 TODAY = date(2026, 10, 10)
+# The classifier reads the run start in the host's own timezone, so the fixture
+# must build the instant in that same zone to stay CI-timezone independent.
+LOCAL_TZ = datetime.now().astimezone().tzinfo
 
 
 def snapshot(**overrides):
@@ -30,7 +33,7 @@ def snapshot(**overrides):
 class DailyPipelineHealthTests(unittest.TestCase):
     def test_local_midnight_run_is_current_despite_the_utc_run_date(self):
         """The timer fires at local midnight; the stored run date is the UTC day before."""
-        local_run = datetime(2026, 10, 10, 0, 2, tzinfo=timezone(timedelta(hours=2)))
+        local_run = datetime(2026, 10, 10, 0, 2, tzinfo=LOCAL_TZ)
         status = classify_daily_pipeline(
             snapshot(latest_daily_run_date=(TODAY - timedelta(days=1)).isoformat(),
                      latest_daily_run_started_at=local_run.isoformat()),
@@ -39,7 +42,7 @@ class DailyPipelineHealthTests(unittest.TestCase):
         self.assertNotIn("DAILY_RUN_NOT_CURRENT", status.reasons)
 
     def test_a_stale_run_is_still_reported_not_current(self):
-        local_run = datetime(2026, 10, 8, 0, 2, tzinfo=timezone(timedelta(hours=2)))
+        local_run = datetime(2026, 10, 8, 0, 2, tzinfo=LOCAL_TZ)
         status = classify_daily_pipeline(
             snapshot(latest_daily_run_date=(TODAY - timedelta(days=2)).isoformat(),
                      latest_daily_run_started_at=local_run.isoformat()),
