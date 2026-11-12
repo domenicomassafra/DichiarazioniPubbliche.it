@@ -1,0 +1,172 @@
+{
+  "candidates": 16,
+  "identity_approved": false,
+  "matched": 16,
+  "observations": [
+    {
+      "ordinal": 3,
+      "person_did": 33022,
+      "publication_authorized": false,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913034",
+      "speaker": "Manfredi Potenti",
+      "speaker_attribution_approved": false,
+      "started_at": "2025-05-29T10:07:20+02:00",
+      "status": "INDEPENDENT_PUBLISHER_INDEX_MATCH_ONLY"
+    },
+    {
+      "ordinal": 6,
+      "person_did": 32697,
+      "publication_authorized": false,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913037",
+      "speaker": "Stefania Pucciarelli",
+      "speaker_attribution_approved": false,
+      "started_at": "2025-05-29T10:31:23+02:00",
+      "status": "INDEPENDENT_PUBLISHER_INDEX_MATCH_ONLY"
+    },
+    {
+      "ordinal": 7,
+      "person_did": 37739,
+      "publication_authorized": false,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913038",
+      "speaker": "Cristina Tajani",
+      "speaker_attribution_approved": false,
+      "started_at": "2025-05-29T10:36:42+02:00",
+      "status": "INDEPENDENT_PUBLISHER_INDEX_MATCH_ONLY"
+    },
+    {
+      "ordinal": 8,
+      "person_did": 36447,
+      "publication_authorized": false,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913039",
+      "speaker": "Domenica Spinelli",
+      "speaker_attribution_approved": false,
+      "started_at": "2025-05-29T10:43:58+02:00",
+      "status": "INDEPENDENT_PUBLISHER_INDEX_MATCH_ONLY"
+    },
+    {
+      "ordinal": 13,
+      "person_did": 32727,
+      "publication_authorized": false,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913045",
+      "speaker": "Julia Unterberger",
+      "speaker_attribution_approved": false,
+      "started_at": "2025-05-29T10:53:59+02:00",
+      "status": "INDEPENDENT_PUBLISHER_INDEX_MATCH_ONLY"
+    },
+    {
+      "ordinal": 31,
+      "person_did": 36425,
+      "publication_authorized": false,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913092",
+      "speaker": "Elena Sironi",
+      "speaker_attribution_approved": false,
+      "started_at": "2025-05-29T11:09:21+02:00",
+      "status": "INDEPENDENT_PUBLISHER_INDEX_MATCH_ONLY"
+    },
+    {
+      "ordinal": 33,
+      "person_did": 32658,
+      "publication_authorized": false,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913094",
+      "speaker": "Alessandra Maiorino",
+      "speaker_attribution_approved": false,
+      "started_at": "2025-05-29T11:14:57+02:00",
+      "status": "INDEPENDENT_PUBLISHER_INDEX_MATCH_ONLY"
+    },
+    {
+      "ordinal": 42,
+      "person_did": 36426,
+      "publication_authorized": false,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913106",
+      "speaker": "Luigi Spagnolli",
+      "speaker_attribution_approved": false,
+      "started_at": "2025-05-29T11:28:46+02:00",
+      "status": "INDEPENDENT_PUBLISHER_INDEX_MATCH_ONLY"
+    },
+    {
+      "ordinal": 50,
+      "person_did": 36404,
+      "publication_authorized": false,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913116",
+      "speaker": "Ada Lopreiato",
+      "speaker_attribution_approved": false,
+      "started_at": "2025-05-29T11:33:18+02:00",
+      "status": "INDEPENDENT_PUBLISHER_INDEX_MATCH_ONLY"
+    },
+    {
+      "ordinal": 57,
+      "person_did": 27622,
+      "publication_authorized": false,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913133",
+      "speaker": "Filippo Sensi",
+      "speaker_attribution_approved": false,
+      "started_at": "2025-05-29T11:39:54+02:00",
+      "status": "INDEPENDENT_PUBLISHER_INDEX_MATCH_ONLY"
+    },
+    {
+      "ordinal": 82,
+      "person_did": 36409,
+      "publication_authorized": false,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913228",
+      "speaker": "Dafne Musolino",
+      "speaker_attribution_approved": false,
+      "started_at": "2025-05-29T12:10:42+02:00",
+      "status": "INDEPENDENT_PUBLISHER_INDEX_MATCH_ONLY"
+    },
+    {
+      "ordinal": 83,
+      "person_did": 22871,
+      "publication_authorized": false,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913229",
+      "speaker": "Michaela Biancofiore",
+      "speaker_attribution_approved": false,
+      "started_at": "2025-05-29T12:21:26+02:00",
+      "status": "INDEPENDENT_PUBLISHER_INDEX_MATCH_ONLY"
+    },
+    {
+      "ordinal": 85,
+      "person_did": 36390,
+      "publication_authorized": false,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913230",
+      "speaker": "Ilaria Cucchi",
+      "speaker_attribution_approved": false,
+      "started_at": "2025-05-29T12:31:40+02:00",
+      "status": "INDEPENDENT_PUBLISHER_INDEX_MATCH_ONLY"
+    },
+    {
+      "ordinal": 86,
+      "person_did": 17811,
+      "publication_authorized": false,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913235",
+      "speaker": "Pierantonio Zanettin",
+      "speaker_attribution_approved": false,
+      "started_at": "2025-05-29T12:36:24+02:00",
+      "status": "INDEPENDENT_PUBLISHER_INDEX_MATCH_ONLY"
+    },
+    {
+      "ordinal": 87,
+      "person_did": 32851,
+      "publication_authorized": false,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913236",
+      "speaker": "Anna Bilotti",
+      "speaker_attribution_approved": false,
+      "started_at": "2025-05-29T12:42:42+02:00",
+      "status": "INDEPENDENT_PUBLISHER_INDEX_MATCH_ONLY"
+    },
+    {
+      "ordinal": 88,
+      "person_did": 29185,
+      "publication_authorized": false,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913237",
+      "speaker": "Erika Stefani",
+      "speaker_attribution_approved": false,
+      "started_at": "2025-05-29T12:52:58+02:00",
+      "status": "INDEPENDENT_PUBLISHER_INDEX_MATCH_ONLY"
+    }
+  ],
+  "original_senato_source_sha256": "1cb2b5fc3cbc96701e52f06c34c3ae3cd494eb622aa3f124fb1a93a223e27476",
+  "publication_authorized": false,
+  "radio_radicale_html_sha256": "77f889631a1a5ef0f347268c579d0108f775d26df3f7caefd6443a9c32cdd98c",
+  "radio_radicale_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura",
+  "senato_profile_receipt_sha256": "91e79c07be2edccd73685418d8b97ee9453b4e817d1cc99f9dc53ec2d0ccb57d"
+}
