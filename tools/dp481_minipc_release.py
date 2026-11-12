@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DP-518A: immutable MiniPC release and HTTP readback. No GO-PUBLIC."""
+"""DP-518A: immutable MiniPC release and HTTP readback."""
 
 from __future__ import annotations
 
@@ -17,10 +17,10 @@ import threading
 from pathlib import Path
 
 if __package__:
-    from .dp481_static_contract import check_static_contract
+    from .dp481_static_contract import check_build_stamp, check_static_contract
     from .dp481_http_readback import http_readback as _http
 else:
-    from dp481_static_contract import check_static_contract
+    from dp481_static_contract import check_build_stamp, check_static_contract
     from dp481_http_readback import http_readback as _http
 
 
@@ -149,6 +149,11 @@ def stage(root: Path, source: Path, static: Path, projection: Path, *,
     releases.mkdir(exist_ok=True, mode=0o700)
     for directory in (source / "poc", static, projection):
         safe_files(directory)
+    # The payload proves its build: same source commit, same projection.
+    index_file = projection / "index.json"
+    if index_file.is_symlink() or not index_file.is_file():
+        fail("PROJECTION_INVALID")
+    check_build_stamp(static, git_sha=git_sha, projection_sha256=file_hash(index_file))
     schema_source = source / "db" / "schema.v1.sql"
     if schema_source.is_symlink() or not schema_source.is_file():
         fail("SCHEMA_MISSING")

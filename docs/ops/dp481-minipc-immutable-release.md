@@ -8,6 +8,14 @@ file. The source Git commit is an *asserted source reference*: `code_sha256`
 and per-file hashes independently record the MiniPC mirror bytes, including
 any drift from that Git reference. Do not confuse these two statements.
 
+The immutable release records where its static payload came from: the public
+build writes `static/build-stamp.v1.json` with the source commit and the SHA-256
+of the projection file it rendered, and `stage` refuses a payload whose stamp
+does not match `--git-sha` and the staged `projection/index.json`
+(`DP481_STATIC_BUILD_STAMP_MISSING`, `DP481_STATIC_BUILD_MISMATCH`). A build
+without `DICHIARAZIONI_PUBBLICHE_BUILD_GIT_SHA` therefore produces a payload that
+cannot be released: a green merge can no longer be published as if installed.
+
 ## Source / consumer boundaries
 
 - Authoritative Git: `domenicomassafra/DichiarazioniPubbliche.it` `main`.
@@ -30,6 +38,12 @@ any drift from that Git reference. Do not confuse these two statements.
   manifest explicitly records `publication_authorized=false`.
 
 ## Dry run: real MiniPC source/projection, isolated HTTP origin
+
+```bash
+cd web && DICHIARAZIONI_PUBBLICHE_BUILD_GIT_SHA="$PINNED_MAIN_SHA" \
+  DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH=/path/to/projection/index.json \
+  npm run build
+```
 
 From the MiniPC mirror, after installing the reviewed tool:
 

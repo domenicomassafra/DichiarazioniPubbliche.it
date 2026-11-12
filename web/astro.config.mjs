@@ -1,5 +1,6 @@
 import { defineConfig } from "astro/config";
 import react from "@astrojs/react";
+import { createHash } from "node:crypto";
 import { readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,6 +31,27 @@ async function removeUnreferencedPrivateChunks(dir) {
   for (const name of privateNames) await unlink(join(publicAssets, name));
 }
 
+async function writeBuildStamp(dir) {
+  // The release tool refuses a payload whose stamp does not name the source
+  // commit and the projection file it releases with (tools/dp481_minipc_release).
+  const projectionPath = process.env.DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH;
+  let projectionSha = "";
+  if (projectionPath) {
+    try {
+      projectionSha = createHash("sha256").update(await readFile(projectionPath)).digest("hex");
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
+  }
+  const stamp = {
+    schema: "dp481-static-build-v1",
+    source_git_commit: process.env.DICHIARAZIONI_PUBBLICHE_BUILD_GIT_SHA ?? "",
+    projection_sha256: projectionSha,
+  };
+  await writeFile(join(fileURLToPath(dir), "build-stamp.v1.json"),
+    JSON.stringify(stamp) + "\n");
+}
+
 function excludePrivateStudioFromPublicBuild() {
   let building = false;
   return {
@@ -51,6 +73,7 @@ function excludePrivateStudioFromPublicBuild() {
         }
       },
       "astro:build:done": async ({ dir }) => {
+        if (building) await writeBuildStamp(dir);
         if (building && process.env.DICHIARAZIONI_PUBBLICHE_STUDIO_FIXTURE_ONLY !== "1") {
           // Astro may emit hydration chunks for a dynamic route even when that
           // route has no prerendered pages. Keep them out of public artifacts.

@@ -15,6 +15,7 @@ from dichiarazioni_pubbliche.public_schema import projection_dataset_sha256
 from dichiarazioni_pubbliche.correction_propagation import _expected_search_records, _projection_state
 from tools.dp481_minipc_release import activate, rehearse, stage, verify
 from tools import dp481_minipc_release as release_tool
+from tests.dp481_static_payload import build_static_payload
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,27 +49,17 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
         self.demo = json.loads((ROOT / "web/src/data/demo-projection.json").read_text())
 
     def make(self, *, withdrawn):
-        home = (b'<html><head><link rel="icon" href="/favicon.svg"></head>'
-                b'<body><main><h1>Safe static page</h1></main></body></html>')
-        (self.static / "index.html").write_bytes(home)
-        for route in ("esplora", "metodo", "correzioni", "dati", "progetto",
-                      "accedi", "account", "privacy", "segnalazioni"):
-            destination = self.static / route / "index.html"
-            destination.parent.mkdir(exist_ok=True)
-            destination.write_bytes(home)
-        (self.static / "favicon.svg").write_bytes(b'<svg xmlns="http://www.w3.org/2000/svg"/>')
-        (self.static / "robots.txt").write_text("User-agent: *\nDisallow: /account/\n")
-        (self.static / "sitemap.xml").write_text("<urlset/>")
-        quote = self.static / "withdrawn.html"
-        if withdrawn:
-            quote.unlink(missing_ok=True)
-        else:
-            quote.write_bytes(b"withdrawn quote 481")
         body = dict(self.demo)
         if withdrawn:
             body.update(dossiers=[], dossier_count=0, topics=[], contents=[], omitted_count=0)
             body["dataset_sha256"] = projection_dataset_sha256(body)
         (self.projection / "index.json").write_text(json.dumps(body, sort_keys=True))
+        build_static_payload(self.static, "1" * 40, self.projection / "index.json")
+        quote = self.static / "withdrawn.html"
+        if withdrawn:
+            quote.unlink(missing_ok=True)
+        else:
+            quote.write_bytes(b"withdrawn quote 481")
         index = {
             "schema_version": "dichiarazioni-pubbliche-search-index-v1",
             "projection_schema_version": body["schema_version"],

@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from dichiarazioni_pubbliche.correction_propagation import _expected_search_records, _projection_state
 from tools import dp481_minipc_release as release_tool
+from tools.dp481_static_contract import write_build_stamp
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -59,6 +60,8 @@ class PublicSearchReleaseParityTests(unittest.TestCase):
             material, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
         ).encode()).hexdigest()
         (self.static / "search-index.v1.json").write_text(json.dumps(material))
+        write_build_stamp(self.static, git_sha="1" * 40,
+                          projection_index=self.projection / "index.json")
 
     def stage(self):
         return release_tool.stage(
