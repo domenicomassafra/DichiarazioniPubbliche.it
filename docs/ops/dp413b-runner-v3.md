@@ -45,7 +45,7 @@ version, so earlier unauthenticated PUBLISH results are not reused.
 ## Provider admission and identity
 
 `OmniRouteAgentReview(model_id=...)` makes one constrained completion for
-an exact allowlisted Gemini 3.8 Flash tiered, 3 Flash or 2.5 Pro model at
+the currently allowlisted `antigravity/gemini-3.8-flash-tiered` model at
 the **local** OmniRoute gateway. Its required model-aware
 `subscription_gate(model_id)` must independently verify the DP key's
 currently authorized and independently verified Antigravity Pro account IDs,
@@ -123,12 +123,12 @@ make an editorial approval.
 - [#458](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/458)
   supplies the authentic, original-source packet and its independent rights
   authority. It was OPEN when this tranche was authored.
-- The 2 November 2026 read-only inventory listed 3.8 Flash tiered, 3 Flash
-  and 2.5 Pro on 13/13 active Google AI Pro connections. The original 3.7
-  Flash and 3.1 Pro IDs appeared on 0/13. The 3 November policy reconciliation
-  selects the three available IDs and revokes old model receipts. The owner
-  authorized all legitimately available Google AI Pro connections on 2 November,
-  subject to independent entitlement verification. No DP-scoped
+- The 2 November 2026 read-only inventory listed several Gemini variants on
+  13/13 active Google AI Pro connections. That inventory is historical: the
+  owner decision of 11 November and `APPROVED_REVIEW_MODELS` now permit only
+  `antigravity/gemini-3.8-flash-tiered`. The owner authorized use of the 13
+  legitimately available Google AI Pro connections, subject to independent
+  entitlement verification. No DP-scoped
   `allowedConnections` key, authoritative quota or verified upstream execution
   witness has yet been demonstrated. An allowlist/test fixture is **not** a
   live editorial review or escalation/audit; HOLD until subscription, quota and
