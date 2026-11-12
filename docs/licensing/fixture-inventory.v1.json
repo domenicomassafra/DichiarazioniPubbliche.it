@@ -659,20 +659,20 @@
       "source_reference": "https://www.figma.com/design/emKLEdxy5o1R5e2tDOsafZ/ and docs/ux/dp349-figma-20261111/README.md",
       "retrieved_at": "2026-11-11",
       "content_hash": "ee17826126186f54b56ff60b0cfdd98e3b2dd9c6b2dbdc1f98744eadd84121da",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner design excerpt; photograph fully masked in comparison.",
       "modifications": "Side-by-side content Figma and implementation Chrome; original portrait area masked.",
       "personal_data": "No portrait pixels; Figma example names are fictional.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "Design review evidence only, excluded from public site and projection.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner/Figma reference redistribution rights require a release decision; do not ship in public runtime."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-figma-20261111:content-figma-vs-pr629.png",
@@ -682,20 +682,20 @@
       "source_reference": "https://www.figma.com/design/emKLEdxy5o1R5e2tDOsafZ/ and docs/ux/dp349-figma-20261111/README.md",
       "retrieved_at": "2026-11-11",
       "content_hash": "69ee7277aade22428769f3e5521e18ba5c5c0b6ffeb6a252cb53236d7d37bf97",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner design excerpt; photograph fully masked in comparison.",
       "modifications": "Side-by-side content Figma and pr629 Chrome; original portrait area masked.",
       "personal_data": "No portrait pixels; Figma example names are fictional.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "Design review evidence only, excluded from public site and projection.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner/Figma reference redistribution rights require a release decision; do not ship in public runtime."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-figma-20261111:explore-figma-vs-implementation.png",
@@ -705,20 +705,20 @@
       "source_reference": "https://www.figma.com/design/emKLEdxy5o1R5e2tDOsafZ/ and docs/ux/dp349-figma-20261111/README.md",
       "retrieved_at": "2026-11-11",
       "content_hash": "1e52ca949df5d7a6673a4fa77b6ae43272a1c295287147c928594aada0838ef3",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner design excerpt; photograph fully masked in comparison.",
       "modifications": "Side-by-side explore Figma and implementation Chrome; original portrait area masked.",
       "personal_data": "No portrait pixels; Figma example names are fictional.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "Design review evidence only, excluded from public site and projection.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner/Figma reference redistribution rights require a release decision; do not ship in public runtime."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-figma-20261111:explore-figma-vs-pr629.png",
@@ -728,20 +728,20 @@
       "source_reference": "https://www.figma.com/design/emKLEdxy5o1R5e2tDOsafZ/ and docs/ux/dp349-figma-20261111/README.md",
       "retrieved_at": "2026-11-11",
       "content_hash": "10e54d763adbee1ffe100ec3078578022441fcde9a996046c455f4550360d913",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner design excerpt; photograph fully masked in comparison.",
       "modifications": "Side-by-side explore Figma and pr629 Chrome; original portrait area masked.",
       "personal_data": "No portrait pixels; Figma example names are fictional.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "Design review evidence only, excluded from public site and projection.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner/Figma reference redistribution rights require a release decision; do not ship in public runtime."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-figma-20261111:home-figma-vs-implementation.png",
@@ -751,20 +751,20 @@
       "source_reference": "https://www.figma.com/design/emKLEdxy5o1R5e2tDOsafZ/ and docs/ux/dp349-figma-20261111/README.md",
       "retrieved_at": "2026-11-11",
       "content_hash": "4e4d9d9ad0ea99b0d1901b34807932438776462967073c5ddde5ccdc504001ac",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner design excerpt; photograph fully masked in comparison.",
       "modifications": "Side-by-side home Figma and implementation Chrome; original portrait area masked.",
       "personal_data": "No portrait pixels; Figma example names are fictional.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "Design review evidence only, excluded from public site and projection.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner/Figma reference redistribution rights require a release decision; do not ship in public runtime."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-figma-20261111:home-figma-vs-pr629.png",
@@ -774,20 +774,20 @@
       "source_reference": "https://www.figma.com/design/emKLEdxy5o1R5e2tDOsafZ/ and docs/ux/dp349-figma-20261111/README.md",
       "retrieved_at": "2026-11-11",
       "content_hash": "2c6fd5dfb2f985de37681c82e1069a1a02a517120fb9e0f64decb443889f189e",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner design excerpt; photograph fully masked in comparison.",
       "modifications": "Side-by-side home Figma and pr629 Chrome; original portrait area masked.",
       "personal_data": "No portrait pixels; Figma example names are fictional.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "Design review evidence only, excluded from public site and projection.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner/Figma reference redistribution rights require a release decision; do not ship in public runtime."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-figma-20261111:method-figma-vs-implementation.png",
@@ -797,20 +797,20 @@
       "source_reference": "https://www.figma.com/design/emKLEdxy5o1R5e2tDOsafZ/ and docs/ux/dp349-figma-20261111/README.md",
       "retrieved_at": "2026-11-11",
       "content_hash": "fe5679d4133e6ca80c3e02c4a637d8e15db76e48d0e378b70cd74e53bf01dcc2",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner design excerpt; photograph fully masked in comparison.",
       "modifications": "Side-by-side method Figma and implementation Chrome; original portrait area masked.",
       "personal_data": "No portrait pixels; Figma example names are fictional.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "Design review evidence only, excluded from public site and projection.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner/Figma reference redistribution rights require a release decision; do not ship in public runtime."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-figma-20261111:method-figma-vs-pr629.png",
@@ -820,20 +820,20 @@
       "source_reference": "https://www.figma.com/design/emKLEdxy5o1R5e2tDOsafZ/ and docs/ux/dp349-figma-20261111/README.md",
       "retrieved_at": "2026-11-11",
       "content_hash": "f55a8210b260de29a04ada7e74bffd56d0fd1b4e00059bebe1b9617e4fc27e35",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner design excerpt; photograph fully masked in comparison.",
       "modifications": "Side-by-side method Figma and pr629 Chrome; original portrait area masked.",
       "personal_data": "No portrait pixels; Figma example names are fictional.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "Design review evidence only, excluded from public site and projection.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner/Figma reference redistribution rights require a release decision; do not ship in public runtime."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-figma-20261111:person-figma-vs-implementation.png",
@@ -843,20 +843,20 @@
       "source_reference": "https://www.figma.com/design/emKLEdxy5o1R5e2tDOsafZ/ and docs/ux/dp349-figma-20261111/README.md",
       "retrieved_at": "2026-11-11",
       "content_hash": "e2b53f2deee0fc74123e14b4cf2cdde78ac901c71a0753ab7bfb5d65ead602ad",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner design excerpt; photograph fully masked in comparison.",
       "modifications": "Side-by-side person Figma and implementation Chrome; original portrait area masked.",
       "personal_data": "No portrait pixels; Figma example names are fictional.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "Design review evidence only, excluded from public site and projection.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner/Figma reference redistribution rights require a release decision; do not ship in public runtime."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-figma-20261111:person-figma-vs-pr629.png",
@@ -866,20 +866,20 @@
       "source_reference": "https://www.figma.com/design/emKLEdxy5o1R5e2tDOsafZ/ and docs/ux/dp349-figma-20261111/README.md",
       "retrieved_at": "2026-11-11",
       "content_hash": "d08e304cb0c8f90b9d9be364b15dad4f3d031411e609bed9434bc8e43b0fd9ed",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner design excerpt; photograph fully masked in comparison.",
       "modifications": "Side-by-side person Figma and pr629 Chrome; original portrait area masked.",
       "personal_data": "No portrait pixels; Figma example names are fictional.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "Design review evidence only, excluded from public site and projection.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner/Figma reference redistribution rights require a release decision; do not ship in public runtime."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-figma-20261111:statement-figma-vs-implementation.png",
@@ -889,20 +889,20 @@
       "source_reference": "https://www.figma.com/design/emKLEdxy5o1R5e2tDOsafZ/ and docs/ux/dp349-figma-20261111/README.md",
       "retrieved_at": "2026-11-11",
       "content_hash": "4831488bb3932081ecda57d85389eb20297696a3e9df6fa8a22f1bc2614f294c",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner design excerpt; photograph fully masked in comparison.",
       "modifications": "Side-by-side statement Figma and implementation Chrome; original portrait area masked.",
       "personal_data": "No portrait pixels; Figma example names are fictional.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "Design review evidence only, excluded from public site and projection.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner/Figma reference redistribution rights require a release decision; do not ship in public runtime."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-figma-20261111:statement-figma-vs-pr629.png",
@@ -912,20 +912,20 @@
       "source_reference": "https://www.figma.com/design/emKLEdxy5o1R5e2tDOsafZ/ and docs/ux/dp349-figma-20261111/README.md",
       "retrieved_at": "2026-11-11",
       "content_hash": "28abd4cf71787ab23d2df014d62546b2dcb7b88c1b9437c3f9367b36f5b29cae",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner design excerpt; photograph fully masked in comparison.",
       "modifications": "Side-by-side statement Figma and pr629 Chrome; original portrait area masked.",
       "personal_data": "No portrait pixels; Figma example names are fictional.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "Design review evidence only, excluded from public site and projection.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner/Figma reference redistribution rights require a release decision; do not ship in public runtime."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-figma-20261111:topic-figma-vs-implementation.png",
@@ -935,20 +935,20 @@
       "source_reference": "https://www.figma.com/design/emKLEdxy5o1R5e2tDOsafZ/ and docs/ux/dp349-figma-20261111/README.md",
       "retrieved_at": "2026-11-11",
       "content_hash": "9c4a55c8f77fb504459f37d3247914e6f444a7b78af6ddc9fe3e4982f77ab6bf",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner design excerpt; photograph fully masked in comparison.",
       "modifications": "Side-by-side topic Figma and implementation Chrome; original portrait area masked.",
       "personal_data": "No portrait pixels; Figma example names are fictional.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "Design review evidence only, excluded from public site and projection.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner/Figma reference redistribution rights require a release decision; do not ship in public runtime."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-figma-20261111:topic-figma-vs-pr629.png",
@@ -958,20 +958,20 @@
       "source_reference": "https://www.figma.com/design/emKLEdxy5o1R5e2tDOsafZ/ and docs/ux/dp349-figma-20261111/README.md",
       "retrieved_at": "2026-11-11",
       "content_hash": "ebd1669c7a5b059d7a7a4bf37506518293d4dc1603746c8ebbab8587f20326f8",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner design excerpt; photograph fully masked in comparison.",
       "modifications": "Side-by-side topic Figma and pr629 Chrome; original portrait area masked.",
       "personal_data": "No portrait pixels; Figma example names are fictional.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "Design review evidence only, excluded from public site and projection.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner/Figma reference redistribution rights require a release decision; do not ship in public runtime."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-review-20261111:comparison-target-vs-preview-950.png",
@@ -981,20 +981,20 @@
       "source_reference": "docs/ux/dp349-review-20261111/reference-target-page.png and screenshots/fonte-950.png",
       "retrieved_at": "2026-11-11",
       "content_hash": "d5bca5b092385a9c6c6612f54c134c5a64a5abff2f363634415721dbb41681c0",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
-      "attribution": "Includes a cropped owner-supplied design reference; original portrait photographer unknown.",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
+      "attribution": "Includes a cropped owner-supplied design reference covered by the owner's decision.",
       "modifications": "Side-by-side reference and Chrome preview; left side padded to match candidate screenshot height.",
       "personal_data": "Unidentified photographic portrait; fictional name/context on the mockup.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "PR/owner design comparison only; not a published public source or dossier.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner's design image includes a portrait with unknown photographer/license. DP-305 rights/attribution review is required before reuse in a public site, published dataset, or other redistribution beyond the authorized design review."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-review-20261111:reference-target-page.png",
@@ -1004,20 +1004,20 @@
       "source_reference": "Owner-provided DP-349 visual reference (2026-11-11), available in private ControlCenter handoff",
       "retrieved_at": "2026-11-11",
       "content_hash": "54f030150310d17ede01271b2894b3633c2dfd283026950e6ba7570af74cba66",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
-      "attribution": "Owner-supplied screenshot; portrait photographer and license unknown.",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
+      "attribution": "Owner-supplied screenshot under the owner's 2026-11-12 decision.",
       "modifications": "Cropped the page region from the owner's larger annotated reference screenshot.",
       "personal_data": "Unidentified photographic portrait; no attribution to a real named speaker.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "DP-349 review only, not consumer or public-v2 data.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner's design image includes a portrait with unknown photographer/license. DP-305 rights/attribution review is required before reuse in a public site, published dataset, or other redistribution beyond the authorized design review."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-review-20261111:route-matrix:content-desktop.png",
@@ -1717,20 +1717,20 @@
       "source_reference": "Owner-provided DP-349 visual reference (2026-11-11), available in private ControlCenter handoff",
       "retrieved_at": "2026-11-11",
       "content_hash": "91c4ed42e16f7b78c8bb5bf7cbc4f579b853d707739a6a63784aa68c1e11b6c6",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner-supplied design portrait; photographer unknown.",
       "modifications": "Captured fonte-1280.png using Chrome CDP at the encoded CSS viewport; no media playback.",
       "personal_data": "Unidentified photographic portrait from reference; fictional label.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "DP-349 design review image only; not a public Content/Statement artifact.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner's design image includes a portrait with unknown photographer/license. DP-305 rights/attribution review is required before reuse in a public site, published dataset, or other redistribution beyond the authorized design review."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-review-20261111:screenshots:fonte-1440.png",
@@ -1740,20 +1740,20 @@
       "source_reference": "Owner-provided DP-349 visual reference (2026-11-11), available in private ControlCenter handoff",
       "retrieved_at": "2026-11-11",
       "content_hash": "abae43a7dcbbae86de98c69a5c88ed52e87937a39471e8876f3ea9f96b6963f2",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner-supplied design portrait; photographer unknown.",
       "modifications": "Captured fonte-1440.png using Chrome CDP at the encoded CSS viewport; no media playback.",
       "personal_data": "Unidentified photographic portrait from reference; fictional label.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "DP-349 design review image only; not a public Content/Statement artifact.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner's design image includes a portrait with unknown photographer/license. DP-305 rights/attribution review is required before reuse in a public site, published dataset, or other redistribution beyond the authorized design review."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-review-20261111:screenshots:fonte-390.png",
@@ -1763,20 +1763,20 @@
       "source_reference": "Owner-provided DP-349 visual reference (2026-11-11), available in private ControlCenter handoff",
       "retrieved_at": "2026-11-11",
       "content_hash": "3b1a9ef53e6819f14d3cc082af5c200e700adcbac0aa3e1894b86171f294a608",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner-supplied design portrait; photographer unknown.",
       "modifications": "Captured fonte-390.png using Chrome CDP at the encoded CSS viewport; no media playback.",
       "personal_data": "Unidentified photographic portrait from reference; fictional label.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "DP-349 design review image only; not a public Content/Statement artifact.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner's design image includes a portrait with unknown photographer/license. DP-305 rights/attribution review is required before reuse in a public site, published dataset, or other redistribution beyond the authorized design review."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-review-20261111:screenshots:fonte-768.png",
@@ -1786,20 +1786,20 @@
       "source_reference": "Owner-provided DP-349 visual reference (2026-11-11), available in private ControlCenter handoff",
       "retrieved_at": "2026-11-11",
       "content_hash": "76d7b54346be0730e974b7e6770ff6524f8c89e00c30886045d92c54de23b66f",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner-supplied design portrait; photographer unknown.",
       "modifications": "Captured fonte-768.png using Chrome CDP at the encoded CSS viewport; no media playback.",
       "personal_data": "Unidentified photographic portrait from reference; fictional label.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "DP-349 design review image only; not a public Content/Statement artifact.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner's design image includes a portrait with unknown photographer/license. DP-305 rights/attribution review is required before reuse in a public site, published dataset, or other redistribution beyond the authorized design review."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-review-20261111:screenshots:fonte-950.png",
@@ -1809,20 +1809,20 @@
       "source_reference": "Owner-provided DP-349 visual reference (2026-11-11), available in private ControlCenter handoff",
       "retrieved_at": "2026-11-11",
       "content_hash": "ece0e0d009ddae797f70db1fa755d5984447f9315c215f46ccc6c113b7a23f23",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
       "attribution": "Owner-supplied design portrait; photographer unknown.",
       "modifications": "Captured fonte-950.png using Chrome CDP at the encoded CSS viewport; no media playback.",
       "personal_data": "Unidentified photographic portrait from reference; fictional label.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "DP-349 design review image only; not a public Content/Statement artifact.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner's design image includes a portrait with unknown photographer/license. DP-305 rights/attribution review is required before reuse in a public site, published dataset, or other redistribution beyond the authorized design review."
+      "blocker": null
     },
     {
       "asset_id": "docs:ux:dp349-review-20261111:screenshots:home-1440.png",
@@ -3488,20 +3488,20 @@
       "source_reference": "docs/ux/dp349-review-20261111/reference-target-page.png",
       "retrieved_at": "2026-11-11",
       "content_hash": "22704ddab68fc132e44032d63acb81159a68e009ae5244694dda38f433d408f7",
-      "license_or_terms": "UNKNOWN",
-      "license_evidence": "UNKNOWN",
-      "attribution": "Photographer and portrait license unknown; purely illustrative in isolated preview.",
+      "license_or_terms": "OWNER-GRANT-DP349-20261112",
+      "license_evidence": "Owner decision 2026-11-12, issue #349: all 22 DP-349 images supplied for the redesign are usable.",
+      "attribution": "Owner-supplied design crop covered by the owner's 2026-11-12 decision; illustrative only.",
       "modifications": "Extracted 246x168 JPEG crop from the provided design screenshot; embedded as base64 only in opt-in visual preview.",
       "personal_data": "Portrait of unidentified real person. Label is fictional.",
-      "redistribution_status": "pending-review",
+      "redistribution_status": "allowed",
       "public_projection_status": "No public build, API, sitemap or index; DP-349 opt-in private preview only.",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
-        "review_date": "2026-11-11",
+        "review_date": "2026-11-12",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
-      "blocker": "Owner's design image includes a portrait with unknown photographer/license. DP-305 rights/attribution review is required before reuse in a public site, published dataset, or other redistribution beyond the authorized design review."
+      "blocker": null
     },
     {
       "asset_id": "web:src:data:studio.ts",
