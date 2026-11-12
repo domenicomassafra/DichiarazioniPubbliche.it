@@ -37,6 +37,9 @@ MATRIX_FAMILIES = (
 FIGMA_FAMILIES = (
     "statement", "home", "person", "topic", "explore", "content", "method",
 )
+SEVEN_PAGES = (
+    "home", "esplora", "metodo", "dichiarazione", "persona", "tema", "fonte",
+)
 
 
 def dp349_visual_rows(fixture_policy: str) -> dict[str, dict]:
@@ -158,4 +161,45 @@ def dp349_visual_rows(fixture_policy: str) -> dict[str, dict]:
         public_projection_status="No public build, API, sitemap or index; DP-349 opt-in private preview only.",
         blocker=None,
     )
+
+    # 12 November 2026: seven-frame acceptance set. The site captures are
+    # public pages of https://dichiarazionipubbliche.it and carry no portrait;
+    # a pair repeats the owner's Figma frame, so it stays under the decision.
+    seven = "docs/ux/dp349-seven-20261112/"
+    for directory in (seven + "before/", seven + "sites/"):
+        for family in SEVEN_PAGES:
+            for viewport in ("1440", "390"):
+                filename = f"{family}-{viewport}.png"
+                rows[directory + filename] = dict(
+                    artifact_kind="synthetic",
+                    origin="Dichiarazioni Pubbliche contributors (real Chrome capture of the public site)",
+                    source_reference="https://dichiarazionipubbliche.it and " + seven + "README.md",
+                    retrieved_at=OWNER_REVIEW_DATE,
+                    review_date=OWNER_REVIEW_DATE,
+                    license_or_terms=fixture_policy,
+                    license_evidence="docs/licensing/README.md#synthetic-fixture-policy",
+                    attribution="Project-authored capture of the public site; no third-party portrait.",
+                    modifications=f"Chrome CDP full-page capture of a published route at {viewport} CSS px.",
+                    personal_data="Public empty states only; no record, portrait or private data.",
+                    redistribution_status="allowed",
+                    public_projection_status="DP-349 design review image only; not a public Content/Statement artifact.",
+                    blocker=None,
+                )
+    for family in SEVEN_PAGES:
+        path = f"{seven}pairs/{family}-design-vs-sito-1440.png"
+        rows[path] = dict(
+            artifact_kind="derived",
+            origin="Owner-authored Figma frame + Dichiarazioni Pubbliche public-site capture",
+            source_reference="https://www.figma.com/design/emKLEdxy5o1R5e2tDOsafZ/ and " + seven + "README.md",
+            retrieved_at=OWNER_REVIEW_DATE,
+            review_date=OWNER_REVIEW_DATE,
+            license_or_terms=OWNER_DECISION,
+            license_evidence=OWNER_EVIDENCE,
+            attribution="Owner design excerpt; portrait area fully masked in the committed frame.",
+            modifications=f"Side-by-side {family} Figma frame and real 1440px capture of the public site.",
+            personal_data="No portrait pixels; Figma example names are fictional.",
+            redistribution_status="allowed",
+            public_projection_status="Design review evidence only, excluded from public site and projection.",
+            blocker=None,
+        )
     return rows
