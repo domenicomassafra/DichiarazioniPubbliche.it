@@ -1,7 +1,7 @@
 import json
 import sys
 import unittest
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -28,6 +28,25 @@ def snapshot(**overrides):
 
 
 class DailyPipelineHealthTests(unittest.TestCase):
+    def test_local_midnight_run_is_current_despite_the_utc_run_date(self):
+        """The timer fires at local midnight; the stored run date is the UTC day before."""
+        local_run = datetime(2026, 10, 10, 0, 2, tzinfo=timezone(timedelta(hours=2)))
+        status = classify_daily_pipeline(
+            snapshot(latest_daily_run_date=(TODAY - timedelta(days=1)).isoformat(),
+                     latest_daily_run_started_at=local_run.isoformat()),
+            today=TODAY,
+        )
+        self.assertNotIn("DAILY_RUN_NOT_CURRENT", status.reasons)
+
+    def test_a_stale_run_is_still_reported_not_current(self):
+        local_run = datetime(2026, 10, 8, 0, 2, tzinfo=timezone(timedelta(hours=2)))
+        status = classify_daily_pipeline(
+            snapshot(latest_daily_run_date=(TODAY - timedelta(days=2)).isoformat(),
+                     latest_daily_run_started_at=local_run.isoformat()),
+            today=TODAY,
+        )
+        self.assertIn("DAILY_RUN_NOT_CURRENT", status.reasons)
+
     def test_daily_timer_success_without_material_is_not_a_working_pipeline(self):
         status = classify_daily_pipeline(snapshot(), today=TODAY)
         self.assertEqual(status.state, "NEEDS_OPERATOR_ACTION")
