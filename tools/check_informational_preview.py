@@ -205,7 +205,7 @@ def check_preview_bundle(
     require(not unexpected_html, f"UNEXPECTED_HTML_ROUTE:{','.join(sorted(unexpected_html))}")
 
     required_top_files = {"robots.txt", "sitemap.xml", "search-index.v1.json", "favicon.svg",
-                          ERROR_DOCUMENT}
+                          "build-stamp.v1.json", ERROR_DOCUMENT}
     for item in files:
         if not item.is_file():
             continue

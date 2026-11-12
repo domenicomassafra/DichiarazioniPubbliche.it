@@ -12,6 +12,9 @@ from xml.etree import ElementTree
 from urllib.parse import urlsplit
 
 
+BUILD_STAMP_FILE = "build-stamp.v1.json"
+BUILD_STAMP_SCHEMA = "dp481-static-build-v1"
+
 REQUIRED_STATIC_FILES = frozenset({
     "index.html", "esplora/index.html", "metodo/index.html",
     "correzioni/index.html", "dati/index.html", "progetto/index.html",
@@ -123,6 +126,44 @@ class _HTMLDocument(HTMLParser):
         if ("main" in self.stack and not self.hidden_depths
                 and not {"script", "style"}.intersection(self.stack) and data.strip()):
             self.main_has_text = True
+
+
+def build_stamp_material(git_sha: str, projection_sha256: str) -> dict:
+    """The provenance record the static build writes into its own payload."""
+    return {
+        "schema": BUILD_STAMP_SCHEMA,
+        "source_git_commit": git_sha,
+        "projection_sha256": projection_sha256,
+    }
+
+
+def check_build_stamp(static: Path, *, git_sha: str, projection_sha256: str) -> dict:
+    """Reject a payload that was not built from the commit the manifest asserts.
+
+    Without this check a release can pair a freshly recorded source commit with a
+    static payload produced by an older build; the site then looks installed and
+    serves the previous generation.
+    """
+    path = static / BUILD_STAMP_FILE
+    if path.is_symlink() or not path.is_file():
+        raise ValueError("DP481_STATIC_BUILD_STAMP_MISSING")
+    try:
+        stamp = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError):
+        raise ValueError("DP481_STATIC_BUILD_STAMP_INVALID") from None
+    if stamp != build_stamp_material(git_sha, projection_sha256):
+        raise ValueError("DP481_STATIC_BUILD_MISMATCH")
+    return stamp
+
+
+def write_build_stamp(static: Path, *, git_sha: str, projection_index: Path) -> dict:
+    stamp = build_stamp_material(git_sha, file_sha256(projection_index))
+    (static / BUILD_STAMP_FILE).write_text(json.dumps(stamp) + "\n", encoding="utf-8")
+    return stamp
+
+
+def file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def check_static_contract(release: Path, assets: dict[str, str]) -> None:
