@@ -1,0 +1,222 @@
+{
+  "candidates": 16,
+  "caption_files": [
+    {
+      "file_index": 0,
+      "sha256": "f22c06b4af7211caf31392a6c456a66b87118b61a42846db4c09ebbf1d66c1d8",
+      "url": "https://www.radioradicale.it/trascrizioni/1/3/1/1/2/1311288.vtt"
+    },
+    {
+      "file_index": 1,
+      "sha256": "5500e8016f1e142c28818fcc723f3c7cd58cc33a432a2ace22a083ee33cc252a",
+      "url": "https://www.radioradicale.it/trascrizioni/1/3/1/1/3/1311304.vtt"
+    },
+    {
+      "file_index": 2,
+      "sha256": "ab02ffdd0bc0c4f0b79650d3d1cfc9bddf7b515e1bd4bc46260ee67e6c12dc5f",
+      "url": "https://www.radioradicale.it/trascrizioni/1/3/1/1/3/1311360.vtt"
+    }
+  ],
+  "checked_at": "2026-11-12T11:37:43.951704+00:00",
+  "exact_token_matches": 1,
+  "observations": [
+    {
+      "caption_file_index": 0,
+      "longest_consecutive_tokens": 8,
+      "ordinal": 3,
+      "person_did": 33022,
+      "publication_authorized": false,
+      "quote_sha256": "10e853dc569025edd00423b653bd68f85cc11de9e0a1d09fb49ac17e3948176d",
+      "quote_token_count": 21,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913034",
+      "status": "VTT_PARTIAL_TOKENS_ONLY",
+      "wording_approved": false
+    },
+    {
+      "caption_file_index": 0,
+      "longest_consecutive_tokens": 11,
+      "ordinal": 6,
+      "person_did": 32697,
+      "publication_authorized": false,
+      "quote_sha256": "33dfddb7fad615bf6d06359410e43028af6d20ab6fdc59bdfed76465d0545826",
+      "quote_token_count": 19,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913037",
+      "status": "VTT_PARTIAL_TOKENS_ONLY",
+      "wording_approved": false
+    },
+    {
+      "caption_file_index": 0,
+      "longest_consecutive_tokens": 10,
+      "ordinal": 7,
+      "person_did": 37739,
+      "publication_authorized": false,
+      "quote_sha256": "fa70cb7bf6a2e8e854ed806c1e128da87b698a6786ffc608fa1233daf840668d",
+      "quote_token_count": 10,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913038",
+      "status": "VTT_EXACT_TOKENS_ONLY",
+      "wording_approved": false
+    },
+    {
+      "caption_file_index": 0,
+      "longest_consecutive_tokens": 12,
+      "ordinal": 8,
+      "person_did": 36447,
+      "publication_authorized": false,
+      "quote_sha256": "8af431ff7299a9d7be94170840e7e0fd57b4f3c3dc39056bed003bea36622769",
+      "quote_token_count": 18,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913039",
+      "status": "VTT_PARTIAL_TOKENS_ONLY",
+      "wording_approved": false
+    },
+    {
+      "caption_file_index": 0,
+      "longest_consecutive_tokens": 6,
+      "ordinal": 13,
+      "person_did": 32727,
+      "publication_authorized": false,
+      "quote_sha256": "a345b8031d18d89e01aeca8d1469f7f1c58dbb394ade4d1597805dd44755110b",
+      "quote_token_count": 13,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913045",
+      "status": "VTT_PARTIAL_TOKENS_ONLY",
+      "wording_approved": false
+    },
+    {
+      "caption_file_index": 1,
+      "longest_consecutive_tokens": 5,
+      "ordinal": 31,
+      "person_did": 36425,
+      "publication_authorized": false,
+      "quote_sha256": "3ebf26c92c613baab8f1e98becdcbe99c5547e6d00d8a3f12e74651d521fa5b3",
+      "quote_token_count": 9,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913092",
+      "status": "VTT_PARTIAL_TOKENS_ONLY",
+      "wording_approved": false
+    },
+    {
+      "caption_file_index": 1,
+      "longest_consecutive_tokens": 3,
+      "ordinal": 33,
+      "person_did": 32658,
+      "publication_authorized": false,
+      "quote_sha256": "f50615eeb17e041db4edb7bbfad5e3c3b1582fd43ca400a58cc423f12a30ad34",
+      "quote_token_count": 8,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913094",
+      "status": "VTT_PARTIAL_TOKENS_ONLY",
+      "wording_approved": false
+    },
+    {
+      "caption_file_index": 1,
+      "longest_consecutive_tokens": 5,
+      "ordinal": 42,
+      "person_did": 36426,
+      "publication_authorized": false,
+      "quote_sha256": "a5378d432caed4654a76c193716e298f6ecae94bf9d1c6d6bd6b675f493abd04",
+      "quote_token_count": 10,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913106",
+      "status": "VTT_PARTIAL_TOKENS_ONLY",
+      "wording_approved": false
+    },
+    {
+      "caption_file_index": 1,
+      "longest_consecutive_tokens": 0,
+      "ordinal": 50,
+      "person_did": 36404,
+      "publication_authorized": false,
+      "quote_sha256": "f04375ff43dd0f8496ccf83f13da2c24d63a11da846d111bc875e5583335a071",
+      "quote_token_count": 8,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913116",
+      "status": "VTT_NO_CONTIGUOUS_ALIGNMENT",
+      "wording_approved": false
+    },
+    {
+      "caption_file_index": 1,
+      "longest_consecutive_tokens": 8,
+      "ordinal": 57,
+      "person_did": 27622,
+      "publication_authorized": false,
+      "quote_sha256": "b5c8b2a78112e00120f92444e5010fde8a308902eab2dcc09ef51637dc067118",
+      "quote_token_count": 14,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913133",
+      "status": "VTT_PARTIAL_TOKENS_ONLY",
+      "wording_approved": false
+    },
+    {
+      "caption_file_index": 2,
+      "longest_consecutive_tokens": 8,
+      "ordinal": 82,
+      "person_did": 36409,
+      "publication_authorized": false,
+      "quote_sha256": "fac88ca00ed523f308947ccde07437c527fc109bfb39ce35553cf1bd25ee1d3e",
+      "quote_token_count": 15,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913228",
+      "status": "VTT_PARTIAL_TOKENS_ONLY",
+      "wording_approved": false
+    },
+    {
+      "caption_file_index": 2,
+      "longest_consecutive_tokens": 8,
+      "ordinal": 83,
+      "person_did": 22871,
+      "publication_authorized": false,
+      "quote_sha256": "ccf4744a14af0428b28390d72f4e095349c70585eb2de2785894bf9d65f3ec01",
+      "quote_token_count": 12,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913229",
+      "status": "VTT_PARTIAL_TOKENS_ONLY",
+      "wording_approved": false
+    },
+    {
+      "caption_file_index": 2,
+      "longest_consecutive_tokens": 9,
+      "ordinal": 85,
+      "person_did": 36390,
+      "publication_authorized": false,
+      "quote_sha256": "b57049e1e462988b3027a7b26aaf7c8c95b88797dd1ca5f5535cfcf897ba2ab6",
+      "quote_token_count": 10,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913230",
+      "status": "VTT_PARTIAL_TOKENS_ONLY",
+      "wording_approved": false
+    },
+    {
+      "caption_file_index": 2,
+      "longest_consecutive_tokens": 10,
+      "ordinal": 86,
+      "person_did": 17811,
+      "publication_authorized": false,
+      "quote_sha256": "2f6df176c4dc463a2e1bf74d983f76a106e828c7a447129ef43197f031d2c07b",
+      "quote_token_count": 13,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913235",
+      "status": "VTT_PARTIAL_TOKENS_ONLY",
+      "wording_approved": false
+    },
+    {
+      "caption_file_index": 2,
+      "longest_consecutive_tokens": 9,
+      "ordinal": 87,
+      "person_did": 32851,
+      "publication_authorized": false,
+      "quote_sha256": "50b477306fe9a7d69d4a7dc5bb54345090e368931595fbad78dde989e1c0e0ee",
+      "quote_token_count": 12,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913236",
+      "status": "VTT_PARTIAL_TOKENS_ONLY",
+      "wording_approved": false
+    },
+    {
+      "caption_file_index": 2,
+      "longest_consecutive_tokens": 5,
+      "ordinal": 88,
+      "person_did": 29185,
+      "publication_authorized": false,
+      "quote_sha256": "22e538c7a8ab357dc01f74aef561bccd6664f3aca5b55da7a1e8cad4b246cf05",
+      "quote_token_count": 13,
+      "segment_url": "https://www.radioradicale.it/scheda/760686/seduta-310a-xix-legislatura#i=4913237",
+      "status": "VTT_PARTIAL_TOKENS_ONLY",
+      "wording_approved": false
+    }
+  ],
+  "original_senato_source_sha256": "1cb2b5fc3cbc96701e52f06c34c3ae3cd494eb622aa3f124fb1a93a223e27476",
+  "partial_token_matches": 14,
+  "publication_authorized": false,
+  "radio_radicale_index_sha256": "77f889631a1a5ef0f347268c579d0108f775d26df3f7caefd6443a9c32cdd98c",
+  "unaligned": 1,
+  "wording_approved": false
+}
