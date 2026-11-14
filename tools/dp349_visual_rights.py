@@ -185,6 +185,25 @@ def dp349_visual_rows(fixture_policy: str) -> dict[str, dict]:
                     public_projection_status="DP-349 design review image only; not a public Content/Statement artifact.",
                     blocker=None,
                 )
+    # 14 November 2026: captures of the public site after the copy release (PR #647).
+    copy = "docs/ux/dp349-copy-20261114/"
+    for family in ("home", "metodo"):
+        for viewport in ("1440", "390"):
+            rows[f"{copy}{family}-{viewport}.png"] = dict(
+                artifact_kind="synthetic",
+                origin="Dichiarazioni Pubbliche contributors (real Chrome capture of the public site)",
+                source_reference="https://dichiarazionipubbliche.it and " + copy + "README.md",
+                retrieved_at="2026-11-14",
+                review_date="2026-11-14",
+                license_or_terms=fixture_policy,
+                license_evidence="docs/licensing/README.md#synthetic-fixture-policy",
+                attribution="Project-authored capture of the public site; no third-party portrait.",
+                modifications=f"Chrome full-page capture of a published route at {viewport} CSS px.",
+                personal_data="Public empty states only; no record, portrait or private data.",
+                redistribution_status="allowed",
+                public_projection_status="DP-349 design review image only; not a public Content/Statement artifact.",
+                blocker=None,
+            )
     for family in SEVEN_PAGES:
         path = f"{seven}pairs/{family}-design-vs-sito-1440.png"
         rows[path] = dict(
