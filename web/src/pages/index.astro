@@ -41,14 +41,7 @@ const explorePaths = [
             <p class="search-note">I risultati provengono dai soli record approvati. <a href="/esplora/">Esplora il registro <span aria-hidden="true">↗</span></a></p>
           </div>
         ) : (
-          <aside class="hero-search hero-search-v4 home-launch-status dp-home-empty" aria-labelledby="archivio-stato">
-            <span class="dp-home-empty__marker" aria-hidden="true"></span>
-            <div>
-              <h2 id="archivio-stato">Nessuna dichiarazione ancora pubblicata.</h2>
-              <p>L'archivio è in preparazione. La ricerca sarà disponibile con i primi record approvati; intanto puoi consultare il metodo e le regole di correzione.</p>
-              <a class="text-link" href="/metodo/">Scopri come funziona <span aria-hidden="true">↗</span></a>
-            </div>
-          </aside>
+          <a class="text-link dp-home-intro__link" href="/metodo/">Come arriviamo a un giudizio <span aria-hidden="true">→</span></a>
         )}
       </div>
       <aside class="dp-home-highlight" aria-labelledby="home-highlight-heading">
@@ -63,9 +56,9 @@ const explorePaths = [
           </>
         ) : (
           <>
-            <h2 id="home-highlight-heading">Le dichiarazioni arriveranno con le fonti verificate.</h2>
-            <p>Il registro mostrerà solo contenuti approvati per la pubblicazione.</p>
-            <a class="dp-home-highlight__action" href="/metodo/">Scopri il metodo →</a>
+            <h2 id="home-highlight-heading">Nessuna dichiarazione ancora pubblicata.</h2>
+            <p>Le prime arriveranno con la fonte originale e le prove. Il registro mostra solo ciò che ha superato i controlli di pubblicazione.</p>
+            <a class="dp-home-highlight__action" href="/correzioni/">Come correggiamo gli errori →</a>
           </>
         )}
       </aside>
@@ -74,7 +67,7 @@ const explorePaths = [
     <section class="shell dp-home-explore" aria-labelledby="home-explore-heading">
       <div class="dp-home-explore__heading">
         <h2 id="home-explore-heading">Dalla dichiarazione alla prova.</h2>
-        <p>{hasPublicRecords ? "Esplora i contenuti del registro pubblico." : "Questi percorsi si popoleranno con i primi contenuti approvati."}</p>
+        {hasPublicRecords && <p>Esplora i contenuti del registro pubblico.</p>}
       </div>
       <nav class="dp-home-explore__grid" aria-label="Esplora il registro">
         {explorePaths.map((item, index) => (
@@ -82,7 +75,6 @@ const explorePaths = [
             <span class="dp-home-explore__index">{String(index + 1).padStart(2, "0")}</span>
             <strong>{item.label}</strong>
             <span class="dp-home-explore__description">{item.description}</span>
-            <span class="dp-home-explore__arrow" aria-hidden="true">↗</span>
           </a>
         ))}
       </nav>

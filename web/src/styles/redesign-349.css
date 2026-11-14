@@ -191,28 +191,13 @@ body:not(.is-studio) .dp-home-search .search-field button:hover {
   background: var(--cobalt-800);
 }
 
-body:not(.is-studio) .dp-home-empty {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--space-3);
-  margin-top: var(--space-8);
-  padding: var(--space-5);
-  border: 1px solid var(--rule-hairline-strong);
-  background: var(--paper-1);
-}
-
-body:not(.is-studio) .dp-home-empty h2 {
-  margin-top: 0;
-  font-size: var(--text-headline);
-}
-
-body:not(.is-studio) .dp-home-empty__marker {
-  display: block;
-  width: 0.65rem;
-  height: 0.65rem;
-  margin-top: 0.6rem;
-  border: 1.5px solid var(--cobalt-700);
-  border-radius: 50%;
+body:not(.is-studio) .dp-home-intro__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  gap: 0.35em;
+  margin-top: var(--space-6);
+  font-weight: var(--weight-semibold);
 }
 
 body:not(.is-studio) .dp-home-feature {
@@ -354,9 +339,9 @@ body:not(.is-studio) .dp-home-explore__item {
   position: relative;
   display: flex;
   min-width: 0;
-  min-height: 8.5rem;
+  min-height: 0;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
   padding: var(--space-4) var(--space-3);
   color: var(--ink-900);
   text-decoration: none;
@@ -384,18 +369,6 @@ body:not(.is-studio) .dp-home-explore__description {
   color: var(--ink-700);
   line-height: 1.52;
   font-size: var(--text-label);
-}
-
-body:not(.is-studio) .dp-home-explore__arrow {
-  margin-top: auto;
-  align-self: end;
-  color: var(--cobalt-700);
-  font-size: 1.4rem;
-  transition: transform var(--duration-fast) var(--ease-exit);
-}
-
-body:not(.is-studio) .dp-home-explore__item:hover .dp-home-explore__arrow {
-  transform: translate(0.2rem, -0.2rem);
 }
 
 /* One progressive accent: content remains visible before the animation starts. */
@@ -567,8 +540,7 @@ body:not(.is-studio) .dp-home-explore__item:hover .dp-home-explore__arrow {
     font-size: var(--text-lede);
     margin-top: var(--space-5);
   }
-  body:not(.is-studio) .dp-home-search,
-  body:not(.is-studio) .dp-home-empty {
+  body:not(.is-studio) .dp-home-search {
     margin-top: var(--space-7);
   }
   body:not(.is-studio) .dp-home-search .search-field {
@@ -598,7 +570,7 @@ body:not(.is-studio) .dp-home-explore__item:hover .dp-home-explore__arrow {
   }
   body:not(.is-studio) .dp-home-explore__item,
   body:not(.is-studio) .dp-home-explore__item:nth-child(3) {
-    min-height: 10rem;
+    min-height: 0;
     border-inline-start: 0;
     border-top: 1px solid var(--rule-hairline);
   }

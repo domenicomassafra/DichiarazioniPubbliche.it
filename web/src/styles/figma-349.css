@@ -347,3 +347,40 @@ body:not(.is-studio) .source-story__analysis {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* DP-349: the design's worked example under the four method stages. */
+body:not(.is-studio) .dp-method-example {
+  margin: 0 0 var(--space-7);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--editorial-rule-strong);
+}
+body:not(.is-studio) .dp-method-example h2 {
+  margin: 0 0 var(--space-4);
+  font-family: var(--font-claim);
+  font-size: clamp(1.6rem, 2.4vw, 2.2rem);
+  font-weight: 520;
+}
+body:not(.is-studio) .dp-method-example blockquote {
+  margin: 0 0 var(--space-4);
+  font-family: var(--font-claim);
+  font-size: clamp(1.25rem, 1.8vw, 1.6rem);
+  font-weight: var(--weight-semibold);
+}
+body:not(.is-studio) .dp-method-example__math {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+  color: var(--cobalt-700);
+  font-size: clamp(1.15rem, 1.6vw, 1.4rem);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+body:not(.is-studio) .dp-method-example figcaption {
+  max-width: 34rem;
+  color: var(--editorial-ink-soft);
+  font-size: var(--text-label);
+}
+body:not(.is-studio) #main:has(.dp-method-overview) .dp-method-overview li + li {
+  margin-top: 0;
+}

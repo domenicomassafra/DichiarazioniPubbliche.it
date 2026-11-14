@@ -12,7 +12,7 @@ import UtilitySiblingNav from "../components/UtilitySiblingNav.astro";
   <UtilityDocument
     eyebrow="Metodo"
     title="Come arriviamo a un giudizio."
-    lede="Prima di pubblicare una dichiarazione controlliamo le parole originali, la persona a cui sono attribuite, i diritti di utilizzo e le prove. Se manca un requisito necessario, il record resta fuori dall'archivio pubblico."
+    lede="Una procedura trasparente: dalle parole originali fino ai dati che le sostengono o le contraddicono."
     showSiblingNav={false}
   >
     <nav slot="rail" aria-label="Indice del metodo">
@@ -28,12 +28,20 @@ import UtilitySiblingNav from "../components/UtilitySiblingNav.astro";
     <div class="dp-method-overview" aria-label="Il percorso di una dichiarazione">
       <h2>Il percorso che puoi ricostruire</h2>
       <ol>
-        <li><strong>Dichiarazione</strong><span>Le parole e chi le ha pronunciate.</span></li>
-        <li><strong>Fonte</strong><span>Il documento o il momento originale.</span></li>
-        <li><strong>Verifica</strong><span>Le prove, l'esito e i suoi limiti.</span></li>
-        <li><strong>Storia</strong><span>Revisioni, correzioni e repliche.</span></li>
+        <li><strong>Dichiarazione</strong><span>Frase esatta, autore, data e contesto.</span></li>
+        <li><strong>Fonte originale</strong><span>Registrazione, atto o testo da cui proviene la frase.</span></li>
+        <li><strong>Confronto</strong><span>Dati verificabili, ambito, unità di misura e periodo.</span></li>
+        <li><strong>Giudizio</strong><span>Esito motivato, limiti e correzioni documentate.</span></li>
       </ol>
     </div>
+    <figure class="dp-method-example" aria-labelledby="esempio-titolo">
+      <h2 id="esempio-titolo">Un esempio concreto.</h2>
+      <blockquote>«Abbiamo raddoppiato le piste ciclabili.»</blockquote>
+      <p class="dp-method-example__math" aria-label="Da 18 a 21 chilometri: più 16,7 per cento, non più 100 per cento.">
+        <span>18&nbsp;km → 21&nbsp;km</span> <span aria-hidden="true">=</span> <span>+16,7%</span> <span aria-hidden="true">≠</span> <span>+100%</span>
+      </p>
+      <figcaption>Dato fittizio: il giudizio riguarda soltanto questa affermazione, non l'affidabilità complessiva della persona.</figcaption>
+    </figure>
     <UtilitySiblingNav current="Metodo" />
     <section id="dichiarazioni" class="dp-utility-section">
       <h2>Quali dichiarazioni raccogliamo</h2>
@@ -42,6 +50,7 @@ import UtilitySiblingNav from "../components/UtilitySiblingNav.astro";
     </section>
     <section id="pubblicazione" class="dp-utility-section">
       <h2>Cosa serve per pubblicare</h2>
+      <p>Prima di pubblicare controlliamo le parole originali, la persona a cui sono attribuite, i diritti di utilizzo e le prove. Se manca un requisito, il record resta fuori dall'archivio pubblico.</p>
       <p>Ogni scheda pubblicabile richiede la fonte verificata, le parole fedeli all'originale, l'attribuzione, i diritti di citazione e i controlli di privacy. La pubblicazione automatica avviene soltanto dopo controlli indipendenti. Una verifica ordinaria richiede anche una revisione editoriale autenticata. Nei casi realmente incerti sono necessarie due revisioni indipendenti e un ulteriore controllo distinto.</p>
       <p>La ricerca, la generazione automatica di un testo e il reperimento di una prova non rendono di per sé pubblico un record. I record che non superano i controlli necessari restano sospesi.</p>
     </section>
