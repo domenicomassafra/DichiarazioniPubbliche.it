@@ -2,6 +2,18 @@
 
 Leggere prima `~/.dstack/contracts/shared-root/AGENTS.md` e la issue GitHub assegnata con tutti i commenti. GitHub Issues è la fonte per criteri e stato; `PLAN.md` e `docs/tickets/DP-*.md` documentano specifiche storiche. Non aggiornare i loro stati. Seguire anche `PRODUCT.md`, `CONTEXT.md`, `ARCHITECTURE.md` e gli ADR pertinenti.
 
+## Mappa
+
+- `web/` — il sito Astro servito; ci scrive chi cambia una pagina.
+- `data/` — i dati pubblici serviti: si generano dagli strumenti, non si scrivono a mano.
+- `db/` — schema e migrazioni SQL; ci scrive chi cambia i dati; aprilo per una migrazione.
+- `deploy/` — systemd, AppArmor e operazioni sul server; ci scrive chi installa.
+- `config/` — i contratti versionati dell'estrazione (JSON); ci scrive chi cambia come nasce un dato.
+- `tools/` — la pipeline: cattura, estrazione, controlli; ci scrive chi cambia una fase.
+- `tests/` — le prove della pipeline e del sito.
+- `docs/` e `research/` — visione, architettura, ricerche e fonti; ci scrive chi studia.
+- `poc/`, `prototypes/`, `benchmarks/` — prove e prototipi: si consultano, non si estendono.
+
 ## Architettura e ambienti
 
 - Backend Python: `poc/dichiarazioni_pubbliche/`; test: `tests/`; contratti/API: `docs/api/`; configurazione fonti: `config/`.
