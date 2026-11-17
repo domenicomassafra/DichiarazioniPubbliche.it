@@ -12,7 +12,8 @@ Leggere prima `~/.dstack/contracts/shared-root/AGENTS.md` e la issue GitHub asse
 - `tools/` — la pipeline: cattura, estrazione, controlli; ci scrive chi cambia una fase.
 - `tests/` — le prove della pipeline e del sito.
 - `docs/` e `research/` — visione, architettura, ricerche e fonti; ci scrive chi studia.
-- `poc/`, `prototypes/`, `benchmarks/` — prove e prototipi: si consultano, non si estendono.
+- `poc/dichiarazioni_pubbliche/` — il backend Python vero, nonostante il nome: i comandi di verifica girano con `PYTHONPATH=poc`; ci scrive chi tocca l'estrazione o il servizio; aprilo per un dato sbagliato o una prova che non passa.
+- `poc/benchmarks/`, `prototypes/`, `benchmarks/` — prove e prototipi: si consultano, non si estendono.
 
 ## Architettura e ambienti
 
