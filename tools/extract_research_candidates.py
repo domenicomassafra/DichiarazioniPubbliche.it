@@ -24,9 +24,6 @@ from dichiarazioni_pubbliche.candidate_extraction import (  # noqa: E402
     OmniRouteCandidateExtractionClient,
     extract_passage_candidates,
 )
-from dichiarazioni_pubbliche.antigravity_cli_candidate import (  # noqa: E402
-    AntigravityCliCandidateExtractionClient,
-)
 from dichiarazioni_pubbliche.private_candidate_batch import (  # noqa: E402
     load_candidate_batch,
     preflight_candidate_batch,
@@ -167,7 +164,7 @@ def main(argv: list[str] | None = None) -> int:
                 provider_calls=0, **dp240_fields)
         return 2
 
-    if optional_plan is not None and optional_plan.selected.billing_tier != "ANTIGRAVITY_CLI_QUOTA":
+    if optional_plan is not None:
         try:
             validate_optional_omniroute_dispatch(
                 optional_plan.selected, args.omniroute_base_url,
@@ -177,37 +174,17 @@ def main(argv: list[str] | None = None) -> int:
                     plan_receipt_id=optional_plan.receipt_id, provider_calls=0)
             return 2
 
-    if optional_plan is not None and optional_plan.selected.billing_tier == "ANTIGRAVITY_CLI_QUOTA":
-        # `agy` uses the existing native CLI session quota. Never route this
-        # tier through OmniRoute's auto fallback or Gemini Developer API.
-        selected_row = next(
-            row for row in catalog["models"]
-            if row["model_id"] == optional_plan.selected.model_id
-        )
-        try:
-            client = AntigravityCliCandidateExtractionClient(
-                model_id=optional_plan.selected.model_id,
-                account_scope_sha256=selected_row["single_account_scope"],
-                quota_remaining_requests=selected_row["cli_batch_request_cap"],
-                quota_remaining_tokens=selected_row["cli_batch_token_cap"],
-                quota_receipt_id=optional_plan.receipt_id,
-            )
-        except (RuntimeError, ValueError) as exc:
-            _output("BLOCKED_NO_MODEL_CALL", reason_code=str(exc), provider_calls=0)
-            return 2
-    else:
-        client = OmniRouteCandidateExtractionClient(
-            api_key=args.api_key,
-            model_id=optional_plan.selected.model_id if optional_plan else args.model or None,
-            base_url=args.omniroute_base_url,
-            cost_rate_usd_per_1k_total_tokens=(
-                optional_plan.selected.rate_usd_per_1k_total_tokens
-                if optional_plan else None
-            ),
-        )
+    client = OmniRouteCandidateExtractionClient(
+        api_key=args.api_key,
+        model_id=optional_plan.selected.model_id if optional_plan else args.model or None,
+        base_url=args.omniroute_base_url,
+        cost_rate_usd_per_1k_total_tokens=(
+            optional_plan.selected.rate_usd_per_1k_total_tokens
+            if optional_plan else None
+        ),
+    )
     # A missing configured provider is not a zero-cost success or a fake canary.
-    if (not isinstance(client, AntigravityCliCandidateExtractionClient)
-            and (not client.api_key or not client.model_id or client.cost_rate is None)):
+    if not client.api_key or not client.model_id or client.cost_rate is None:
         _output("BLOCKED_PROVIDER_NOT_CONFIGURED", manifest_sha256=batch.sha256)
         return 2
 

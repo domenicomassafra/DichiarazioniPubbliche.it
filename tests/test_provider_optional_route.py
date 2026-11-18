@@ -48,82 +48,17 @@ def plan(data, **patch):
 
 
 class OptionalRouteTests(unittest.TestCase):
-    def test_antigravity_cli_quota_selected_without_gemini_developer_entitlement(self):
-        agy = row("gemini-3.8-flash-low", "antigravity-cli", "ANTIGRAVITY_CLI_QUOTA",
-                  quota_source="ANTIGRAVITY_CLI_LIVE_USAGE",
-                  overage_policy="NEVER", single_account_scope="a" * 64,
-                  cli_batch_request_cap=2, cli_batch_token_cap=12000,
-                  separate_api_entitlement_verified=False)
-        choices = catalog(agy,
-            row("openrouter/free-model", "openrouter", "API_FREE_VERIFIED"))
-        selected = plan_optional_private_candidate(
-            choices, input_bytes_sha256=SHA, max_total_tokens=12000,
-            requests_needed=2, max_batch_cost_usd=Decimal("0"),
-            source_approved_for_external_api=True,
-        )
-        self.assertEqual(selected.selected.model_id, "gemini-3.8-flash-low")
-        self.assertEqual(selected.selected.billing_tier, "ANTIGRAVITY_CLI_QUOTA")
-        with self.assertRaisesRegex(ValueError, "DIRECT_CLI_ADAPTER"):
-            validate_optional_omniroute_dispatch(selected.selected, "http://127.0.0.1:20128")
-
-    def test_antigravity_cli_blocks_overage_budget_wrong_model_and_unverified_account(self):
-        baseline = row("gemini-3.8-flash-medium", "antigravity-cli", "ANTIGRAVITY_CLI_QUOTA",
-                       quota_source="ANTIGRAVITY_CLI_LIVE_USAGE",
-                       overage_policy="NEVER", single_account_scope="a" * 64,
-                       cli_batch_request_cap=2, cli_batch_token_cap=12000)
-        cases = (
-            ({"overage_policy": "ALWAYS"}, "ANTIGRAVITY_CREDIT_OVERAGE_NOT_DISABLED"),
-            ({"quota_source": "GEMINI_DEVELOPER_API"}, "ANTIGRAVITY_QUOTA_SOURCE_UNVERIFIED"),
-            ({"single_account_scope": ""}, "ANTIGRAVITY_ACCOUNT_SCOPE_UNVERIFIED"),
-            ({"cli_batch_token_cap": 0}, "ANTIGRAVITY_BATCH_BUDGET_UNVERIFIED"),
-            ({"cli_batch_request_cap": 1}, "ANTIGRAVITY_BATCH_BUDGET_INSUFFICIENT"),
-            ({"model_id": "agy/gemini-3.8-flash-low"}, "ANTIGRAVITY_CLI_MODEL_ID_NOT_OBSERVED"),
-        )
-        for changes, reason in cases:
-            with self.subTest(reason=reason):
-                result = plan_optional_private_candidate(
-                    catalog(baseline | changes), input_bytes_sha256=SHA,
-                    max_total_tokens=12000, requests_needed=2,
-                    max_batch_cost_usd=Decimal("0"),
-                    source_approved_for_external_api=True,
-                )
-                self.assertIsNone(result.selected)
-                self.assertEqual(result.blocked[0]["reason"], reason)
-
-    def test_plan_receipt_cannot_be_replayed_across_account_or_quota_changes(self):
-        """A plan ID must bind the actual safety admission, not only model name."""
-        original = row("gemini-3.8-flash-low", "antigravity-cli", "ANTIGRAVITY_CLI_QUOTA",
-                       quota_source="ANTIGRAVITY_CLI_LIVE_USAGE", overage_policy="NEVER",
-                       single_account_scope="a" * 64, cli_batch_request_cap=4,
-                       cli_batch_token_cap=160_000, separate_api_entitlement_verified=False)
-
-        def choose(candidate):
-            return plan_optional_private_candidate(
-                catalog(candidate), input_bytes_sha256=SHA,
-                max_total_tokens=12000, requests_needed=2,
-                max_batch_cost_usd=Decimal("0"),
+    def test_legacy_direct_cli_route_is_rejected(self):
+        obsolete = row("gemini-3.8-flash-low", "antigravity-cli", "ANTIGRAVITY_CLI_QUOTA")
+        with self.assertRaisesRegex(ValueError, "OPTIONAL_MODEL_ID_OR_TIER_INVALID"):
+            plan_optional_private_candidate(
+                catalog(obsolete), input_bytes_sha256=SHA, max_total_tokens=12000,
+                requests_needed=2, max_batch_cost_usd=Decimal("0"),
                 source_approved_for_external_api=True,
             )
 
-        baseline = choose(original)
-        self.assertIsNotNone(baseline.selected)
-        self.assertEqual(baseline.receipt_id, choose(dict(reversed(list(original.items())))).receipt_id)
-        for mutation in (
-            {"single_account_scope": "b" * 64},
-            {"cli_batch_request_cap": 6},
-            {"cli_batch_token_cap": 180_000},
-            {"quota_observed_at": "2026-10-10T18:00:00Z"},
-        ):
-            with self.subTest(mutation=tuple(mutation)):
-                changed = choose(original | mutation)
-                self.assertIsNotNone(changed.selected)
-                self.assertNotEqual(baseline.receipt_id, changed.receipt_id)
-
     def test_programmatic_catalog_does_not_bypass_rejection_of_sensitive_unknown_fields(self):
-        unsafe = row("gemini-3.8-flash-low", "antigravity-cli", "ANTIGRAVITY_CLI_QUOTA",
-                     quota_source="ANTIGRAVITY_CLI_LIVE_USAGE", overage_policy="NEVER",
-                     single_account_scope="a" * 64, cli_batch_request_cap=2,
-                     cli_batch_token_cap=12000, api_key="DO_NOT_LOG")
+        unsafe = row("openrouter/free-model", "openrouter", "API_FREE_VERIFIED", api_key="DO_NOT_LOG")
         with self.assertRaisesRegex(ValueError, "OPTIONAL_CATALOG_SENSITIVE_FIELD_FORBIDDEN") as captured:
             plan_optional_private_candidate(
                 catalog(unsafe), input_bytes_sha256=SHA,
@@ -158,7 +93,7 @@ class OptionalRouteTests(unittest.TestCase):
 
     def test_dispatch_guard_rejects_forged_family_tier_pair_independently(self):
         for family, model, reason in (
-            ("antigravity-cli", "gemini-3.8-flash-low", "DIRECT_CLI_ADAPTER"),
+            ("antigravity-cli", "gemini-3.8-flash-low", "OPTIONAL_ROUTE_UNSUPPORTED"),
             ("local", "local/qwen3-4b", "LOCAL_CANDIDATE_ADAPTER_UNAVAILABLE"),
         ):
             with self.subTest(family=family):
