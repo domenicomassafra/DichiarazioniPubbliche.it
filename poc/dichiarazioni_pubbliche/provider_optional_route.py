@@ -21,7 +21,6 @@ from typing import Any, Mapping
 _ALLOWED_PROVIDER_FAMILIES = frozenset({
     "local", "openrouter", "cerebras", "cloudflare-ai", "cohere", "groq",
     "gemini-api", "mistral", "moonshot", "nvidia", "opencode-go", "omniroute",
-    "antigravity-cli",
 })
 _MODEL_ID = re.compile(r"[A-Za-z0-9._:/+@-]{3,160}\Z")
 _MAX_MODELS = 128
@@ -31,8 +30,6 @@ _MODEL_FIELDS = frozenset({
     "confidentiality_approved", "separate_api_entitlement_verified",
     "quota_remaining_requests", "quota_remaining_tokens",
     "usd_per_1k_total_tokens", "paid_owner_authorized",
-    "quota_observed_at", "quota_source", "overage_policy", "single_account_scope",
-    "cli_batch_request_cap", "cli_batch_token_cap",
 })
 
 
@@ -189,7 +186,7 @@ def plan_optional_private_candidate(
         mid, family, tier = row.get("model_id"), row.get("family"), row.get("billing_tier")
         if (not isinstance(mid, str) or not _MODEL_ID.fullmatch(mid)
                 or mid in seen or family not in _ALLOWED_PROVIDER_FAMILIES
-                or tier not in {"LOCAL_ZERO_EXTERNAL", "API_FREE_VERIFIED", "API_PAID_APPROVED", "ANTIGRAVITY_CLI_QUOTA"}):
+                or tier not in {"LOCAL_ZERO_EXTERNAL", "API_FREE_VERIFIED", "API_PAID_APPROVED"}):
             raise ValueError("OPTIONAL_MODEL_ID_OR_TIER_INVALID")
         seen.add(mid)
         reason = None
@@ -201,14 +198,6 @@ def plan_optional_private_candidate(
             reason = "MODEL_NOT_OPERATOR_ENABLED"
         elif tier == "LOCAL_ZERO_EXTERNAL" and family != "local":
             reason = "LOCAL_TIER_FAMILY_MISMATCH"
-        elif tier == "ANTIGRAVITY_CLI_QUOTA" and family != "antigravity-cli":
-            reason = "ANTIGRAVITY_CLI_FAMILY_MISMATCH"
-        elif tier == "ANTIGRAVITY_CLI_QUOTA" and not re.fullmatch(
-            r"gemini-[0-9]+\.[0-9]+-(flash|pro)-(low|medium|high)", mid
-        ):
-            reason = "ANTIGRAVITY_CLI_MODEL_ID_NOT_OBSERVED"
-        elif family == "antigravity-cli" and tier != "ANTIGRAVITY_CLI_QUOTA":
-            reason = "ANTIGRAVITY_CLI_TIER_MISMATCH"
         elif tier != "LOCAL_ZERO_EXTERNAL" and not source_approved_for_external_api:
             reason = "SOURCE_NOT_APPROVED_FOR_REMOTE_MODEL"
         elif tier != "LOCAL_ZERO_EXTERNAL" and row.get("terms_accepted") is not True:
@@ -216,27 +205,8 @@ def plan_optional_private_candidate(
         elif tier != "LOCAL_ZERO_EXTERNAL" and row.get("confidentiality_approved") is not True:
             reason = "REMOTE_CONFIDENTIALITY_NOT_APPROVED"
         elif tier != "LOCAL_ZERO_EXTERNAL" and row.get("separate_api_entitlement_verified") is not True:
-            # Antigravity CLI has its own Google quota; it does not need a
-            # Gemini Developer API key or entitlement.
-            if tier != "ANTIGRAVITY_CLI_QUOTA":
-                reason = "SEPARATE_API_ENTITLEMENT_UNVERIFIED"
-        if reason is None and tier == "ANTIGRAVITY_CLI_QUOTA":
-            if row.get("quota_source") != "ANTIGRAVITY_CLI_LIVE_USAGE":
-                reason = "ANTIGRAVITY_QUOTA_SOURCE_UNVERIFIED"
-            elif row.get("overage_policy") != "NEVER":
-                reason = "ANTIGRAVITY_CREDIT_OVERAGE_NOT_DISABLED"
-            elif (not isinstance(row.get("single_account_scope"), str)
-                  or not re.fullmatch(r"[a-f0-9]{64}", row["single_account_scope"])):
-                reason = "ANTIGRAVITY_ACCOUNT_SCOPE_UNVERIFIED"
-            elif (type(row.get("cli_batch_request_cap")) is not int
-                  or not 0 < row["cli_batch_request_cap"] <= 12
-                  or type(row.get("cli_batch_token_cap")) is not int
-                  or not 0 < row["cli_batch_token_cap"] <= 5_000_000):
-                reason = "ANTIGRAVITY_BATCH_BUDGET_UNVERIFIED"
-            elif (row["cli_batch_request_cap"] < requests_needed
-                  or row["cli_batch_token_cap"] < max_total_tokens):
-                reason = "ANTIGRAVITY_BATCH_BUDGET_INSUFFICIENT"
-        if reason is None and tier not in {"LOCAL_ZERO_EXTERNAL", "ANTIGRAVITY_CLI_QUOTA"} and (
+            reason = "SEPARATE_API_ENTITLEMENT_UNVERIFIED"
+        if reason is None and tier != "LOCAL_ZERO_EXTERNAL" and (
             type(row.get("quota_remaining_requests")) is not int
             or row["quota_remaining_requests"] < requests_needed
             or type(row.get("quota_remaining_tokens")) is not int
@@ -246,7 +216,7 @@ def plan_optional_private_candidate(
         rate = _money(row.get("usd_per_1k_total_tokens"))
         if reason is None and rate is None:
             reason = "MODEL_COST_RATE_UNVERIFIED"
-        if reason is None and tier in {"LOCAL_ZERO_EXTERNAL", "API_FREE_VERIFIED", "ANTIGRAVITY_CLI_QUOTA"} and rate != 0:
+        if reason is None and tier in {"LOCAL_ZERO_EXTERNAL", "API_FREE_VERIFIED"} and rate != 0:
             reason = "ZERO_EXTERNAL_COST_UNVERIFIED"
         if reason is None and tier == "API_PAID_APPROVED" and (
             mid not in allowlist or row.get("paid_owner_authorized") is not True
@@ -263,9 +233,8 @@ def plan_optional_private_candidate(
         assert rate is not None
         choice = ModelChoice(mid, family, tier, rate, estimated)
         priority = (0 if tier == "LOCAL_ZERO_EXTERNAL" else
-                    1 if tier == "ANTIGRAVITY_CLI_QUOTA" else
-                    2 if tier == "API_FREE_VERIFIED" and family == "openrouter" else
-                    3 if tier == "API_FREE_VERIFIED" else 4)
+                    1 if tier == "API_FREE_VERIFIED" and family == "openrouter" else
+                    2 if tier == "API_FREE_VERIFIED" else 3)
         candidates.append((priority, estimated, mid, choice))
     selected = sorted(candidates, key=lambda x: (x[0], x[1], x[2]))[0][3] if candidates else None
     stable = {
@@ -286,8 +255,8 @@ def validate_optional_omniroute_dispatch(choice: ModelChoice, base_url: str) -> 
     # offline planner or constructs a mismatched ModelChoice directly.
     if choice.billing_tier == "LOCAL_ZERO_EXTERNAL" or choice.family == "local":
         raise ValueError("OPTIONAL_LOCAL_CANDIDATE_ADAPTER_UNAVAILABLE")
-    if choice.billing_tier == "ANTIGRAVITY_CLI_QUOTA" or choice.family == "antigravity-cli":
-        raise ValueError("ANTIGRAVITY_CLI_REQUIRES_DIRECT_CLI_ADAPTER")
+    if choice.billing_tier not in {"API_FREE_VERIFIED", "API_PAID_APPROVED"} or choice.family not in _ALLOWED_PROVIDER_FAMILIES:
+        raise ValueError("OPTIONAL_ROUTE_UNSUPPORTED")
     # The local OmniRoute gateway must stay loopback and without URL tricks;
     # account/provider dispatch is still subject to its own credentials/grants.
     if base_url.rstrip("/") != "http://127.0.0.1:20128":
