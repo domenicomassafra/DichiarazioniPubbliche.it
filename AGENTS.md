@@ -1,6 +1,6 @@
 # DichiarazioniPubbliche.it — istruzioni del repository
 
-Leggere prima `~/.dstack/contracts/shared-root/AGENTS.md` e la issue GitHub assegnata con tutti i commenti. GitHub Issues è la fonte per criteri e stato; `PLAN.md` e `docs/tickets/DP-*.md` documentano specifiche storiche. Non aggiornare i loro stati. Seguire anche `PRODUCT.md`, `CONTEXT.md`, `ARCHITECTURE.md` e gli ADR pertinenti.
+Il contratto globale degli agenti è già nel tuo contesto (ogni agente lo riceve dal proprio file nativo); leggi la issue GitHub assegnata con tutti i commenti. GitHub Issues è la fonte per criteri e stato; `PLAN.md` e `docs/tickets/DP-*.md` documentano specifiche storiche. Non aggiornare i loro stati. Seguire anche `PRODUCT.md`, `CONTEXT.md`, `ARCHITECTURE.md` e gli ADR pertinenti.
 
 ## Mappa
 
@@ -58,7 +58,7 @@ curl -fsS --max-time 10 -o /dev/null -w 'http=%{http_code}\n' https://dichiarazi
 
 ## LLMs for review and audit
 
-For agent reviews and audits, follow only `~/.dstack/contracts/shared-root/AGENTS.md`. Historical model names and catalog aliases do not prove availability or authorization.
+For agent reviews and audits, apply the global agent contract already in your context. Historical model names and catalog aliases do not prove availability or authorization.
 
 The **product** escalation requirement applies when a specific record has unresolved uncertainty: its 2+1 requires three genuinely different upstream model identities, proven by execution receipts. Ordinary records require one genuine, authenticated editorial review. Multiple accounts, aliases, and tiers of the same model do not count as different models. A code or OmniRoute allowlist does not prove entitlement, quota or permission to execute; without the current witness, HOLD and never POST.
 
