@@ -137,6 +137,27 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "UNSAFE_ASSET"):
             self.make(withdrawn=True)
 
+    def test_hidden_source_scratch_is_preserved_but_not_released(self):
+        hidden = self.source / "poc" / "dichiarazioni_pubbliche" / ".rollback.py"
+        hidden.write_text("private rollback scratch\n")
+        candidate = self.make(withdrawn=True)
+        packaged = (self.root / "releases" / candidate["release_id"] / "code" / "poc"
+                    / "dichiarazioni_pubbliche" / hidden.name)
+        self.assertTrue(hidden.is_file())
+        self.assertFalse(packaged.exists())
+
+    def test_hidden_public_asset_still_fails_closed(self):
+        (self.static / ".private-scratch").write_text("must not be released\n")
+        with self.assertRaisesRegex(ValueError, "UNSAFE_ASSET"):
+            self.make(withdrawn=True)
+
+    def test_stage_still_rejects_symlinked_source_code(self):
+        secret = self.base / "private-source.py"
+        secret.write_text("private source\n")
+        (self.source / "poc" / "dichiarazioni_pubbliche" / "leak.py").symlink_to(secret)
+        with self.assertRaisesRegex(ValueError, "UNSAFE_ASSET"):
+            self.make(withdrawn=True)
+
     def test_disposable_host_rehearsal_verifies_safe_http_rollback(self):
         self.make(withdrawn=True)
         result = rehearse(self.source, self.static, self.projection,
@@ -331,8 +352,8 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
         target = self.static / "search-index.v1.json"
         original_check = release_tool.safe_files
 
-        def swap_after_preflight(directory):
-            result = original_check(directory)
+        def swap_after_preflight(directory, **kwargs):
+            result = original_check(directory, **kwargs)
             if directory == self.static:
                 target.unlink()
                 target.symlink_to(secret)

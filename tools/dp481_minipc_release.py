@@ -42,13 +42,15 @@ def canonical(value: object) -> bytes:
                        ensure_ascii=False) + "\n").encode("utf-8")
 
 
-def safe_files(directory: Path) -> dict[str, str]:
-    """Inventory regular, singly linked files; never follow symlinks."""
+def safe_files(directory: Path, *, ignore_hidden: bool = False) -> dict[str, str]:
+    """Inventory regular, singly linked files; optionally omit hidden source artifacts."""
     hashes: dict[str, str] = {}
     if directory.is_symlink() or not directory.is_dir():
         fail("UNSAFE_ASSET")
     for path in sorted(directory.rglob("*")):
         relative = path.relative_to(directory)
+        if ignore_hidden and any(part.startswith(".") for part in relative.parts):
+            continue
         if path.is_symlink() or (path.is_file() and path.stat().st_nlink != 1):
             fail("UNSAFE_ASSET")
         if any(part.startswith(".") and part != ".well-known" for part in relative.parts):
@@ -147,7 +149,9 @@ def stage(root: Path, source: Path, static: Path, projection: Path, *,
         fail("ROOT_PERMISSIONS")
     releases = root / "releases"
     releases.mkdir(exist_ok=True, mode=0o700)
-    for directory in (source / "poc", static, projection):
+    # Hidden rollback/scratch files stay in the source mirror and never ship.
+    safe_files(source / "poc", ignore_hidden=True)
+    for directory in (static, projection):
         safe_files(directory)
     # The payload proves its build: same source commit, same projection.
     index_file = projection / "index.json"
@@ -161,7 +165,7 @@ def stage(root: Path, source: Path, static: Path, projection: Path, *,
         candidate = Path(temp) / "release"
         (candidate / "code").mkdir(parents=True)
         shutil.copytree(source / "poc", candidate / "code" / "poc",
-                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
+                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo", ".*"),
                         symlinks=True)
         shutil.copy2(schema_source, candidate / "code" / "schema.v1.sql",
                      follow_symlinks=False)

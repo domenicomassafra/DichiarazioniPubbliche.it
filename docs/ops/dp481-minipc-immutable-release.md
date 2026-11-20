@@ -21,8 +21,12 @@ cannot be released: a green merge can no longer be published as if installed.
 - Authoritative Git: `domenicomassafra/DichiarazioniPubbliche.it` `main`.
 - MiniPC's existing `/home/udodo/src/DichiarazioniPubbliche.it` is a non-Git
   mirror. Its source files are never overwritten or deleted by this operation.
-- Existing private projection is
-  `/home/udodo/.local/share/dichiarazioni-pubbliche/public/v1/`.
+- Current producer projection is
+  `/home/udodo/.local/share/dichiarazioni-pubbliche/public-projection/`.
+  `public/v1/` is a legacy projection and is not the producer output for this release.
+- Hidden rollback/scratch files under `source/poc/` remain in the mirror but are
+  excluded from the release; symlinks and hardlinks remain rejected, as do hidden
+  files in the static payload and projection.
 - New release authority lives at
   `/home/udodo/.local/share/dichiarazioni-pubbliche/host-release/`, with
   `releases/<sha256>/` and an atomic `current -> releases/<sha256>` symlink.
@@ -51,7 +55,7 @@ From the MiniPC mirror, after installing the reviewed tool:
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 tools/dp481_minipc_release.py \
   rehearse --source /home/udodo/src/DichiarazioniPubbliche.it \
   --static /home/udodo/src/DichiarazioniPubbliche.it/web/dist \
-  --projection /home/udodo/.local/share/dichiarazioni-pubbliche/public/v1 \
+  --projection /home/udodo/.local/share/dichiarazioni-pubbliche/public-projection \
   --git-sha "$PINNED_MAIN_SHA" --rights-epoch-ref PRIVATE_DRAFT_NO_GO
 ```
 
@@ -75,7 +79,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 tools/dp481_minipc_release.py \
   --root "$DP481_ROOT" stage \
   --source /home/udodo/src/DichiarazioniPubbliche.it \
   --static /home/udodo/src/DichiarazioniPubbliche.it/web/dist \
-  --projection /home/udodo/.local/share/dichiarazioni-pubbliche/public/v1 \
+  --projection /home/udodo/.local/share/dichiarazioni-pubbliche/public-projection \
   --git-sha "$PINNED_MAIN_SHA" --rights-epoch-ref PRIVATE_DRAFT_NO_GO
 ```
 
