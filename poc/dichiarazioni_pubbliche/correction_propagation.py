@@ -400,6 +400,12 @@ def _expected_search_records(current: ProjectionState) -> dict[tuple[str, str], 
         speaker = dossier["speaker"]
         source = dossier["source"]
         finding = dossier["finding"]
+        is_retracted = finding["publication_status"] == "RETRACTED"
+        subtitle = " · ".join(str(value) for value in (
+            "Valutazione ritirata" if is_retracted else None,
+            speaker["name"],
+            source["title"],
+        ) if value)
         roles: list[Any] = []
         for role in speaker.get("public_roles") or []:
             if not isinstance(role, Mapping):
@@ -413,15 +419,17 @@ def _expected_search_records(current: ProjectionState) -> dict[tuple[str, str], 
         )
         result[("finding", finding_id)] = _search_record(
             "finding", finding_id, dossier["claim"],
-            " · ".join(str(value) for value in (speaker["name"], source["title"]) if value),
+            subtitle,
             finding_date if finding_date is not None else source.get("published_at"),
-            finding["assessment"],
+            None if is_retracted else finding["assessment"],
             f"/dichiarazioni/{_public_search_slug(finding_id)}/",
             (dossier["claim"],),
-            (speaker["name"], source["title"], dossier["claim_type"], finding["assessment"], *roles),
+            (speaker["name"], source["title"], dossier["claim_type"],
+             "Valutazione ritirata" if is_retracted else finding["assessment"], *roles),
             corrections=bool(dossier.get("corrections")),
             replies=bool(dossier.get("rights_of_reply")),
             wording="PARAPHRASE", source_wording=source_wording,
+            publication_status=finding["publication_status"],
             person_id=speaker["id"],
             topic_ids=sorted(topic_memberships.get(finding_id, ())),
         )

@@ -25,22 +25,43 @@ REQUIRED_STATIC_FILES = frozenset({
 VOID_TAGS = frozenset({"area", "base", "br", "col", "embed", "hr", "img", "input",
                        "link", "meta", "param", "source", "track", "wbr"})
 RECORD_FIELDS = frozenset({
-    "id", "kind", "title", "subtitle", "published_at", "assessment", "route",
+    "id", "kind", "title", "subtitle", "published_at", "assessment",
+    "publication_status", "route",
     "has_corrections", "has_rights_of_reply", "wording_type", "source_wording_type",
     "direct_quote_eligible", "primary_terms", "secondary_terms", "person_id", "topic_ids",
 })
 RECORD_KINDS = frozenset({"finding", "statement", "content", "person", "topic"})
 ASSESSMENTS = frozenset({"SUPPORTED", "FACTUALLY_FALSE", "OUTDATED_DATA",
                          "INSUFFICIENT_EVIDENCE", "UNRESOLVED"})
+PUBLIC_FINDING_STATUSES = frozenset({"PUBLISH", "DISPUTED", "CORRECTED", "RETRACTED"})
 
 
 def _valid_search_record(record: object) -> bool:
-    if not isinstance(record, dict) or not RECORD_FIELDS - {"person_id", "topic_ids"} <= record.keys() \
-            or record.keys() - RECORD_FIELDS:
+    if (not isinstance(record, dict)
+            or not (RECORD_FIELDS - {"person_id", "topic_ids", "publication_status"}) <= record.keys()
+            or record.keys() - RECORD_FIELDS):
         return False
     kind = record["kind"]
+    if not isinstance(kind, str) or kind not in RECORD_KINDS:
+        return False
+    if not isinstance(record["subtitle"], str):
+        return False
     route = record["route"]
     published = record["published_at"]
+    if kind == "finding":
+        status = record.get("publication_status")
+        if not isinstance(status, str) or status not in PUBLIC_FINDING_STATUSES:
+            return False
+        if status == "RETRACTED":
+            if (record["assessment"] is not None
+                    or not record["subtitle"].startswith("Valutazione ritirata · ")):
+                return False
+        elif (not isinstance(record["assessment"], str)
+                or record["assessment"] not in ASSESSMENTS
+                or record["subtitle"].startswith("Valutazione ritirata · ")):
+            return False
+    elif record["assessment"] is not None or "publication_status" in record:
+        return False
     if published is not None:
         if not isinstance(published, str):
             return False
@@ -58,9 +79,6 @@ def _valid_search_record(record: object) -> bool:
         and type(record["has_rights_of_reply"]) is bool
         and record["direct_quote_eligible"] is False
         and record["wording_type"] == ("PARAPHRASE" if kind == "finding" else None)
-        and (isinstance(record["assessment"], str) and record["assessment"] in ASSESSMENTS
-             if kind == "finding"
-             else record["assessment"] is None)
         and (record["source_wording_type"] is None or
              (isinstance(record["source_wording_type"], str) and
               record["source_wording_type"] in {"VERBATIM_ORIGINAL", "REPORTED_QUOTE"}))

@@ -12,7 +12,7 @@
             "claim": "Versione errata attribuita a Persona Uno",
             "speaker": {"id": "person:1", "name": "Persona Uno"},
             "source": {"content_id": "content:1", "title": "Intervista uno"},
-            "finding": {"publication_status": "PUBLISHED", "supersedes_id": null}
+            "finding": {"publication_status": "PUBLISH", "supersedes_id": null}
           }
         ],
         "contents": [
@@ -41,7 +41,7 @@
             "claim": "Versione corretta attribuita a Persona Due",
             "speaker": {"id": "person:2", "name": "Persona Due"},
             "source": {"content_id": "content:1", "title": "Intervista uno"},
-            "finding": {"publication_status": "PUBLISHED", "supersedes_id": "finding:v1"}
+            "finding": {"publication_status": "PUBLISH", "supersedes_id": "finding:v1"}
           }
         ],
         "contents": [
@@ -86,7 +86,7 @@
             "claim": "Claim poi posto in hold",
             "speaker": {"id": "person:hold", "name": "Persona Hold"},
             "source": {"content_id": "content:hold", "title": "Contenuto Hold"},
-            "finding": {"publication_status": "PUBLISHED", "supersedes_id": null}
+            "finding": {"publication_status": "PUBLISH", "supersedes_id": null}
           }
         ],
         "contents": [
@@ -149,7 +149,7 @@
             "claim": "Claim ritirato",
             "speaker": {"id": "person:retract", "name": "Persona Retract"},
             "source": {"content_id": "content:retract", "title": "Contenuto Retract"},
-            "finding": {"publication_status": "PUBLISHED", "supersedes_id": null}
+            "finding": {"publication_status": "PUBLISH", "supersedes_id": null}
           }
         ],
         "contents": [
