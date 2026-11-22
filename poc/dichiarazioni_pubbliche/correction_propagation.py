@@ -383,12 +383,7 @@ def _search_record(
 
 
 def _expected_search_records(current: ProjectionState) -> dict[tuple[str, str], dict[str, Any]]:
-    """Recreate all four approved v1 search kinds from the CURRENT projection.
-
-    Mirrors findingRecord and buildSearchIndexMaterial in searchIndex.ts:
-    never trust a copied title or self-claimed SHA to authorize hidden terms,
-    route rebinding, wrong facets, or even missing/extra record fields.
-    """
+    """Rebuild the approved search records from the current projection."""
     result: dict[tuple[str, str], dict[str, Any]] = {}
     topic_memberships: dict[str, set[str]] = {}
     for topic_id, topic in current.topics.items():
@@ -521,18 +516,12 @@ def _check_search_index(
         if expected_title is not None and str(row.get("title") or "") != expected_title:
             _add_once(blockers, "SEARCH_INDEX_STALE_ENTRY")
             _add_once(stale_artifacts, label)
-        # Strict complete-record parity. A missing field is NOT an optional
-        # omission, even if searchIndex.ts's client parser tolerates old v1
-        # assets. All current Finding/Person/Topic/Content representations
-        # must originate from the same approved correction/revocation state.
+        # Require exact parity, including fields the public reader treats as optional.
         if row != expected_record:
             _add_once(blockers, "SEARCH_INDEX_STALE_METADATA")
             _add_once(stale_artifacts, label)
 
-    # Search record eligibility differs from historical source lineage:
-    # `contents=[]` is a first-class empty catalog, not a request for legacy
-    # per-dossier Content fallback rows. Static route/history tracking still
-    # uses all source Content identities in `_current_identity_sets`.
+    # An empty content catalog has no search records. Static history keeps source identities.
     for kind, identifier in sorted(canonical_records):
         if (kind, identifier) not in seen:
             _add_once(blockers, "SEARCH_INDEX_PARTIAL")
