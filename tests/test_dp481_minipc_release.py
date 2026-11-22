@@ -96,7 +96,7 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
         activate(self.root, safe["release_id"], expected=old["release_id"])
         self.assertEqual(read(host, "/withdrawn.html")[0], 404)
         self.assertEqual(json.loads(read(host, "/api/v1/index.json")[1])["dossier_count"], 0)
-        # Old listener is pinned to the old inode and MUST be restarted to pass readback.
+        # Restart the listener bound to the old release.
         with self.assertRaisesRegex(ValueError, "HTTP_MISMATCH"):
             verify(self.root, origin=f"http://127.0.0.1:{host.server_port}")
         fresh = self.server()
@@ -105,7 +105,6 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
         self.assertEqual(proof["release_id"], safe["release_id"])
         self.assertEqual(read(fresh, "/withdrawn.html")[0], 404)
 
-        # Replaying an unsafe old release is detectable; safe rollback restores it.
         activate(self.root, old["release_id"], expected=safe["release_id"])
         self.assertEqual(read(fresh, "/withdrawn.html")[0], 404)
         activate(self.root, safe["release_id"], expected=old["release_id"])
@@ -130,10 +129,26 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "POINTER_INVALID"):
             verify(self.root)
 
-    def test_stage_rejects_symlinked_public_asset_and_idempotent_restage(self):
+    def test_stage_rejects_symlinks_and_idempotently_restages(self):
         candidate = self.make(withdrawn=True)
         self.assertEqual(candidate["release_id"], self.make(withdrawn=True)["release_id"])
-        (self.static / "leak.txt").symlink_to(self.projection / "index.json")
+        for path in (self.static / "leak.txt", self.source / "poc" / "leak.py"):
+            with self.subTest(path=path):
+                path.symlink_to(self.projection / "index.json")
+                with self.assertRaisesRegex(ValueError, "UNSAFE_ASSET"):
+                    self.make(withdrawn=True)
+                path.unlink()
+
+    def test_hidden_source_is_excluded(self):
+        hidden = self.source / "poc" / ".rollback.py"
+        hidden.touch()
+        candidate = self.make(withdrawn=True)
+        code = self.root / "releases" / candidate["release_id"] / "code/poc"
+        self.assertTrue(hidden.exists())
+        self.assertFalse((code / hidden.name).exists())
+
+    def test_hidden_public_asset_still_fails_closed(self):
+        (self.static / ".private-scratch").write_text("must not be released\n")
         with self.assertRaisesRegex(ValueError, "UNSAFE_ASSET"):
             self.make(withdrawn=True)
 
@@ -226,7 +241,6 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
             sealed = stage(self.root, self.source, self.static, self.projection,
                            git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
             activate(self.root, sealed["release_id"], expected=None)
-        # The historical contract sealed matching hashes and served unusable public assets.
         host = self.server()
         self.assertEqual(read(host, "/privacy/"), (200, b""))
         self.assertEqual(read(host, "/favicon.svg"), (200, b"not an SVG"))
@@ -331,8 +345,8 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
         target = self.static / "search-index.v1.json"
         original_check = release_tool.safe_files
 
-        def swap_after_preflight(directory):
-            result = original_check(directory)
+        def swap_after_preflight(directory, **kwargs):
+            result = original_check(directory, **kwargs)
             if directory == self.static:
                 target.unlink()
                 target.symlink_to(secret)

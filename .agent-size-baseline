@@ -65,7 +65,7 @@
   "poc/dichiarazioni_pubbliche/context_integrity.py": 35865,
   "poc/dichiarazioni_pubbliche/corpus_repository.py": 26900,
   "poc/dichiarazioni_pubbliche/corpus_retention.py": 21139,
-  "poc/dichiarazioni_pubbliche/correction_propagation.py": 30111,
+  "poc/dichiarazioni_pubbliche/correction_propagation.py": 29793,
   "poc/dichiarazioni_pubbliche/curated_written_intake.py": 39641,
   "poc/dichiarazioni_pubbliche/distributed_withdrawal_audit_v1.py": 21590,
   "poc/dichiarazioni_pubbliche/evidence_runtime.py": 20918,

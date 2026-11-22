@@ -42,13 +42,15 @@ def canonical(value: object) -> bytes:
                        ensure_ascii=False) + "\n").encode("utf-8")
 
 
-def safe_files(directory: Path) -> dict[str, str]:
-    """Inventory regular, singly linked files; never follow symlinks."""
+def safe_files(directory: Path, *, ignore_hidden: bool = False) -> dict[str, str]:
+    """Hash regular, singly linked files."""
     hashes: dict[str, str] = {}
     if directory.is_symlink() or not directory.is_dir():
         fail("UNSAFE_ASSET")
     for path in sorted(directory.rglob("*")):
         relative = path.relative_to(directory)
+        if ignore_hidden and any(part.startswith(".") for part in relative.parts):
+            continue
         if path.is_symlink() or (path.is_file() and path.stat().st_nlink != 1):
             fail("UNSAFE_ASSET")
         if any(part.startswith(".") and part != ".well-known" for part in relative.parts):
@@ -147,9 +149,9 @@ def stage(root: Path, source: Path, static: Path, projection: Path, *,
         fail("ROOT_PERMISSIONS")
     releases = root / "releases"
     releases.mkdir(exist_ok=True, mode=0o700)
-    for directory in (source / "poc", static, projection):
+    safe_files(source / "poc", ignore_hidden=True)
+    for directory in (static, projection):
         safe_files(directory)
-    # The payload proves its build: same source commit, same projection.
     index_file = projection / "index.json"
     if index_file.is_symlink() or not index_file.is_file():
         fail("PROJECTION_INVALID")
@@ -161,7 +163,7 @@ def stage(root: Path, source: Path, static: Path, projection: Path, *,
         candidate = Path(temp) / "release"
         (candidate / "code").mkdir(parents=True)
         shutil.copytree(source / "poc", candidate / "code" / "poc",
-                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
+                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo", ".*"),
                         symlinks=True)
         shutil.copy2(schema_source, candidate / "code" / "schema.v1.sql",
                      follow_symlinks=False)
@@ -174,8 +176,7 @@ def stage(root: Path, source: Path, static: Path, projection: Path, *,
                 autopublish_policy, candidate / "code" / "config" / "autopublish.v1.json",
                 follow_symlinks=False,
             )
-            # No DRAFT release obtains publication authority just by shipping
-            # the consent contract. It is hashed alongside the executable code.
+            # The consent contract does not grant authority to DRAFT releases.
         shutil.copytree(static, candidate / "static", symlinks=True)
         shutil.copytree(projection, candidate / "projection", symlinks=True)
         assets = collect(candidate)
@@ -279,7 +280,6 @@ def rehearse(source: Path, static: Path, projection: Path, *, git_sha: str,
         root = Path(temp) / "authority"
         candidate_static = Path(temp) / "candidate-static"
         shutil.copytree(static, candidate_static)
-        # The immutable release root is read-only; mutate only its private copy.
         candidate_static.chmod(candidate_static.stat().st_mode | stat.S_IWUSR)
         marker = candidate_static / "dp481-rehearsal-withdrawn.txt"
         if marker.exists():
@@ -376,7 +376,7 @@ def verify(root: Path, *, origin: str | None = None) -> dict:
         nt = manifest["assets"].get("projection/index.nt")
         if nt:
             _http(origin, "/index.nt", expected_hash=nt)
-        # A DRAFT release must not accidentally expose a configured v3 adapter.
+        # DRAFT must keep the v3 adapter private.
         for route in ("/api/v3/statements", "/api/v3/opinions"):
             _http(origin, route, expected_status=404)
     if pointer(root) != ident:

@@ -9,11 +9,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 from dichiarazioni_pubbliche.correction_propagation import _expected_search_records, _projection_state
+from dichiarazioni_pubbliche.public_projection import build_public_projection
+from dichiarazioni_pubbliche.public_schema import validate_public_bundle
+from tests.test_public_projection import FakeContentSource, valid_content_row, valid_row
 from tools import dp481_minipc_release as release_tool
 from tools.dp481_static_contract import write_build_stamp
-
-
-ROOT = Path(__file__).resolve().parents[1]
 
 
 class PublicSearchReleaseParityTests(unittest.TestCase):
@@ -40,12 +40,17 @@ class PublicSearchReleaseParityTests(unittest.TestCase):
         (self.static / "sitemap.xml").write_text("<urlset/>")
         self.projection = base / "projection"
         self.projection.mkdir()
-        self.public = json.loads((ROOT / "web/src/data/demo-projection.json").read_text())
+        self.public = validate_public_bundle(build_public_projection(
+            FakeContentSource([valid_row()], [valid_content_row()]),
+            generated_at="2026-09-22T12:00:00+00:00",
+        ))
         (self.projection / "index.json").write_text(json.dumps(self.public))
         self.root = base / "host-release"
         self.approved = sorted(_expected_search_records(_projection_state(self.public)).values(),
                                key=lambda record: (record["kind"], record["id"]))
-        self.assertEqual(len(self.approved), 12)
+        self.assertEqual(self.public["dossier_count"], 1)
+        self.assertEqual(len(self.public["contents"]), 1)
+        self.assertEqual(len(self.approved), 3)
         self.write_index(self.approved)
 
     def write_index(self, records):
@@ -81,9 +86,29 @@ class PublicSearchReleaseParityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "STATIC_FORMAT_INVALID"):
             self.stage()
         with patch.object(release_tool, "check_static_contract", return_value=None):
-            sealed = self.stage()
-        with self.assertRaisesRegex(ValueError, "STATIC_FORMAT_INVALID"):
-            release_tool.validated(self.root, sealed["release_id"])
+            with self.assertRaisesRegex(ValueError, "DP481_PROJECTION_INVALID"):
+                self.stage()
+
+    def test_retracted_finding_keeps_status_and_uses_retracted_search_label(self):
+        row = valid_row()
+        row["publication_status"] = "RETRACTED"
+        self.public = validate_public_bundle(build_public_projection(
+            FakeContentSource([row], [valid_content_row()]),
+            generated_at="2026-09-22T12:00:00+00:00",
+        ))
+        (self.projection / "index.json").write_text(json.dumps(self.public))
+        self.approved = sorted(_expected_search_records(_projection_state(self.public)).values(),
+                               key=lambda record: (record["kind"], record["id"]))
+        self.write_index(self.approved)
+
+        sealed = self.stage()
+        finding = next(record for record in self.approved if record["kind"] == "finding")
+        self.assertEqual(finding["publication_status"], "RETRACTED")
+        self.assertIsNone(finding["assessment"])
+        self.assertTrue(finding["subtitle"].startswith("Valutazione ritirata · "))
+        self.assertIn("Valutazione ritirata", finding["secondary_terms"])
+        self.assertEqual(release_tool.validated(self.root, sealed["release_id"])["release_id"],
+                         sealed["release_id"])
 
     def test_nonempty_index_cannot_omit_or_invent_rebind_or_duplicate_records(self):
         person = next(record for record in self.approved if record["kind"] == "person")
@@ -101,6 +126,26 @@ class PublicSearchReleaseParityTests(unittest.TestCase):
             ],
             "wrong_approved_person_facet": [
                 {**record, "person_id": "private-marker"} if record == finding else record
+                for record in copy.deepcopy(self.approved)
+            ],
+            "missing_finding_publication_status": [
+                {key: value for key, value in record.items() if key != "publication_status"}
+                if record["kind"] == "finding" else record
+                for record in copy.deepcopy(self.approved)
+            ],
+            "unapproved_finding_publication_status": [
+                {**record, "publication_status": "POLICY_HOLD"}
+                if record["kind"] == "finding" else record
+                for record in copy.deepcopy(self.approved)
+            ],
+            "non_string_finding_publication_status": [
+                {**record, "publication_status": ["PUBLISH"]}
+                if record["kind"] == "finding" else record
+                for record in copy.deepcopy(self.approved)
+            ],
+            "non_string_finding_subtitle": [
+                {**record, "subtitle": None}
+                if record["kind"] == "finding" else record
                 for record in copy.deepcopy(self.approved)
             ],
         }

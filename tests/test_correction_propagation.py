@@ -94,16 +94,24 @@ def search_index(projection):
             value for role in speaker.get("public_roles", [])
             for value in (role["role"], role.get("organization_name"))
         ]
+        is_retracted = finding.get("publication_status") == "RETRACTED"
+        subtitle = " · ".join(value for value in (
+            "Valutazione ritirata" if is_retracted else None,
+            speaker["name"],
+            source["title"],
+        ) if value)
         records.append(_record(
-            "finding", fid, dossier["claim"], f'{speaker["name"]} · {source["title"]}',
+            "finding", fid, dossier["claim"], subtitle,
             finding.get("published_at") if finding.get("published_at") is not None
             else source.get("published_at"),
-            finding["assessment"], f'/dichiarazioni/{_slug(fid)}/',
+            None if is_retracted else finding["assessment"], f'/dichiarazioni/{_slug(fid)}/',
             [dossier["claim"]],
-            [speaker["name"], source["title"], dossier["claim_type"], finding["assessment"], *roles],
+            [speaker["name"], source["title"], dossier["claim_type"],
+             "Valutazione ritirata" if is_retracted else finding["assessment"], *roles],
             corrections=bool(dossier.get("corrections")), replies=bool(dossier.get("rights_of_reply")),
             wording="PARAPHRASE",
             source_wording=(dossier.get("wording") or {}).get("source_occurrence", {}).get("wording_type"),
+            publication_status=finding["publication_status"],
             person_id=speaker["id"], topic_ids=sorted(topics_by_finding.get(fid, ())),
         ))
         if speaker["id"] not in people:
