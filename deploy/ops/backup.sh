@@ -74,7 +74,7 @@ fi
 # Row-count manifest taken from the live database at backup time. The restore
 # drill compares these against the restored database; it never re-derives them
 # from the restored side.
-TABLES="source person person_alias organization person_role_interval content_item content_locator content_capture capture_lifecycle_event research_collection \
+TABLES="source person person_alias organization person_role_interval content_item daily_capture daily_statement daily_verdict daily_run content_locator content_capture capture_lifecycle_event research_collection \
 research_collection_content research_discovery_manifest research_discovery_query research_discovery_run \
 research_discovery_attempt research_discovery_hit research_discovery_triage_decision content_derivation_family content_derivation_candidate \
 proposition_cluster proposition_cluster_member topic topic_alias event event_alias organization_alias \

@@ -2880,6 +2880,446 @@
         "schema_origin": "CANONICAL_SCHEMA_V1"
       }
     },
+    "daily_capture": {
+      "body": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "capture_kind": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "char_count": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "content_id": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "fetched_at": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "id": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "metadata": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "source_id": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "text_sha256": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "url": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      }
+    },
+    "daily_run": {
+      "captures": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "finished_at": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "held_statements": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "items": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "report": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "run_date": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "started_at": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "statements": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "status": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "verdicts": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      }
+    },
+    "daily_statement": {
+      "capture_id": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "claim_nature": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "content_id": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "created_at": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "extraction_model": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "id": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "metadata": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "moment_label": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "quote": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "quote_offset": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "source_id": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "source_published_at": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "source_publisher": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "source_title": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "source_url": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "speaker_key": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "speaker_name": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "speaker_role": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "statement_date": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "status": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "status_reason": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "topic": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      }
+    },
+    "daily_verdict": {
+      "agreement": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "check_pass": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "claim_nature": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "created_at": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "duration_seconds": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "evidence": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "explanation": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "first_pass": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "model_calls": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "models": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "statement_id": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
+      "verdict": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      }
+    },
     "dp514_monthly_dispatch_policy": {
       "accounting_tz": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
