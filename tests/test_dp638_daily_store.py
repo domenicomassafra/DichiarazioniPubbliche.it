@@ -177,13 +177,6 @@ class DailyStoreTests(unittest.TestCase):
         row.pop("claim_nature")
         with self.assertRaisesRegex(ValueError, "DAILY_STATEMENT_NATURE_REQUIRED"):
             DailyStore().save_statement(row)
-        self.assertIn("capture.url = :'source_url'", sql)
-
-    def test_statement_requires_explicit_claim_nature(self):
-        row = statement_row()
-        row.pop("claim_nature")
-        with self.assertRaisesRegex(ValueError, "DAILY_STATEMENT_NATURE_REQUIRED"):
-            DailyStore().save_statement(row)
 
         with self.assertRaisesRegex(ValueError, "STATUS_INVALID"):
             DailyStore().save_statement(statement_row(status="PUBLISHED"))
