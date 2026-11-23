@@ -69,6 +69,8 @@ DailyStore espone letture esplicite:
 - read_capture_body legge il testo privato per il solo lavoro interno;
 - read_statement e read_statements restituiscono campi dichiarati e, se
   presente, il verdetto associato;
+- save_statement accetta una citazione solo se coincide con il testo catturato
+  all'offset dichiarato e se cattura, contenuto e fonte coincidono;
 - set_statement_status può portare un candidato in uno stato HELD senza
   riscrivere la citazione o riaprire uno stato terminale;
 - read_verdict restituisce evidenze e i due passaggi;
