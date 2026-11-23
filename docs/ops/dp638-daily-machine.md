@@ -100,10 +100,13 @@ in content_item e nelle quattro tabelle, ripetere la migrazione e confrontare
 gli identificatori, i conteggi e il corpo catturato. Non applicare questa
 migrazione al database del MiniPC in questa fase.
 
-Se un database esistente contiene già tabelle daily_*, IF NOT EXISTS non
-corregge eventuali differenze di schema. Prima di un futuro rilascio occorre
-confrontare colonne, vincoli e dati esistenti e preparare una migrazione di
-convergenza separata se gli schemi non coincidono.
+Il resoconto di lettura del MiniPC del 12 novembre riportava già 28 righe in
+`daily_capture`, 57 in `daily_statement` e 51 in `daily_verdict`, e indicava che
+la migrazione precedente era stata applicata in produzione. Questa prova non
+è stata ripetuta in questa attività e nessuna migrazione è stata applicata al
+MiniPC. `IF NOT EXISTS` non corregge tabelle già presenti con colonne o vincoli
+diversi: prima di un futuro rilascio occorre confrontare lo schema e i dati
+esistenti e preparare una migrazione di convergenza separata se necessario.
 
 Il backup e il restore drill includono tutte e quattro le nuove tabelle. Il
 timer giornaliero, l'invio di riepiloghi e la pubblicazione restano fuori da
