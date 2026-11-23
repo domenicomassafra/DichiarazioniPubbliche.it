@@ -2887,7 +2887,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "capture_kind": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -2895,7 +2895,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "char_count": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -2903,7 +2903,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "content_id": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -2911,7 +2911,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "fetched_at": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -2919,7 +2919,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "id": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -2927,7 +2927,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "metadata": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -2935,7 +2935,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "source_id": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -2943,7 +2943,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "text_sha256": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -2951,7 +2951,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "url": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -2959,7 +2959,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       }
     },
     "daily_run": {
@@ -2969,7 +2969,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "finished_at": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -2977,7 +2977,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "held_statements": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -2985,7 +2985,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "items": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -2993,7 +2993,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "report": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3001,7 +3001,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "run_date": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3009,7 +3009,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "started_at": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3017,7 +3017,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "statements": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3025,7 +3025,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "status": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3033,7 +3033,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "verdicts": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3041,7 +3041,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       }
     },
     "daily_statement": {
@@ -3051,7 +3051,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "claim_nature": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3059,7 +3059,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "content_id": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3067,7 +3067,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "created_at": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3075,7 +3075,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "extraction_model": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3083,7 +3083,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "id": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3091,7 +3091,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "metadata": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3099,7 +3099,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "moment_label": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3107,7 +3107,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "quote": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3115,7 +3115,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "quote_offset": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3123,7 +3123,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "source_id": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3131,7 +3131,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "source_published_at": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3139,7 +3139,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "source_publisher": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3147,7 +3147,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "source_title": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3155,7 +3155,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "source_url": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3163,7 +3163,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "speaker_key": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3171,7 +3171,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "speaker_name": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3179,7 +3179,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "speaker_role": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3187,7 +3187,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "statement_date": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3195,7 +3195,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "status": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3203,7 +3203,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "status_reason": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3211,7 +3211,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "topic": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3219,7 +3219,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       }
     },
     "daily_verdict": {
@@ -3229,7 +3229,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "check_pass": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3237,7 +3237,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "claim_nature": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3245,7 +3245,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "created_at": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3253,7 +3253,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "duration_seconds": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3261,7 +3261,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "evidence": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3269,7 +3269,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "explanation": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3277,7 +3277,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "first_pass": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3285,7 +3285,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "model_calls": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3293,7 +3293,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "models": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3301,7 +3301,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "statement_id": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3309,7 +3309,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       },
       "verdict": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
@@ -3317,7 +3317,7 @@
         "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
         "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
-        "schema_origin": "CANONICAL_SCHEMA_V1"
+        "schema_origin": "20261112_DP638_DAILY_MIGRATION"
       }
     },
     "dp514_monthly_dispatch_policy": {

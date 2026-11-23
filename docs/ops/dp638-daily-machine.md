@@ -35,9 +35,8 @@ tabelle additive:
 | daily_run | stato e contatori della corsa giornaliera |
 
 La migrazione è ripetibile e non modifica righe preesistenti. Non contiene
-aggiornamenti temporali ai job storici. Le stesse definizioni sono presenti in
-db/schema.v1.sql, che resta la descrizione canonica dello schema per i nuovi
-database e per il censimento DP-304.
+aggiornamenti temporali ai job storici. Il censimento DP-304 registra queste
+tabelle come set di migrazione versionato; lo schema canonico v1 resta intatto.
 
 Tutte le tabelle restano private. daily_statement.status ammette solo
 CANDIDATE e stati HELD_*; non esiste uno stato PUBLISHED. Un candidato
