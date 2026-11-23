@@ -129,6 +129,7 @@ class DailyStore(DailyStoreReadMixin, PsqlRuntime):
         source_id: str,
         capture: CaptureRecord,
     ) -> bool:
+        """Persist a capture only when its source matches the content item."""
         if not capture.url.strip() or not capture.kind.strip():
             raise ValueError("DAILY_CAPTURE_SOURCE_AND_KIND_REQUIRED")
         raw = self.run(
@@ -179,6 +180,7 @@ class DailyStore(DailyStoreReadMixin, PsqlRuntime):
         )
 
     def save_statement(self, row: Mapping[str, Any]) -> bool:
+        """Persist a statement with explicit nature and matching capture provenance."""
         status = str(row.get("status") or "CANDIDATE")
         claim_nature = row.get("claim_nature")
         if not isinstance(claim_nature, str) or not claim_nature:
