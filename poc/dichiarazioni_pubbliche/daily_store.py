@@ -24,6 +24,8 @@ _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 @dataclass(frozen=True)
 class DailyCaptureRecord:
+    """Reference to an existing capture plus the normalized-text fingerprint."""
+
     id: str
     content_capture_id: str
     content_id: str
@@ -113,6 +115,7 @@ class DailyStore(DailyStoreReadMixin, PsqlRuntime):
         captured_text: str,
         source_use_guard: SourceFamilyUseGuard,
     ) -> bool:
+        """Link an authorized content_capture; captured_text must come from its parser."""
         if len(captured_text) != capture.char_count:
             raise ValueError("DAILY_CAPTURE_TEXT_CHAR_COUNT_MISMATCH")
         if _sha256_text(captured_text) != capture.text_sha256:
@@ -170,6 +173,7 @@ class DailyStore(DailyStoreReadMixin, PsqlRuntime):
         captured_text: str,
         source_use_guard: SourceFamilyUseGuard,
     ) -> bool:
+        """Persist a quote verified against the same normalized text and current rights."""
         status = str(row.get("status") or "CANDIDATE").strip().upper()
         claim_nature = str(row.get("claim_nature") or "").strip().upper()
         if status not in STATEMENT_STATUSES:

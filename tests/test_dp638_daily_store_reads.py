@@ -35,6 +35,10 @@ class DailyStoreReadTests(unittest.TestCase):
 
         self.assertEqual(result, {"content-1"})
         self.assertIn("jsonb_agg(content_id)", run.call_args.args[0])
+        self.assertIn(
+            "(fetched_at AT TIME ZONE 'Europe/Rome')::date",
+            run.call_args.args[0],
+        )
 
 
 if __name__ == "__main__":

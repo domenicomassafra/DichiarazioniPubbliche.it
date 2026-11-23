@@ -30,7 +30,7 @@ class DailyStoreReadMixin:
             """
             SELECT COALESCE(jsonb_agg(content_id), '[]'::jsonb)::text
             FROM daily_capture
-            WHERE fetched_at::date = :'day'::date;
+            WHERE (fetched_at AT TIME ZONE 'Europe/Rome')::date = :'day'::date;
             """,
             day=run_date,
         )

@@ -38,6 +38,9 @@ DECLARE
     capture_body_purged_at timestamptz;
     capture_content_sha256 text;
 BEGIN
+    IF TG_OP = 'UPDATE' THEN
+        RAISE EXCEPTION 'DP638_DAILY_CAPTURE_IMMUTABLE';
+    END IF;
     SELECT item.source_id, lower(source.source_type), existing_capture.content_id,
            existing_capture.final_url, existing_capture.rights_status,
            existing_capture.retention_class, existing_capture.hold_status,
@@ -77,8 +80,7 @@ $$;
 
 DROP TRIGGER IF EXISTS daily_capture_source_matches_content ON daily_capture;
 CREATE TRIGGER daily_capture_source_matches_content
-BEFORE INSERT OR UPDATE OF content_id, content_capture_id, source_id, url, content_sha256
-ON daily_capture
+BEFORE INSERT OR UPDATE ON daily_capture
 FOR EACH ROW EXECUTE FUNCTION dp638_validate_daily_capture_source();
 
 CREATE INDEX IF NOT EXISTS daily_capture_content_idx

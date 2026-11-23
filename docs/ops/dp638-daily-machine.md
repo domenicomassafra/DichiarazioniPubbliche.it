@@ -44,6 +44,11 @@ DURABLE_PRIVATE o DURABLE_PROVENANCE e un corpo ancora disponibile. Le fonti
 public_rss e rss restano bloccate dal gate RIGHTS_HOLD. La cattura lega
 contenuto, fonte e URL; la dichiarazione lega inoltre cattura, hash e URL con
 una chiave esterna composta e verifica la citazione all'offset esatto.
+Le righe daily_capture sono immutabili. Il chiamante deve leggere il corpo
+tramite CaptureBodyStore, dopo il controllo dei diritti, e produrre
+captured_text con il parser previsto. DailyStore verifica hash, lunghezza e
+citazione rispetto a quel testo normalizzato; non esegue il parsing e non
+attesta autonomamente che il testo derivi dal corpo.
 
 Tutte le tabelle restano private. daily_statement.status ammette solo
 CANDIDATE e stati HELD_*; non esiste uno stato PUBLISHED. Un candidato
@@ -73,7 +78,8 @@ e di store.
 DailyStore espone letture esplicite:
 
 - read_capture_metadata restituisce i metadati della cattura e la sua impronta;
-- captured_content_ids_today restituisce i contenuti già catturati nella data;
+- captured_content_ids_today restituisce i contenuti già catturati nella data
+  Europe/Rome;
 - il corpo si legge tramite il CaptureBodyStore esistente, dopo il controllo
   dei diritti; DailyStore non espone una seconda lettura del corpo;
 - read_statement e read_statements restituiscono campi dichiarati e, se

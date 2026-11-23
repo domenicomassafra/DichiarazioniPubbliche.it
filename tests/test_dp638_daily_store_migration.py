@@ -16,6 +16,7 @@ class DailyStoreMigrationTests(unittest.TestCase):
         self.assertIn("daily_verdict_factual_only", migration)
         self.assertIn("daily_statement_status_check", migration)
         self.assertIn("DP638_CAPTURE_SOURCE_MISMATCH", migration)
+        self.assertIn("DP638_DAILY_CAPTURE_IMMUTABLE", migration)
         self.assertIn("DP638_RIGHTS_HOLD_PUBLIC_RSS", migration)
         self.assertIn("DP638_CAPTURE_RIGHTS_OR_RETENTION_BLOCKED", migration)
         self.assertIn(
@@ -27,6 +28,7 @@ class DailyStoreMigrationTests(unittest.TestCase):
             migration,
         )
         self.assertIn("lower(source.source_type)", migration)
+        self.assertIn("BEFORE INSERT OR UPDATE ON daily_capture", migration)
         self.assertNotIn("body            text NOT NULL", migration)
         self.assertIn(
             "FOREIGN KEY (capture_id, content_id, source_id, source_url)",
