@@ -37,6 +37,9 @@ tabelle additive:
 La migrazione è ripetibile e non modifica righe preesistenti. Non contiene
 aggiornamenti temporali ai job storici. Il censimento DP-304 registra queste
 tabelle come set di migrazione versionato; lo schema canonico v1 resta intatto.
+La cattura è accettata solo se `source_id` coincide con `content_item.source_id`.
+La dichiarazione lega cattura, contenuto, fonte e URL con una chiave esterna
+composta; lo store verifica anche che la citazione sia esatta all'offset dato.
 
 Tutte le tabelle restano private. daily_statement.status ammette solo
 CANDIDATE e stati HELD_*; non esiste uno stato PUBLISHED. Un candidato
@@ -55,7 +58,8 @@ Le dichiarazioni fattuali possono avere uno dei seguenti valori:
 | NOT_VERIFIABLE | Non verificabile |
 | CONTRADICTORY_WITH_ITSELF | In contraddizione con sé stesso |
 
-Le opinioni sono registrate con claim_nature = OPINION e non possono avere
+`claim_nature` è obbligatorio e non ha un valore predefinito. Le opinioni sono
+registrate con claim_nature = OPINION e non possono avere
 una riga in daily_verdict. La chiave esterna composta e il controllo nel
 metodo save_verdict applicano questa distinzione anche a livello di database
 e di store.
@@ -82,9 +86,13 @@ Nessun metodo dello store genera o scrive la proiezione pubblica.
 ## Prova locale della migrazione
 
 Applicare la migrazione soltanto a un database PostgreSQL usa-e-getta, dopo
-aver creato la tabella content_item minima richiesta dalla chiave esterna:
+aver creato le tabelle `source` e `content_item` minime richieste dai vincoli:
 
-    CREATE TABLE content_item (id text PRIMARY KEY);
+    CREATE TABLE source (id text PRIMARY KEY);
+    CREATE TABLE content_item (
+        id text PRIMARY KEY,
+        source_id text REFERENCES source(id)
+    );
 
 Poi applicarla due volte con psql -v ON_ERROR_STOP=1 -f
 db/migrations/20261112-add-dp638-daily-machine.sql. Inserire un record di prova

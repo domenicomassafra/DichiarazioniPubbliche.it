@@ -136,10 +136,13 @@ class DailyStore(DailyStoreReadMixin, PsqlRuntime):
             INSERT INTO daily_capture (
                 id, content_id, source_id, capture_kind, url,
                 char_count, text_sha256, body, metadata
-            ) VALUES (
-                :'id', :'content_id', :'source_id', :'kind', :'url',
-                :'chars'::integer, :'sha', :'body', :'metadata'::jsonb
             )
+            SELECT
+                :'id', item.id, item.source_id, :'kind', :'url',
+                :'chars'::integer, :'sha', :'body', :'metadata'::jsonb
+            FROM content_item item
+            WHERE item.id = :'content_id'
+              AND item.source_id = :'source_id'
             ON CONFLICT (id) DO NOTHING
             RETURNING id;
             """,
@@ -177,7 +180,9 @@ class DailyStore(DailyStoreReadMixin, PsqlRuntime):
 
     def save_statement(self, row: Mapping[str, Any]) -> bool:
         status = str(row.get("status") or "CANDIDATE")
-        claim_nature = str(row.get("claim_nature") or "FACTUAL")
+        claim_nature = row.get("claim_nature")
+        if not isinstance(claim_nature, str) or not claim_nature:
+            raise ValueError("DAILY_STATEMENT_NATURE_REQUIRED")
         quote = str(row.get("quote") or "")
         if status not in STATEMENT_STATUSES:
             raise ValueError(f"DAILY_STATEMENT_STATUS_INVALID:{status}")
@@ -232,6 +237,7 @@ class DailyStore(DailyStoreReadMixin, PsqlRuntime):
             WHERE capture.id = :'capture_id'
               AND capture.content_id = :'content_id'
               AND capture.source_id = :'source_id'
+              AND capture.url = :'source_url'
               AND substr(
                   capture.body,
                   :'quote_offset'::integer + 1,

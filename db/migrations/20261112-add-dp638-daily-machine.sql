@@ -7,7 +7,7 @@
 CREATE TABLE IF NOT EXISTS daily_capture (
     id              text PRIMARY KEY,
     content_id      text NOT NULL REFERENCES content_item(id) ON DELETE CASCADE,
-    source_id       text NOT NULL,
+    source_id       text NOT NULL REFERENCES source(id) ON DELETE RESTRICT,
     capture_kind    text NOT NULL,
     url             text NOT NULL,
     fetched_at      timestamptz NOT NULL DEFAULT now(),
@@ -17,8 +17,28 @@ CREATE TABLE IF NOT EXISTS daily_capture (
     metadata        jsonb NOT NULL DEFAULT '{}'::jsonb,
     CHECK (char_count >= 0),
     CHECK (text_sha256 ~ '^[0-9a-f]{64}$'),
-    CHECK (jsonb_typeof(metadata) = 'object')
+    CHECK (jsonb_typeof(metadata) = 'object'),
+    UNIQUE (id, content_id, source_id, url)
 );
+
+CREATE OR REPLACE FUNCTION dp638_validate_daily_capture_source()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    item_source_id text;
+BEGIN
+    SELECT source_id INTO item_source_id
+    FROM content_item WHERE id = NEW.content_id;
+    IF NOT FOUND OR item_source_id IS DISTINCT FROM NEW.source_id THEN
+        RAISE EXCEPTION 'DP638_CAPTURE_SOURCE_MISMATCH';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS daily_capture_source_matches_content ON daily_capture;
+CREATE TRIGGER daily_capture_source_matches_content
+BEFORE INSERT OR UPDATE OF content_id, source_id ON daily_capture
+FOR EACH ROW EXECUTE FUNCTION dp638_validate_daily_capture_source();
 
 CREATE INDEX IF NOT EXISTS daily_capture_content_idx
     ON daily_capture (content_id, fetched_at DESC);
@@ -26,8 +46,8 @@ CREATE INDEX IF NOT EXISTS daily_capture_content_idx
 CREATE TABLE IF NOT EXISTS daily_statement (
     id                  text PRIMARY KEY,
     content_id          text NOT NULL REFERENCES content_item(id) ON DELETE CASCADE,
-    capture_id          text NOT NULL REFERENCES daily_capture(id) ON DELETE CASCADE,
-    source_id           text NOT NULL,
+    capture_id          text NOT NULL,
+    source_id           text NOT NULL REFERENCES source(id) ON DELETE RESTRICT,
     source_url          text NOT NULL,
     source_title        text NOT NULL,
     source_publisher    text NOT NULL,
@@ -40,7 +60,7 @@ CREATE TABLE IF NOT EXISTS daily_statement (
     speaker_role        text NOT NULL DEFAULT '',
     speaker_key         text NOT NULL DEFAULT '',
     topic               text NOT NULL DEFAULT '',
-    claim_nature        text NOT NULL DEFAULT 'FACTUAL',
+    claim_nature        text NOT NULL,
     status              text NOT NULL DEFAULT 'CANDIDATE',
     status_reason       text NOT NULL DEFAULT '',
     extraction_model    text NOT NULL DEFAULT '',
@@ -55,7 +75,9 @@ CREATE TABLE IF NOT EXISTS daily_statement (
     CHECK (length(btrim(quote)) > 0),
     CHECK (quote_offset >= 0),
     CHECK (jsonb_typeof(metadata) = 'object'),
-    CONSTRAINT daily_statement_id_nature_unique UNIQUE (id, claim_nature)
+    CONSTRAINT daily_statement_id_nature_unique UNIQUE (id, claim_nature),
+    FOREIGN KEY (capture_id, content_id, source_id, source_url)
+        REFERENCES daily_capture (id, content_id, source_id, url) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS daily_statement_content_idx

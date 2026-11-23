@@ -127,6 +127,10 @@ class DailyStoreTests(unittest.TestCase):
         sql = run.call_args.args[0]
         params = run.call_args.kwargs
         self.assertIn("ON CONFLICT (id) DO NOTHING", sql)
+        self.assertIn("FROM content_item item", sql)
+        self.assertIn("item.source_id = :'source_id'", sql)
+        self.assertIn("FROM content_item item", sql)
+        self.assertIn("item.source_id = :'source_id'", sql)
         self.assertEqual(params["body"], capture.body)
         self.assertEqual(params["sha"], hashlib.sha256(capture.body.encode()).hexdigest())
 
@@ -166,6 +170,20 @@ class DailyStoreTests(unittest.TestCase):
         self.assertIn("substr(", sql)
         self.assertIn("capture.content_id = :'content_id'", sql)
         self.assertIn("capture.source_id = :'source_id'", sql)
+        self.assertIn("capture.url = :'source_url'", sql)
+
+    def test_statement_requires_explicit_claim_nature(self):
+        row = statement_row()
+        row.pop("claim_nature")
+        with self.assertRaisesRegex(ValueError, "DAILY_STATEMENT_NATURE_REQUIRED"):
+            DailyStore().save_statement(row)
+        self.assertIn("capture.url = :'source_url'", sql)
+
+    def test_statement_requires_explicit_claim_nature(self):
+        row = statement_row()
+        row.pop("claim_nature")
+        with self.assertRaisesRegex(ValueError, "DAILY_STATEMENT_NATURE_REQUIRED"):
+            DailyStore().save_statement(row)
 
         with self.assertRaisesRegex(ValueError, "STATUS_INVALID"):
             DailyStore().save_statement(statement_row(status="PUBLISHED"))
@@ -340,6 +358,9 @@ class DailyStoreTests(unittest.TestCase):
         self.assertIn("CONTRADICTORY_WITH_ITSELF", migration)
         self.assertIn("daily_verdict_factual_only", migration)
         self.assertIn("daily_statement_status_check", migration)
+        self.assertIn("DP638_CAPTURE_SOURCE_MISMATCH", migration)
+        self.assertIn("FOREIGN KEY (capture_id, content_id, source_id, source_url)", migration)
+        self.assertIn("claim_nature        text NOT NULL,", migration)
 
 
 if __name__ == "__main__":
