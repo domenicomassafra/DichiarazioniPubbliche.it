@@ -115,6 +115,7 @@ class CanaryTests(unittest.TestCase):
                 url=URL, decision=decision(), chromium_binary="/usr/bin/chromium",
                 fetcher=lambda target, **kwargs: response(STATIC, URL + "?x=1"),
                 renderer_factory=lambda **kwargs: FakeRenderer(),
+                clock=lambda: datetime(2026, 10, 23, 12, tzinfo=timezone.utc),
             )
 
     def test_future_expired_or_unbounded_rights_are_refused_before_fetch(self):
