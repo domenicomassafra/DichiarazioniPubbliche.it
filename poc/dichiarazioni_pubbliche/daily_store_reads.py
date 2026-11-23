@@ -25,7 +25,7 @@ def _json_array(raw: str) -> list[dict[str, Any]]:
 class DailyStoreReadMixin:
     """Read-only methods mixed into DailyStore; all projections are private."""
 
-    def capture_ids_today(self, run_date: str) -> set[str]:
+    def captured_content_ids_today(self, run_date: str) -> set[str]:
         raw = self.run(
             """
             SELECT COALESCE(jsonb_agg(content_id), '[]'::jsonb)::text
@@ -42,22 +42,27 @@ class DailyStoreReadMixin:
             SELECT COALESCE((
                 SELECT to_jsonb(capture_row)
                 FROM (
-                    SELECT id, content_id, source_id, capture_kind, url,
-                           fetched_at, char_count, text_sha256, metadata
+                    SELECT daily_capture.id, daily_capture.content_id,
+                           daily_capture.content_capture_id, daily_capture.source_id,
+                           daily_capture.capture_kind, daily_capture.url,
+                           daily_capture.fetched_at, daily_capture.char_count,
+                           daily_capture.content_sha256, daily_capture.text_sha256,
+                           daily_capture.metadata, existing_capture.rights_status,
+                           existing_capture.retention_class, existing_capture.hold_status,
+                           existing_capture.status AS capture_status,
+                           existing_capture.media_type, existing_capture.body_purged_at,
+                           source.source_type
                     FROM daily_capture
-                    WHERE id = :'capture_id'
+                    JOIN content_capture existing_capture
+                      ON existing_capture.id = daily_capture.content_capture_id
+                    JOIN source ON source.id = daily_capture.source_id
+                    WHERE daily_capture.id = :'capture_id'
                 ) capture_row
             ), '{}'::jsonb)::text;
             """,
             capture_id=capture_id,
         )
         return _json_object(raw)
-
-    def read_capture_body(self, capture_id: str) -> str:
-        return self.run(
-            "SELECT body FROM daily_capture WHERE id = :'capture_id';",
-            capture_id=capture_id,
-        )
 
     def read_statement(self, statement_id: str) -> dict[str, Any]:
         raw = self.run(

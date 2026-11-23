@@ -1,29 +1,71 @@
-"""Private persistence and explicit read contracts for DP-638 daily records."""
+"""Persistence for DP-638 records; shared source/content/capture stores remain authoritative."""
 
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
+from urllib.parse import urlsplit
 
-from dichiarazioni_pubbliche.daily_config import SourceSpec
 from dichiarazioni_pubbliche.daily_store_contracts import (
-    BILLING_BASES,
     CLAIM_NATURES,
     FACTUAL_VERDICTS,
     STATEMENT_STATUSES,
 )
 from dichiarazioni_pubbliche.daily_store_reads import DailyStoreReadMixin
+from dichiarazioni_pubbliche.private_capture_rights import SourceFamilyUseGuard
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
 
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
 @dataclass(frozen=True)
-class CaptureRecord:
+class DailyCaptureRecord:
+    id: str
+    content_capture_id: str
+    content_id: str
+    source_id: str
     kind: str
     url: str
-    body: str
+    char_count: int
+    content_sha256: str
+    text_sha256: str
+    media_type: str | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "id",
+            "content_capture_id",
+            "content_id",
+            "source_id",
+            "kind",
+            "url",
+        ):
+            if not str(getattr(self, field_name) or "").strip():
+                raise ValueError(f"DAILY_CAPTURE_FIELD_REQUIRED:{field_name}")
+        parsed = urlsplit(self.url)
+        if parsed.scheme != "https" or not parsed.hostname:
+            raise ValueError("DAILY_CAPTURE_URL_INVALID")
+        if isinstance(self.char_count, bool) or not isinstance(self.char_count, int) or self.char_count < 0:
+            raise ValueError("DAILY_CAPTURE_CHAR_COUNT_INVALID")
+        if not _SHA256_RE.fullmatch(self.content_sha256):
+            raise ValueError("DAILY_CAPTURE_CONTENT_SHA256_INVALID")
+        if not _SHA256_RE.fullmatch(self.text_sha256):
+            raise ValueError("DAILY_CAPTURE_TEXT_SHA256_INVALID")
+        if self.media_type is not None:
+            base_media_type = (
+                self.media_type.split(";", 1)[0].strip().lower()
+                if isinstance(self.media_type, str)
+                else ""
+            )
+            if not re.fullmatch(r"[a-z0-9.+-]+/[a-z0-9.+-]+", base_media_type):
+                raise ValueError("DAILY_CAPTURE_MEDIA_TYPE_INVALID")
+        if not isinstance(self.metadata, Mapping):
+            raise ValueError("DAILY_CAPTURE_METADATA_INVALID")
 
 
 def _sha256_text(value: str) -> str:
@@ -34,191 +76,129 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _as_bool(raw: str) -> bool:
-    return raw.strip().lower() in {"t", "true", "1"}
+def _source_use_metadata(
+    source_use_guard: SourceFamilyUseGuard,
+    capture: DailyCaptureRecord,
+) -> dict[str, str]:
+    source_use_guard.bind_capture(content_id=capture.content_id, url=capture.url)
+    source_use_guard.bind_fetched(final_url=capture.url)
+    decision = source_use_guard.require(
+        "EXTRACT_CANDIDATES",
+        content_sha256=capture.content_sha256,
+        media_type=capture.media_type,
+    )
+    if (
+        not decision.permitted
+        or not decision.record_id
+        or not decision.decision_fingerprint
+    ):
+        raise ValueError("DAILY_CAPTURE_SOURCE_USE_NOT_PROVEN")
+    return {
+        "use": decision.use,
+        "status": decision.status,
+        "reason_code": decision.reason_code,
+        "action_code": decision.action_code,
+        "record_id": decision.record_id,
+        "decision_fingerprint": decision.decision_fingerprint,
+    }
 
 
 class DailyStore(DailyStoreReadMixin, PsqlRuntime):
-    """Persistence for private daily records; never a public projection store."""
-
-    def upsert_source(self, source: SourceSpec) -> None:
-        self.run(
-            """
-            INSERT INTO source (
-                id, canonical_name, source_type, canonical_url, language,
-                country_code, metadata
-            )
-            VALUES (
-                :'source_id', :'name', :'kind', :'url', 'it', 'IT', :'metadata'::jsonb
-            )
-            ON CONFLICT (id) DO UPDATE SET
-                canonical_name = EXCLUDED.canonical_name,
-                source_type = EXCLUDED.source_type,
-                canonical_url = COALESCE(NULLIF(EXCLUDED.canonical_url, ''), source.canonical_url),
-                metadata = source.metadata || EXCLUDED.metadata,
-                updated_at = now();
-            """,
-            source_id=source.id,
-            name=source.name,
-            kind=source.kind,
-            url=source.discovery_url,
-            metadata=json.dumps(
-                {"publisher": source.publisher, "daily_machine": "DP-638"},
-                ensure_ascii=False,
-            ),
-        )
-
-    def save_items(self, rows: Sequence[dict[str, Any]]) -> dict[str, str]:
-        if not rows:
-            return {}
-        normalized = [
-            {
-                **row,
-                "metadata": row.get("metadata") or {},
-            }
-            for row in rows
-        ]
-        raw = self.run(
-            """
-            WITH input AS (
-                SELECT * FROM jsonb_to_recordset(:'items'::jsonb) AS x(
-                    content_id text, source_id text, external_id text, title text,
-                    description text, canonical_url text, published_at text,
-                    duration_ms bigint, metadata jsonb
-                )
-            ), upserted AS (
-                INSERT INTO content_item (
-                    id, source_id, source_external_id, canonical_url, title,
-                    description, language, published_at, duration_ms, metadata
-                )
-                SELECT content_id, source_id, external_id, canonical_url, title,
-                       NULLIF(description, ''), 'it',
-                       NULLIF(published_at, '')::timestamptz, duration_ms, metadata
-                FROM input
-                ON CONFLICT (source_id, source_external_id) DO UPDATE SET
-                    title = COALESCE(NULLIF(EXCLUDED.title, ''), content_item.title),
-                    description = COALESCE(EXCLUDED.description, content_item.description),
-                    canonical_url = CASE
-                        WHEN content_item.canonical_url = '' THEN EXCLUDED.canonical_url
-                        ELSE content_item.canonical_url END,
-                    published_at = COALESCE(content_item.published_at, EXCLUDED.published_at),
-                    duration_ms = COALESCE(content_item.duration_ms, EXCLUDED.duration_ms),
-                    metadata = (content_item.metadata || EXCLUDED.metadata) ||
-                        CASE WHEN content_item.metadata->'ingestion_relevance'->>'attribution_version'
-                                  = 'direct-source-attribution-v2'
-                               AND content_item.metadata->'ingestion_relevance'->>'decision'
-                                  IN ('RELEVANT', 'UNCONFIRMED')
-                             THEN jsonb_build_object('ingestion_relevance', content_item.metadata->'ingestion_relevance')
-                             ELSE '{}'::jsonb END
-                RETURNING id, source_id, source_external_id
-            )
-            SELECT COALESCE(jsonb_object_agg(input.content_id, upserted.id), '{}'::jsonb)::text
-            FROM upserted JOIN input
-              ON input.source_id = upserted.source_id
-             AND input.external_id = upserted.source_external_id;
-            """,
-            items=json.dumps(normalized, ensure_ascii=False),
-        )
-        return dict(json.loads(raw.strip() or "{}"))
+    """Writes only DP-638 tables and rechecks capture rights at each use."""
 
     def save_capture(
         self,
+        capture: DailyCaptureRecord,
         *,
-        capture_id: str,
-        content_id: str,
-        source_id: str,
-        capture: CaptureRecord,
+        captured_text: str,
+        source_use_guard: SourceFamilyUseGuard,
     ) -> bool:
-        """Persist a capture only when its source matches the content item."""
-        if not capture.url.strip() or not capture.kind.strip():
-            raise ValueError("DAILY_CAPTURE_SOURCE_AND_KIND_REQUIRED")
+        if len(captured_text) != capture.char_count:
+            raise ValueError("DAILY_CAPTURE_TEXT_CHAR_COUNT_MISMATCH")
+        if _sha256_text(captured_text) != capture.text_sha256:
+            raise ValueError("DAILY_CAPTURE_TEXT_HASH_MISMATCH")
+        use_decision = _source_use_metadata(source_use_guard, capture)
+        metadata = dict(capture.metadata)
+        metadata["source_use_decision"] = use_decision
         raw = self.run(
             """
             INSERT INTO daily_capture (
-                id, content_id, source_id, capture_kind, url,
-                char_count, text_sha256, body, metadata
+                id, content_id, content_capture_id, source_id, capture_kind, url,
+                char_count, content_sha256, text_sha256, metadata
             )
-            SELECT
-                :'id', item.id, item.source_id, :'kind', :'url',
-                :'chars'::integer, :'sha', :'body', :'metadata'::jsonb
-            FROM content_item item
-            WHERE item.id = :'content_id'
+            SELECT :'id', item.id, existing_capture.id, item.source_id, :'kind',
+                   existing_capture.final_url, :'char_count'::integer,
+                   existing_capture.content_sha256, :'text_sha256', :'metadata'::jsonb
+            FROM content_capture existing_capture
+            JOIN content_item item ON item.id = existing_capture.content_id
+            JOIN source source ON source.id = item.source_id
+            WHERE existing_capture.id = :'content_capture_id'
+              AND existing_capture.content_id = :'content_id'
               AND item.source_id = :'source_id'
+              AND existing_capture.final_url = :'url'
+              AND existing_capture.content_sha256 = :'content_sha256'
+              AND existing_capture.media_type IS NOT DISTINCT FROM NULLIF(:'media_type', '')
+              AND lower(source.source_type) NOT IN ('public_rss', 'rss')
+              AND existing_capture.rights_status = 'CLEARED'
+              AND existing_capture.hold_status = 'NONE'
+              AND existing_capture.retention_class IN ('DURABLE_PRIVATE', 'DURABLE_PROVENANCE')
+              AND existing_capture.status = 'CAPTURED'
+              AND existing_capture.body_ref IS NOT NULL
+              AND existing_capture.body_purged_at IS NULL
             ON CONFLICT (id) DO NOTHING
             RETURNING id;
             """,
-            id=capture_id,
-            content_id=content_id,
-            source_id=source_id,
+            id=capture.id,
+            content_capture_id=capture.content_capture_id,
+            content_id=capture.content_id,
+            source_id=capture.source_id,
             kind=capture.kind,
             url=capture.url,
-            chars=len(capture.body),
-            sha=_sha256_text(capture.body),
-            body=capture.body,
-            metadata=json.dumps(dict(capture.metadata), ensure_ascii=False),
+            char_count=capture.char_count,
+            content_sha256=capture.content_sha256,
+            text_sha256=capture.text_sha256,
+            media_type=capture.media_type or "",
+            metadata=json.dumps(metadata, ensure_ascii=False),
         )
         return bool(raw.strip())
 
-    def set_relevance(self, content_id: str, *, decision: str, reason: str) -> None:
-        self.run(
-            """
-            UPDATE content_item
-            SET metadata = jsonb_set(
-                metadata, '{ingestion_relevance}',
-                COALESCE(metadata->'ingestion_relevance', '{}'::jsonb) ||
-                jsonb_build_object(
-                    'decision', :'decision',
-                    'reason', :'reason',
-                    'decided_at', now()
-                )
-            )
-            WHERE id = :'content_id';
-            """,
-            content_id=content_id,
-            decision=decision,
-            reason=reason,
-        )
-
-    def save_statement(self, row: Mapping[str, Any]) -> bool:
-        """Persist a statement with explicit nature and matching capture provenance."""
-        status = str(row.get("status") or "CANDIDATE")
-        claim_nature = row.get("claim_nature")
-        if not isinstance(claim_nature, str) or not claim_nature:
-            raise ValueError("DAILY_STATEMENT_NATURE_REQUIRED")
-        quote = str(row.get("quote") or "")
+    def save_statement(
+        self,
+        row: Mapping[str, Any],
+        *,
+        capture: DailyCaptureRecord,
+        captured_text: str,
+        source_use_guard: SourceFamilyUseGuard,
+    ) -> bool:
+        status = str(row.get("status") or "CANDIDATE").strip().upper()
+        claim_nature = str(row.get("claim_nature") or "").strip().upper()
         if status not in STATEMENT_STATUSES:
             raise ValueError(f"DAILY_STATEMENT_STATUS_INVALID:{status}")
+        if not claim_nature:
+            raise ValueError("DAILY_STATEMENT_NATURE_REQUIRED")
         if claim_nature not in CLAIM_NATURES:
             raise ValueError(f"DAILY_STATEMENT_NATURE_INVALID:{claim_nature}")
-        if not quote.strip():
-            raise ValueError("DAILY_STATEMENT_QUOTE_REQUIRED")
-        quote_offset = row.get("quote_offset", 0)
+        quote = str(row.get("quote") or "")
+        quote_offset = row.get("quote_offset")
         if isinstance(quote_offset, bool) or not isinstance(quote_offset, int) or quote_offset < 0:
             raise ValueError("DAILY_STATEMENT_QUOTE_OFFSET_INVALID")
+        if not quote or captured_text[quote_offset : quote_offset + len(quote)] != quote:
+            raise ValueError("DAILY_STATEMENT_QUOTE_NOT_IN_CAPTURE")
+        if len(captured_text) != capture.char_count:
+            raise ValueError("DAILY_STATEMENT_CAPTURE_CHAR_COUNT_MISMATCH")
+        if _sha256_text(captured_text) != capture.text_sha256:
+            raise ValueError("DAILY_STATEMENT_CAPTURE_TEXT_HASH_MISMATCH")
+        if (
+            str(row.get("capture_id") or "") != capture.id
+            or str(row.get("content_id") or "") != capture.content_id
+            or str(row.get("source_id") or "") != capture.source_id
+            or str(row.get("source_url") or "") != capture.url
+        ):
+            raise ValueError("DAILY_STATEMENT_CAPTURE_BINDING_MISMATCH")
 
-        params = {
-            "id": row["id"],
-            "content_id": row["content_id"],
-            "capture_id": row["capture_id"],
-            "source_id": row["source_id"],
-            "source_url": row["source_url"],
-            "source_title": row["source_title"],
-            "source_publisher": row["source_publisher"],
-            "source_published_at": row.get("source_published_at") or "",
-            "statement_date": row["statement_date"],
-            "quote": quote,
-            "quote_offset": quote_offset,
-            "moment_label": row.get("moment_label") or "",
-            "speaker_name": row.get("speaker_name") or "",
-            "speaker_role": row.get("speaker_role") or "",
-            "speaker_key": row.get("speaker_key") or "",
-            "topic": row.get("topic") or "",
-            "claim_nature": claim_nature,
-            "status": status,
-            "status_reason": row.get("status_reason") or "",
-            "extraction_model": row.get("extraction_model") or "",
-            "metadata": json.dumps(row.get("metadata") or {}, ensure_ascii=False),
-        }
+        use_decision = _source_use_metadata(source_use_guard, capture)
+        metadata = dict(row.get("metadata") or {})
+        metadata["source_use_decision"] = use_decision
         raw = self.run(
             """
             INSERT INTO daily_statement (
@@ -227,28 +207,60 @@ class DailyStore(DailyStoreReadMixin, PsqlRuntime):
                 quote_offset, moment_label, speaker_name, speaker_role, speaker_key,
                 topic, claim_nature, status, status_reason, extraction_model, metadata
             )
-            SELECT
-                :'id', :'content_id', :'capture_id', :'source_id', :'source_url',
-                :'source_title', :'source_publisher',
-                NULLIF(:'source_published_at', '')::timestamptz,
-                :'statement_date'::date, :'quote', :'quote_offset'::integer,
-                :'moment_label', :'speaker_name', :'speaker_role', :'speaker_key',
-                :'topic', :'claim_nature', :'status', :'status_reason',
-                :'extraction_model', :'metadata'::jsonb
-            FROM daily_capture capture
-            WHERE capture.id = :'capture_id'
-              AND capture.content_id = :'content_id'
-              AND capture.source_id = :'source_id'
-              AND capture.url = :'source_url'
-              AND substr(
-                  capture.body,
-                  :'quote_offset'::integer + 1,
-                  char_length(:'quote')
-              ) = :'quote'
+            SELECT :'id', daily_capture.content_id, daily_capture.id,
+                   daily_capture.source_id, daily_capture.url, :'source_title',
+                   :'source_publisher', NULLIF(:'source_published_at', '')::timestamptz,
+                   :'statement_date'::date, :'quote', :'quote_offset'::integer,
+                   :'moment_label', :'speaker_name', :'speaker_role', :'speaker_key',
+                   :'topic', :'claim_nature', :'status', :'status_reason',
+                   :'extraction_model', :'metadata'::jsonb
+            FROM daily_capture
+            JOIN content_capture existing_capture
+              ON existing_capture.id = daily_capture.content_capture_id
+            JOIN source ON source.id = daily_capture.source_id
+            WHERE daily_capture.id = :'capture_id'
+              AND daily_capture.content_id = :'content_id'
+              AND daily_capture.source_id = :'source_id'
+              AND daily_capture.url = :'source_url'
+              AND daily_capture.content_capture_id = :'content_capture_id'
+              AND daily_capture.content_sha256 = :'content_sha256'
+              AND daily_capture.text_sha256 = :'text_sha256'
+              AND existing_capture.media_type IS NOT DISTINCT FROM NULLIF(:'media_type', '')
+              AND lower(source.source_type) NOT IN ('public_rss', 'rss')
+              AND existing_capture.rights_status = 'CLEARED'
+              AND existing_capture.hold_status = 'NONE'
+              AND existing_capture.retention_class IN ('DURABLE_PRIVATE', 'DURABLE_PROVENANCE')
+              AND existing_capture.status = 'CAPTURED'
+              AND existing_capture.body_ref IS NOT NULL
+              AND existing_capture.body_purged_at IS NULL
             ON CONFLICT (id) DO NOTHING
             RETURNING id;
             """,
-            **params,
+            id=str(row.get("id") or ""),
+            capture_id=capture.id,
+            content_capture_id=capture.content_capture_id,
+            content_id=capture.content_id,
+            source_id=capture.source_id,
+            source_url=capture.url,
+            content_sha256=capture.content_sha256,
+            text_sha256=capture.text_sha256,
+            media_type=capture.media_type or "",
+            source_title=str(row.get("source_title") or ""),
+            source_publisher=str(row.get("source_publisher") or ""),
+            source_published_at=str(row.get("source_published_at") or ""),
+            statement_date=str(row.get("statement_date") or ""),
+            quote=quote,
+            quote_offset=quote_offset,
+            moment_label=str(row.get("moment_label") or ""),
+            speaker_name=str(row.get("speaker_name") or ""),
+            speaker_role=str(row.get("speaker_role") or ""),
+            speaker_key=str(row.get("speaker_key") or ""),
+            topic=str(row.get("topic") or ""),
+            claim_nature=claim_nature,
+            status=status,
+            status_reason=str(row.get("status_reason") or ""),
+            extraction_model=str(row.get("extraction_model") or ""),
+            metadata=json.dumps(metadata, ensure_ascii=False),
         )
         return bool(raw.strip())
 
@@ -272,9 +284,9 @@ class DailyStore(DailyStoreReadMixin, PsqlRuntime):
         return bool(raw.strip())
 
     def save_verdict(self, statement_id: str, verdict: Mapping[str, Any]) -> bool:
-        value = str(verdict.get("verdict") or "")
+        value = str(verdict.get("verdict") or "").strip().upper()
         if value not in FACTUAL_VERDICTS:
-            raise ValueError(f"DAILY_FACTUAL_VERDICT_INVALID:{value}")
+            raise ValueError(f"DAILY_VERDICT_INVALID:{value}")
         evidence = verdict.get("evidence") or []
         first_pass = verdict.get("first_pass") or {}
         check_pass = verdict.get("check_pass") or {}
@@ -288,40 +300,25 @@ class DailyStore(DailyStoreReadMixin, PsqlRuntime):
             raise ValueError("DAILY_VERDICT_EVIDENCE_OR_PASSES_INVALID")
         model_calls = int(verdict.get("model_calls", 0))
         duration_seconds = float(verdict.get("duration_seconds", 0))
-        if model_calls < 2 or duration_seconds < 0 or not str(verdict.get("models") or "").strip():
+        models = str(verdict.get("models") or "").strip()
+        if model_calls < 2 or duration_seconds < 0 or not models:
             raise ValueError("DAILY_VERDICT_METRICS_INVALID")
-
         raw = self.run(
             """
-            WITH saved AS (
-                INSERT INTO daily_verdict (
-                    statement_id, claim_nature, verdict, explanation, evidence,
-                    first_pass, check_pass, agreement, models, model_calls,
-                    duration_seconds
-                )
-                SELECT
-                    statement.id, 'FACTUAL', :'verdict', :'explanation',
-                    :'evidence'::jsonb, :'first_pass'::jsonb, :'check_pass'::jsonb,
-                    :'agreement', :'models', :'model_calls'::integer,
-                    :'duration_seconds'::numeric
-                FROM daily_statement statement
-                WHERE statement.id = :'statement_id'
-                  AND statement.claim_nature = 'FACTUAL'
-                  AND statement.status = 'CANDIDATE'
-                ON CONFLICT (statement_id) DO UPDATE SET
-                    verdict = EXCLUDED.verdict,
-                    explanation = EXCLUDED.explanation,
-                    evidence = EXCLUDED.evidence,
-                    first_pass = EXCLUDED.first_pass,
-                    check_pass = EXCLUDED.check_pass,
-                    agreement = EXCLUDED.agreement,
-                    models = EXCLUDED.models,
-                    model_calls = EXCLUDED.model_calls,
-                    duration_seconds = EXCLUDED.duration_seconds,
-                    created_at = now()
-                RETURNING statement_id
+            INSERT INTO daily_verdict (
+                statement_id, claim_nature, verdict, explanation, evidence,
+                first_pass, check_pass, agreement, models, model_calls, duration_seconds
             )
-            SELECT EXISTS (SELECT 1 FROM saved)::text;
+            SELECT statement.id, statement.claim_nature, :'verdict',
+                   :'explanation', :'evidence'::jsonb, :'first_pass'::jsonb,
+                   :'check_pass'::jsonb, :'agreement', :'models',
+                   :'model_calls'::integer, :'duration_seconds'::numeric
+            FROM daily_statement statement
+            WHERE statement.id = :'statement_id'
+              AND statement.claim_nature = 'FACTUAL'
+              AND statement.status = 'CANDIDATE'
+            ON CONFLICT (statement_id) DO NOTHING
+            RETURNING statement_id;
             """,
             statement_id=statement_id,
             verdict=value,
@@ -330,71 +327,11 @@ class DailyStore(DailyStoreReadMixin, PsqlRuntime):
             first_pass=json.dumps(first_pass, ensure_ascii=False),
             check_pass=json.dumps(check_pass, ensure_ascii=False),
             agreement=str(verdict.get("agreement") or ""),
-            models=str(verdict.get("models") or ""),
+            models=models,
             model_calls=model_calls,
-            duration_seconds=f"{duration_seconds:.3f}",
+            duration_seconds=duration_seconds,
         )
-        return _as_bool(raw)
-
-    def write_receipt(
-        self,
-        *,
-        content_id: str,
-        provider_id: str,
-        model_id: str,
-        operation: str,
-        request_key: str,
-        latency_seconds: float,
-        usage: Mapping[str, Any],
-        status: str = "OK",
-        billing_basis: str = "UNKNOWN",
-        estimated_cost_usd: float | None = None,
-        measured_cost_usd: float | None = None,
-    ) -> str:
-        if billing_basis not in BILLING_BASES:
-            raise ValueError(f"DAILY_RECEIPT_BILLING_BASIS_INVALID:{billing_basis}")
-        receipt_id = "receipt:" + hashlib.sha256(
-            "\0".join(("dp638", content_id, provider_id, operation, request_key)).encode()
-        ).hexdigest()
-        self.run(
-            """
-            INSERT INTO provider_receipt (
-                id, content_id, provider_id, model_id, operation, started_at,
-                completed_at, input_bytes, estimated_cost_usd, measured_cost_usd,
-                status, receipt, operation_key, attempt, billing_basis, total_tokens,
-                request_count, ledger_scope
-            ) VALUES (
-                :'id', :'content_id', :'provider_id', :'model_id', :'operation',
-                now() - make_interval(secs => :'latency'::numeric), now(),
-                NULL, NULLIF(:'estimated_cost_usd', '')::numeric,
-                NULLIF(:'measured_cost_usd', '')::numeric, :'status', :'receipt'::jsonb,
-                :'operation_key', 1, :'billing_basis', :'total_tokens'::bigint, 1,
-                '{\"scope\": \"DP-638 daily machine\"}'::jsonb
-            )
-            ON CONFLICT (id) DO NOTHING;
-            """,
-            id=receipt_id,
-            content_id=content_id,
-            provider_id=provider_id,
-            model_id=model_id or "unknown",
-            operation=operation,
-            status=status,
-            receipt=json.dumps(
-                {"latency_seconds": latency_seconds, "usage": dict(usage)},
-                ensure_ascii=False,
-            ),
-            operation_key=request_key,
-            billing_basis=billing_basis,
-            total_tokens=int(usage.get("total_tokens") or 0),
-            latency=max(latency_seconds, 0.0),
-            estimated_cost_usd=(
-                "" if estimated_cost_usd is None else f"{estimated_cost_usd:.6f}"
-            ),
-            measured_cost_usd=(
-                "" if measured_cost_usd is None else f"{measured_cost_usd:.6f}"
-            ),
-        )
-        return receipt_id
+        return bool(raw.strip())
 
     def record_run(
         self,
@@ -403,6 +340,7 @@ class DailyStore(DailyStoreReadMixin, PsqlRuntime):
         *,
         finished: bool,
         status: str | None = None,
+        started_at: str | None = None,
     ) -> None:
         run_status = status or ("COMPLETED" if finished else "RUNNING")
         if run_status not in {"RUNNING", "COMPLETED", "FAILED"}:
@@ -414,11 +352,13 @@ class DailyStore(DailyStoreReadMixin, PsqlRuntime):
             INSERT INTO daily_run (
                 run_date, started_at, finished_at, status, items, captures,
                 statements, verdicts, held_statements, report
-            ) VALUES (
+            )
+            VALUES (
                 :'run_date'::date, :'started_at'::timestamptz,
-                NULLIF(:'finished_at', '')::timestamptz, :'status',
-                :'items'::integer, :'captures'::integer, :'statements'::integer,
-                :'verdicts'::integer, :'held_statements'::integer, :'report'::jsonb
+                CASE WHEN :'finished' = 'true' THEN now() ELSE NULL END,
+                :'status', :'items'::integer, :'captures'::integer,
+                :'statements'::integer, :'verdicts'::integer,
+                :'held_statements'::integer, :'report'::jsonb
             )
             ON CONFLICT (run_date) DO UPDATE SET
                 finished_at = EXCLUDED.finished_at,
@@ -431,8 +371,8 @@ class DailyStore(DailyStoreReadMixin, PsqlRuntime):
                 report = EXCLUDED.report;
             """,
             run_date=run_date,
-            started_at=str(report.get("started_at") or _utc_now()),
-            finished_at=_utc_now() if finished else "",
+            started_at=started_at or _utc_now(),
+            finished="true" if finished else "false",
             status=run_status,
             items=int(report.get("items", 0)),
             captures=int(report.get("captures", 0)),

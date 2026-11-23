@@ -29,7 +29,7 @@ tabelle additive:
 
 | Tabella | Dati |
 |---|---|
-| daily_capture | corpo catturato, URL, tipo, data, impronta SHA-256 e metadati |
+| daily_capture | riferimento a content_capture, URL, tipo, data, hash del contenuto e del testo normalizzato |
 | daily_statement | citazione esatta, offset, fonte, persona candidata, momento, tema e stato |
 | daily_verdict | verdetto fattuale, spiegazione, evidenze, primo passaggio e controllo |
 | daily_run | stato e contatori della corsa giornaliera |
@@ -37,9 +37,13 @@ tabelle additive:
 La migrazione è ripetibile e non modifica righe preesistenti. Non contiene
 aggiornamenti temporali ai job storici. Il censimento DP-304 registra queste
 tabelle come set di migrazione versionato; lo schema canonico v1 resta intatto.
-La cattura è accettata solo se `source_id` coincide con `content_item.source_id`.
-La dichiarazione lega cattura, contenuto, fonte e URL con una chiave esterna
-composta; lo store verifica anche che la citazione sia esatta all'offset dato.
+La cattura punta a un record già presente in content_capture; il corpo resta
+nel CaptureBodyStore esistente. Lo store richiede un SourceFamilyUseGuard
+che autorizzi EXTRACT_CANDIDATES, diritti CLEARED, hold NONE, retention
+DURABLE_PRIVATE o DURABLE_PROVENANCE e un corpo ancora disponibile. Le fonti
+public_rss e rss restano bloccate dal gate RIGHTS_HOLD. La cattura lega
+contenuto, fonte e URL; la dichiarazione lega inoltre cattura, hash e URL con
+una chiave esterna composta e verifica la citazione all'offset esatto.
 
 Tutte le tabelle restano private. daily_statement.status ammette solo
 CANDIDATE e stati HELD_*; non esiste uno stato PUBLISHED. Un candidato
@@ -69,7 +73,9 @@ e di store.
 DailyStore espone letture esplicite:
 
 - read_capture_metadata restituisce i metadati della cattura e la sua impronta;
-- read_capture_body legge il testo privato per il solo lavoro interno;
+- captured_content_ids_today restituisce i contenuti già catturati nella data;
+- il corpo si legge tramite il CaptureBodyStore esistente, dopo il controllo
+  dei diritti; DailyStore non espone una seconda lettura del corpo;
 - read_statement e read_statements restituiscono campi dichiarati e, se
   presente, il verdetto associato;
 - save_statement accetta una citazione solo se coincide con il testo catturato
@@ -81,23 +87,21 @@ DailyStore espone letture esplicite:
 - statement_count restituisce un conteggio per data.
 
 Le letture di dichiarazioni e metadati non includono il corpo della cattura.
+DailyStore scrive solo le quattro tabelle DP-638; source, content_item,
+content_capture e provider_receipt restano posseduti dai rispettivi store.
 Nessun metodo dello store genera o scrive la proiezione pubblica.
 
 ## Prova locale della migrazione
 
-Applicare la migrazione soltanto a un database PostgreSQL usa-e-getta, dopo
-aver creato le tabelle `source` e `content_item` minime richieste dai vincoli:
-
-    CREATE TABLE source (id text PRIMARY KEY);
-    CREATE TABLE content_item (
-        id text PRIMARY KEY,
-        source_id text REFERENCES source(id)
-    );
+Applicare la migrazione soltanto a un database PostgreSQL usa-e-getta che
+contenga le tabelle esistenti source, content_item e content_capture definite
+nello schema di base. Preparare una cattura già autorizzata con diritti
+CLEARED, hold NONE e retention durevole, usando una fonte diversa da public_rss.
 
 Poi applicarla due volte con psql -v ON_ERROR_STOP=1 -f
 db/migrations/20261112-add-dp638-daily-machine.sql. Inserire un record di prova
-in content_item e nelle quattro tabelle, ripetere la migrazione e confrontare
-gli identificatori, i conteggi e il corpo catturato. Non applicare questa
+in daily_capture collegato a content_capture e nelle altre tabelle, ripetere la
+migrazione e confrontare gli identificatori, i conteggi e gli hash. Non applicare questa
 migrazione al database del MiniPC in questa fase.
 
 Il resoconto di lettura del MiniPC del 12 novembre riportava già 28 righe in

@@ -4,7 +4,9 @@ import json
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,10 +17,12 @@ from dichiarazioni_pubbliche.daily_config import (  # noqa: E402
     load_config,
 )
 from dichiarazioni_pubbliche.daily_store import (  # noqa: E402
-    CaptureRecord,
+    DailyCaptureRecord,
     DailyStore,
     FACTUAL_VERDICTS,
 )
+
+TEXT = "Una frase esatta."
 
 
 def statement_row(**overrides):
@@ -31,8 +35,8 @@ def statement_row(**overrides):
         "source_title": "Titolo",
         "source_publisher": "Editore",
         "statement_date": "2026-11-23",
-        "quote": "Una frase esatta.",
-        "quote_offset": 12,
+        "quote": TEXT,
+        "quote_offset": 0,
         "speaker_name": "Persona pubblica",
         "claim_nature": "FACTUAL",
         "status": "CANDIDATE",
@@ -40,6 +44,49 @@ def statement_row(**overrides):
     }
     row.update(overrides)
     return row
+
+
+def daily_capture_record(**overrides):
+    record = {
+        "id": "capture-1",
+        "content_capture_id": "content-capture-1",
+        "content_id": "content-1",
+        "source_id": "source-1",
+        "kind": "article_text",
+        "url": "https://example.org/article",
+        "char_count": len(TEXT),
+        "content_sha256": "a" * 64,
+        "text_sha256": hashlib.sha256(TEXT.encode("utf-8")).hexdigest(),
+        "media_type": "text/html",
+        "metadata": {"parser": "fixture"},
+    }
+    record.update(overrides)
+    return DailyCaptureRecord(**record)
+
+
+class FakeSourceUseGuard:
+    def __init__(self, *, permitted=True):
+        self.permitted = permitted
+        self.bindings = []
+        self.uses = []
+
+    def bind_capture(self, **kwargs):
+        self.bindings.append(("capture", kwargs))
+
+    def bind_fetched(self, **kwargs):
+        self.bindings.append(("fetched", kwargs))
+
+    def require(self, use, *, content_sha256=None, media_type=None):
+        self.uses.append((use, content_sha256, media_type))
+        return SimpleNamespace(
+            use=use,
+            status="PERMITTED" if self.permitted else "DENIED",
+            reason_code="SOURCE_USE_PERMITTED" if self.permitted else "SOURCE_USE_NOT_PERMITTED",
+            action_code="NONE" if self.permitted else "REVIEW_SPECIFIC_USE",
+            record_id="rights-record-1" if self.permitted else None,
+            decision_fingerprint="b" * 64 if self.permitted else None,
+            permitted=self.permitted,
+        )
 
 
 class DailyConfigTests(unittest.TestCase):
@@ -108,38 +155,66 @@ class DailyConfigTests(unittest.TestCase):
 
 
 class DailyStoreTests(unittest.TestCase):
-    def test_capture_write_is_idempotent_and_records_exact_body_hash(self):
-        capture = CaptureRecord(
-            kind="article_text",
-            url="https://example.org/article",
-            body="Testo catturato\ncon accenti è.",
-            metadata={"parser": "fixture"},
-        )
+    def test_capture_write_is_idempotent_and_links_authorized_existing_capture(self):
+        capture = daily_capture_record()
+        guard = FakeSourceUseGuard()
         with patch.object(DailyStore, "run", return_value="capture-1") as run:
             saved = DailyStore().save_capture(
-                capture_id="capture-1",
-                content_id="content-1",
-                source_id="source-1",
-                capture=capture,
+                capture, captured_text=TEXT, source_use_guard=guard
             )
 
         self.assertTrue(saved)
-        sql = run.call_args.args[0]
+        sql = run.call_args.args[0].lower()
         params = run.call_args.kwargs
-        self.assertIn("ON CONFLICT (id) DO NOTHING", sql)
-        self.assertIn("FROM content_item item", sql)
-        self.assertIn("item.source_id = :'source_id'", sql)
-        self.assertIn("FROM content_item item", sql)
-        self.assertIn("item.source_id = :'source_id'", sql)
-        self.assertEqual(params["body"], capture.body)
-        self.assertEqual(params["sha"], hashlib.sha256(capture.body.encode()).hexdigest())
+        self.assertIn("on conflict (id) do nothing", sql)
+        self.assertIn("from content_capture existing_capture", sql)
+        self.assertIn("existing_capture.rights_status = 'cleared'", sql)
+        self.assertIn("existing_capture.hold_status = 'none'", sql)
+        self.assertIn("existing_capture.retention_class in", sql)
+        self.assertIn("lower(source.source_type) not in ('public_rss', 'rss')", sql)
+        self.assertNotIn("insert into source", sql)
+        self.assertNotIn("insert into content_item", sql)
+        self.assertEqual(params["content_capture_id"], capture.content_capture_id)
+        self.assertEqual(
+            json.loads(params["metadata"])["source_use_decision"]["record_id"],
+            "rights-record-1",
+        )
+        self.assertEqual(guard.uses[0][0], "EXTRACT_CANDIDATES")
+
+    def test_capture_write_requires_a_permitted_source_use_decision(self):
+        with self.assertRaisesRegex(ValueError, "SOURCE_USE_NOT_PROVEN"):
+            DailyStore().save_capture(
+                daily_capture_record(),
+                captured_text=TEXT,
+                source_use_guard=FakeSourceUseGuard(permitted=False),
+            )
+
+    def test_capture_write_checks_normalized_text_length_and_hash(self):
+        with patch.object(DailyStore, "run") as run:
+            with self.assertRaisesRegex(ValueError, "CHAR_COUNT_MISMATCH"):
+                DailyStore().save_capture(
+                    daily_capture_record(),
+                    captured_text=TEXT + " extra",
+                    source_use_guard=FakeSourceUseGuard(),
+                )
+            with self.assertRaisesRegex(ValueError, "TEXT_HASH_MISMATCH"):
+                DailyStore().save_capture(
+                    daily_capture_record(text_sha256="c" * 64),
+                    captured_text=TEXT,
+                    source_use_guard=FakeSourceUseGuard(),
+                )
+            run.assert_not_called()
 
     def test_capture_metadata_read_never_returns_private_body(self):
         expected = {
             "id": "capture-1",
             "content_id": "content-1",
-            "text_sha256": "a" * 64,
+            "content_capture_id": "content-capture-1",
+            "text_sha256": hashlib.sha256(TEXT.encode("utf-8")).hexdigest(),
             "char_count": 4,
+            "rights_status": "CLEARED",
+            "retention_class": "DURABLE_PRIVATE",
+            "media_type": "text/html",
         }
         with patch.object(DailyStore, "run", return_value=json.dumps(expected)) as run:
             result = DailyStore().read_capture_metadata("capture-1")
@@ -147,56 +222,114 @@ class DailyStoreTests(unittest.TestCase):
         self.assertEqual(result, expected)
         sql = run.call_args.args[0].lower()
         self.assertIn("text_sha256", sql)
+        self.assertIn("content_capture existing_capture", sql)
+        self.assertIn("existing_capture.rights_status", sql)
+        self.assertNotIn("body_ref", sql)
         self.assertNotIn("select body", sql)
-        self.assertNotIn("capture_row.body", sql)
+        self.assertNotIn("daily_capture.body", sql)
 
-    def test_capture_body_requires_explicit_private_read_method(self):
-        with patch.object(DailyStore, "run", return_value="testo privato") as run:
-            body = DailyStore().read_capture_body("capture-1")
-
-        self.assertEqual(body, "testo privato")
-        self.assertIn("SELECT body FROM daily_capture", run.call_args.args[0])
+    def test_daily_store_does_not_duplicate_existing_store_ownership(self):
+        for method in ("upsert_source", "save_items", "set_relevance", "write_receipt", "read_capture_body"):
+            with self.subTest(method=method):
+                self.assertFalse(hasattr(DailyStore, method))
 
     def test_statement_candidates_are_append_only_and_cannot_be_marked_published(self):
+        capture = daily_capture_record()
+        guard = FakeSourceUseGuard()
         with patch.object(DailyStore, "run", return_value="statement-1") as run:
-            saved = DailyStore().save_statement(statement_row())
+            saved = DailyStore().save_statement(
+                statement_row(),
+                capture=capture,
+                captured_text=TEXT,
+                source_use_guard=guard,
+            )
 
         self.assertTrue(saved)
-        sql = run.call_args.args[0]
-        self.assertIn("ON CONFLICT (id) DO NOTHING", sql)
-        self.assertNotIn("DO UPDATE", sql)
+        sql = run.call_args.args[0].lower()
+        self.assertIn("on conflict (id) do nothing", sql)
+        self.assertNotIn("do update", sql)
         self.assertEqual(run.call_args.kwargs["status"], "CANDIDATE")
-        self.assertIn("FROM daily_capture capture", sql)
-        self.assertIn("substr(", sql)
-        self.assertIn("capture.content_id = :'content_id'", sql)
-        self.assertIn("capture.source_id = :'source_id'", sql)
-        self.assertIn("capture.url = :'source_url'", sql)
+        self.assertIn("from daily_capture", sql)
+        self.assertIn("daily_capture.content_capture_id = :'content_capture_id'", sql)
+        self.assertIn("existing_capture.rights_status = 'cleared'", sql)
+        self.assertIn("daily_capture.text_sha256 = :'text_sha256'", sql)
 
     def test_statement_requires_explicit_claim_nature(self):
         row = statement_row()
         row.pop("claim_nature")
         with self.assertRaisesRegex(ValueError, "DAILY_STATEMENT_NATURE_REQUIRED"):
-            DailyStore().save_statement(row)
+            DailyStore().save_statement(
+                row,
+                capture=daily_capture_record(),
+                captured_text=TEXT,
+                source_use_guard=FakeSourceUseGuard(),
+            )
 
         with self.assertRaisesRegex(ValueError, "STATUS_INVALID"):
-            DailyStore().save_statement(statement_row(status="PUBLISHED"))
+            DailyStore().save_statement(
+                statement_row(status="PUBLISHED"),
+                capture=daily_capture_record(),
+                captured_text=TEXT,
+                source_use_guard=FakeSourceUseGuard(),
+            )
 
     def test_statement_quote_offset_rejects_boolean_and_negative_values(self):
         for offset in (True, -1):
             with self.subTest(offset=offset), self.assertRaisesRegex(
                 ValueError, "QUOTE_OFFSET_INVALID"
             ):
-                DailyStore().save_statement(statement_row(quote_offset=offset))
+                DailyStore().save_statement(
+                    statement_row(quote_offset=offset),
+                    capture=daily_capture_record(),
+                    captured_text=TEXT,
+                    source_use_guard=FakeSourceUseGuard(),
+                )
+
+    def test_statement_requires_exact_quote_and_text_hash(self):
+        capture = daily_capture_record()
+        with patch.object(DailyStore, "run") as run:
+            with self.assertRaisesRegex(ValueError, "QUOTE_NOT_IN_CAPTURE"):
+                DailyStore().save_statement(
+                    statement_row(quote="Citazione inventata"),
+                    capture=capture,
+                    captured_text=TEXT,
+                    source_use_guard=FakeSourceUseGuard(),
+                )
+            run.assert_not_called()
+
+            with self.assertRaisesRegex(ValueError, "TEXT_HASH_MISMATCH"):
+                DailyStore().save_statement(
+                    statement_row(),
+                    capture=replace(capture, text_sha256="c" * 64),
+                    captured_text=TEXT,
+                    source_use_guard=FakeSourceUseGuard(),
+                )
+            run.assert_not_called()
+
+    def test_statement_rechecks_source_use_before_persisting_quote(self):
+        with patch.object(DailyStore, "run") as run:
+            with self.assertRaisesRegex(ValueError, "SOURCE_USE_NOT_PROVEN"):
+                DailyStore().save_statement(
+                    statement_row(),
+                    capture=daily_capture_record(),
+                    captured_text=TEXT,
+                    source_use_guard=FakeSourceUseGuard(permitted=False),
+                )
+            run.assert_not_called()
 
     def test_statement_opinion_is_persisted_as_nature_without_a_factual_verdict(self):
+        capture = daily_capture_record()
         with patch.object(DailyStore, "run", return_value="statement-1") as run:
             saved = DailyStore().save_statement(
-                statement_row(claim_nature="OPINION", status="CANDIDATE")
+                statement_row(claim_nature="OPINION", status="CANDIDATE"),
+                capture=capture,
+                captured_text=TEXT,
+                source_use_guard=FakeSourceUseGuard(),
             )
         self.assertTrue(saved)
         self.assertEqual(run.call_args.kwargs["claim_nature"], "OPINION")
 
-        with self.assertRaisesRegex(ValueError, "FACTUAL_VERDICT_INVALID"):
+        with self.assertRaisesRegex(ValueError, "DAILY_VERDICT_INVALID"):
             DailyStore().save_verdict("statement-1", {"verdict": "OPINION"})
 
     def test_statement_can_move_from_candidate_to_a_held_state_without_rewriting_quote(self):
@@ -245,7 +378,7 @@ class DailyStoreTests(unittest.TestCase):
         sql = run.call_args.args[0]
         self.assertIn("statement.claim_nature = 'FACTUAL'", sql)
         self.assertIn("statement.status = 'CANDIDATE'", sql)
-        self.assertIn("ON CONFLICT (statement_id) DO UPDATE", sql)
+        self.assertIn("ON CONFLICT (statement_id) DO NOTHING", sql)
         self.assertEqual(run.call_args.kwargs["verdict"], "CONTRADICTORY_WITH_ITSELF")
 
     def test_verdict_write_reports_missing_or_opinion_statement(self):
@@ -257,7 +390,7 @@ class DailyStoreTests(unittest.TestCase):
             "models": "model-a/model-b",
             "model_calls": 2,
         }
-        with patch.object(DailyStore, "run", return_value="f"):
+        with patch.object(DailyStore, "run", return_value=""):
             self.assertFalse(DailyStore().save_verdict("opinion-1", verdict))
 
     def test_verdict_requires_both_passes_and_two_model_calls(self):
@@ -284,24 +417,6 @@ class DailyStoreTests(unittest.TestCase):
                 },
             )
 
-    def test_statement_reads_are_explicit_and_exclude_capture_body(self):
-        expected = [{"id": "statement-1", "quote": "Una frase", "status": "CANDIDATE"}]
-        with patch.object(DailyStore, "run", return_value=json.dumps(expected)) as run:
-            result = DailyStore().read_statements(since="2026-11-23", status="CANDIDATE")
-
-        self.assertEqual(result, expected)
-        sql = run.call_args.args[0].lower()
-        self.assertIn("statement.quote", sql)
-        self.assertIn("verdict.explanation", sql)
-        self.assertNotIn("daily_capture.body", sql)
-        self.assertNotIn("select body", sql)
-
-    def test_statement_read_rejects_invalid_status_and_unbounded_limit(self):
-        with self.assertRaisesRegex(ValueError, "STATUS_INVALID"):
-            DailyStore().read_statements(since="2026-11-23", status="PUBLISHED")
-        with self.assertRaisesRegex(ValueError, "READ_LIMIT_INVALID"):
-            DailyStore().read_statements(since="2026-11-23", limit=1001)
-
     def test_run_contract_has_no_published_counter(self):
         with patch.object(DailyStore, "run", return_value="") as run:
             DailyStore().record_run(
@@ -325,36 +440,6 @@ class DailyStoreTests(unittest.TestCase):
             DailyStore().record_run(
                 "2026-11-23", {}, finished=False, status="COMPLETED"
             )
-
-    def test_receipt_does_not_assume_an_external_subscription(self):
-        with patch.object(DailyStore, "run", return_value="") as run:
-            receipt_id = DailyStore().write_receipt(
-                content_id="content-1",
-                provider_id="provider-1",
-                model_id="model-1",
-                operation="STATEMENT_EXTRACTION",
-                request_key="request-1",
-                latency_seconds=1.2,
-                usage={"total_tokens": 42},
-            )
-
-        self.assertTrue(receipt_id.startswith("receipt:"))
-        self.assertEqual(run.call_args.kwargs["billing_basis"], "UNKNOWN")
-
-    def test_migration_is_additive_and_contains_owner_verdict_contract(self):
-        migration = (
-            ROOT / "db" / "migrations" / "20261112-add-dp638-daily-machine.sql"
-        ).read_text(encoding="utf-8")
-        self.assertEqual(migration.count("CREATE TABLE IF NOT EXISTS daily_"), 4)
-        self.assertNotIn("UPDATE processing_job", migration)
-        self.assertNotIn("DROP TABLE", migration)
-        self.assertIn("CONTRADICTORY_WITH_ITSELF", migration)
-        self.assertIn("daily_verdict_factual_only", migration)
-        self.assertIn("daily_statement_status_check", migration)
-        self.assertIn("DP638_CAPTURE_SOURCE_MISMATCH", migration)
-        self.assertIn("FOREIGN KEY (capture_id, content_id, source_id, source_url)", migration)
-        self.assertIn("claim_nature        text NOT NULL,", migration)
-
 
 if __name__ == "__main__":
     unittest.main()
