@@ -32,6 +32,11 @@ EPISODE = "Ignazio Benito La Russa a Pulp Podcast. | Pulp Podcast #68"
 GUID = "992be98a-cb99-11f1-90b0-533d180ba42d"
 
 
+def canary_clock():
+    """Freeze fixture-backed canary tests inside the approved rights window."""
+    return datetime(2026, 10, 23, 12, tzinfo=timezone.utc)
+
+
 def atom(*entries, channel=FEED_FORM, entry_channel=CANONICAL):
     rows = "".join(
         f"<entry><id>yt:video:{video}</id><yt:videoId>{video}</yt:videoId>"
@@ -188,7 +193,7 @@ class CanaryTests(unittest.TestCase):
     def test_real_episode_resolves_with_hashes_and_no_side_effects(self):
         receipt = resolve_episode(
             registry=registry(), podcast_source_id="podcast-pulp-podcast",
-            rights=rights(), guid=GUID, fetcher=fetcher(),
+            rights=rights(), guid=GUID, fetcher=fetcher(), clock=canary_clock,
         )
         self.assertEqual(receipt["decision"], "RESOLVED")
         self.assertEqual(receipt["youtube"]["video_id"], VIDEO)
@@ -213,7 +218,7 @@ class CanaryTests(unittest.TestCase):
                 with self.assertRaises(CanaryRefused):
                     resolve_episode(
                         registry=registry(), podcast_source_id="podcast-pulp-podcast",
-                        rights=decision, guid=GUID, fetcher=fetcher(),
+                        rights=decision, guid=GUID, fetcher=fetcher(), clock=canary_clock,
                     )
 
     def test_unapproved_association_or_redirect_never_reaches_a_locator(self):
@@ -223,7 +228,7 @@ class CanaryTests(unittest.TestCase):
                 with self.assertRaises(CanaryRefused):
                     resolve_episode(
                         registry=mutated, podcast_source_id="podcast-pulp-podcast",
-                        rights=rights(), guid=GUID, fetcher=fetcher(),
+                        rights=rights(), guid=GUID, fetcher=fetcher(), clock=canary_clock,
                     )
         redirecting = lambda url, allow_redirects=True: fetched(  # noqa: E731
             atom((VIDEO, EPISODE)), url + "&redirected=1",
@@ -231,32 +236,35 @@ class CanaryTests(unittest.TestCase):
         with self.assertRaisesRegex(CanaryRefused, "CANARY_REDIRECT_UNAUTHORIZED"):
             resolve_episode(
                 registry=registry(), podcast_source_id="podcast-pulp-podcast",
-                rights=rights(), guid=GUID, fetcher=redirecting,
+                rights=rights(), guid=GUID, fetcher=redirecting, clock=canary_clock,
             )
 
     def test_ambiguous_or_unmarked_episodes_are_refused(self):
         twice = fetcher(rss_xml=rss((EPISODE, GUID), (EPISODE, "other-guid")))
         with self.assertRaisesRegex(CanaryRefused, "CANARY_EPISODE_AMBIGUOUS"):
             resolve_episode(registry=registry(), podcast_source_id="podcast-pulp-podcast",
-                            rights=rights(), title=EPISODE, fetcher=twice)
+                            rights=rights(), title=EPISODE, fetcher=twice,
+                            clock=canary_clock)
         unmarked = fetcher(rss_xml=rss(("Pulp Special senza numero", GUID)))
         with self.assertRaisesRegex(CanaryRefused, "CANARY_EPISODE_MARKER_MISSING"):
             resolve_episode(registry=registry(), podcast_source_id="podcast-pulp-podcast",
                             rights=rights(), title="Pulp Special senza numero",
-                            fetcher=unmarked)
+                            fetcher=unmarked, clock=canary_clock)
         with self.assertRaisesRegex(CanaryRefused, "CANARY_EPISODE_SELECTOR_MISSING"):
             resolve_episode(registry=registry(), podcast_source_id="podcast-pulp-podcast",
-                            rights=rights(), fetcher=fetcher())
+                            rights=rights(), fetcher=fetcher(), clock=canary_clock)
 
     def test_a_clip_for_the_same_episode_never_becomes_the_locator(self):
         clips = fetcher(atom_xml=atom(("1X2gHHC_7gw", "La Russa Core.")))
         with self.assertRaisesRegex(CanaryRefused, "CANARY_YOUTUBE_COPY_UNPROVEN"):
             resolve_episode(registry=registry(), podcast_source_id="podcast-pulp-podcast",
-                            rights=rights(), guid=GUID, fetcher=clips)
+                            rights=rights(), guid=GUID, fetcher=clips,
+                            clock=canary_clock)
         ambiguous = fetcher(atom_xml=atom((VIDEO, EPISODE), ("Alt00000068", EPISODE)))
         with self.assertRaisesRegex(CanaryRefused, "YOUTUBE_ASSOCIATED_EPISODE_AMBIGUOUS"):
             resolve_episode(registry=registry(), podcast_source_id="podcast-pulp-podcast",
-                            rights=rights(), guid=GUID, fetcher=ambiguous)
+                            rights=rights(), guid=GUID, fetcher=ambiguous,
+                            clock=canary_clock)
 
 
 if __name__ == "__main__":
