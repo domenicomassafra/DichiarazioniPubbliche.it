@@ -83,6 +83,54 @@ sources
 The authoritative Git checkout is developed on Mac. Long-running backend runtime proof is
 performed on the MiniPC. See [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
+## Lotti di dichiarazioni e raccolta giornaliera
+
+Le schede Chat On Steroids assegnano una persona per volta. La prima
+raccolta copre 100 persone, dalle figure storiche a politici,
+amministratori e giornalisti contemporanei. Punta a circa dieci
+dichiarazioni per persona, da occasioni e periodi diversi.
+
+Salva un array JSON UTF-8, di norma un file per persona. Ogni riga ha
+cinque campi obbligatori.
+
+| Campo | Contenuto |
+| --- | --- |
+| `persona` | Nome pubblico del parlante. |
+| `data` | Data in cui sono state pronunciate o scritte le parole, in formato `AAAA-MM-GG`. |
+| `testo` | Estratto letterale continuo. |
+| `fonte_url` | Link HTTPS al documento, alla registrazione o al punto esatto. |
+| `contesto` | Occasione e riferimento alla pagina, al passaggio o al timestamp. |
+
+`diritti_url` può indicare i termini applicabili alla fonte. Scrivi i file
+in una cartella privata. Rinomina ogni file da temporaneo a `.json` solo
+quando è completo. Controlla la cartella con il comando seguente.
+
+```bash
+PYTHONPATH=poc python3 -m dichiarazioni_pubbliche.statement_batch /percorso/lotti-in-arrivo
+```
+
+Il comando conta le dichiarazioni distinte per persona, data, testo e
+fonte. In caso di errore indica file, riga e campo ed esce con errore
+dopo aver controllato gli altri file. Il riepilogo non contiene testo,
+persone o URL delle dichiarazioni.
+
+Sul MiniPC il timer utente `dichiarazioni-pubbliche-source-poll-daily.timer`
+usa il registro fonti esistente dalle 08:00, ora italiana. Il servizio
+controlla anche i lotti in
+`${XDG_STATE_HOME:-$HOME/.local/state}/dichiarazioni-pubbliche/statement-inbox`,
+che systemd crea con accesso privato. Usa SSH per trasferire i file con
+permessi `0600`. Il timer recupera le corse saltate e comunica
+l'esito a Healthchecks. La raccolta pianificata ha budget pari a zero.
+
+Una riga ben formata resta in attesa. Per pubblicarla, il percorso
+esistente richiede la corrispondenza delle parole con la fonte, la prova
+di chi ha parlato e quando, i diritti per quella citazione e la revisione
+editoriale autenticata. Per un giudizio fattuale serve un'evidenza
+indipendente dalla dichiarazione. La citazione da sola dimostra soltanto
+che la persona ha pronunciato o scritto quelle parole dopo la verifica
+di attribuzione. Le autorizzazioni per pubblicazione, correzione e ritiro
+passano dal [contratto di pubblicazione](config/autopublish.v1.json).
+
 ## Project status
 
 The repository contains production-shaped backend/runtime code, a live MiniPC runtime,

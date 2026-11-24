@@ -26,7 +26,9 @@ class ReceiptIntegrityCases:
         schema = (root / "db/schema.v1.sql").read_text()
         migration = (root / "db/migrations/20260925-add-source-poll-run-receipts.sql").read_text()
         self.assertIn("--full-source", service)
-        self.assertIn("OnCalendar=daily", timer)
+        self.assertIn("OnCalendar=*-*-* 08:00:00 Europe/Rome", timer)
+        self.assertIn("OnFailure=hc-fail@%N.service", service)
+        self.assertIn("OnSuccess=hc-ok@%N.service", service)
         for sql in (schema, migration):
             self.assertIn("CREATE TABLE IF NOT EXISTS source_poll_run", sql)
             self.assertIn("CREATE TABLE IF NOT EXISTS source_poll_run_source", sql)

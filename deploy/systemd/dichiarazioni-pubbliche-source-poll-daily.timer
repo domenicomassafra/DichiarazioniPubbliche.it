@@ -2,7 +2,7 @@
 Description=Dichiarazioni Pubbliche daily full-source registry poll
 
 [Timer]
-OnCalendar=daily
+OnCalendar=*-*-* 08:00:00 Europe/Rome
 Persistent=true
 RandomizedDelaySec=30m
 Unit=dichiarazioni-pubbliche-source-poll-daily.service
