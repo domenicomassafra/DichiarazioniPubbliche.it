@@ -358,7 +358,7 @@ class ReplyGovernanceStore(PsqlRuntime):
         }
         integrity = _digest(material)
         event_id = f"reply-retention-event:{integrity}"
-        raw = self.run(
+        self.run(
             """
             WITH inserted AS (
               INSERT INTO private_reply_retention_event (

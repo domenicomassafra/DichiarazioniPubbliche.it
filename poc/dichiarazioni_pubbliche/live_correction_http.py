@@ -13,14 +13,13 @@ import json
 import re
 import threading
 import time
-from http import HTTPStatus
 from urllib.parse import unquote, urlsplit
 
 from .challenge_persistence import ChallengeHoldDisposition
 from .challenge_hold_inventory import challenged_findings
 from .policy.challenge_workflow import ChallengeKind, ChallengeRole, ChallengeState
 from .public_account import SESSION_COOKIE
-from .public_api import PublicApiError, PublicApiRequestHandler, load_index
+from .public_api import PublicApiRequestHandler, load_index
 from .statement_correction_intake import StatementCorrectionIntake
 
 MAX_CORRECTION_BYTES = 8192
